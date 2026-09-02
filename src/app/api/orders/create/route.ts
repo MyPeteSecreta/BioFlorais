@@ -59,7 +59,7 @@ type RequestBody = {
 
   /*
    * O navegador informa somente a oferta escolhida.
-   * PreÃƒÂ§o e percentual nunca vÃƒÂªm do cliente.
+   * Preço e percentual nunca vêm do cliente.
    */
   offers?: SelectedOfferInput[];
 
@@ -266,7 +266,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Dados do cliente nÃƒÂ£o informados.",
+            "Dados do cliente não informados.",
         },
         { status: 400 }
       );
@@ -310,7 +310,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um e-mail vÃƒÂ¡lido.",
+            "Informe um e-mail válido.",
         },
         { status: 400 }
       );
@@ -323,7 +323,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um CPF vÃƒÂ¡lido.",
+            "Informe um CPF válido.",
         },
         { status: 400 }
       );
@@ -336,7 +336,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um CNPJ vÃƒÂ¡lido.",
+            "Informe um CNPJ válido.",
         },
         { status: 400 }
       );
@@ -346,7 +346,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "EndereÃƒÂ§o nÃƒÂ£o informado.",
+            "Endereço não informado.",
         },
         { status: 400 }
       );
@@ -382,7 +382,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Preencha corretamente o endereÃƒÂ§o de entrega.",
+            "Preencha corretamente o endereço de entrega.",
         },
         { status: 400 }
       );
@@ -395,7 +395,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "O pedido nÃƒÂ£o possui produtos.",
+            "O pedido não possui produtos.",
         },
         { status: 400 }
       );
@@ -427,7 +427,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "HÃƒÂ¡ produtos invÃƒÂ¡lidos no pedido.",
+            "Há produtos inválidos no pedido.",
         },
         { status: 400 }
       );
@@ -461,7 +461,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Um ou mais produtos nÃƒÂ£o foram encontrados.",
+            "Um ou mais produtos não foram encontrados.",
         },
         { status: 400 }
       );
@@ -490,7 +490,7 @@ export async function POST(
             !product.active
           ) {
             throw new Error(
-              `Produto indisponÃƒÂ­vel: ${item.productSlug}`
+              `Produto indisponível: ${item.productSlug}`
             );
           }
 
@@ -506,11 +506,11 @@ export async function POST(
      * ======================================================
      * ORDEM COMERCIAL BIO
      *
-     * 1. preÃƒÂ§os-base Neon
+     * 1. preços-base Neon
      * 2. ofertas/combos
-     * 3. promoÃƒÂ§ÃƒÂµes
+     * 3. promoções
      * 4. cupom
-     * 5. crÃƒÂ©dito UGC
+     * 5. crédito UGC
      * 6. frete
      * 7. pagamento
      * ======================================================
@@ -545,7 +545,7 @@ export async function POST(
       );
 
     /*
-     * SUBTOTAL Ãƒâ€° SEMPRE BRUTO.
+     * SUBTOTAL É SEMPRE BRUTO.
      */
     const subtotalCents =
       offerResult
@@ -991,7 +991,7 @@ const commercialAdjustmentsJson =
 
     if (!customerId) {
       throw new Error(
-        "Cliente nÃƒÂ£o pÃƒÂ´de ser criado."
+        "Cliente não pôde ser criado."
       );
     }
 
@@ -1024,7 +1024,7 @@ const commercialAdjustmentsJson =
 
     if (!shippingAddressId) {
       throw new Error(
-        "EndereÃƒÂ§o nÃƒÂ£o pÃƒÂ´de ser criado."
+        "Endereço não pôde ser criado."
       );
     }
 
@@ -1097,7 +1097,7 @@ const commercialAdjustmentsJson =
 
     if (!order) {
       throw new Error(
-        "Pedido nÃƒÂ£o pÃƒÂ´de ser criado."
+        "Pedido não pôde ser criado."
       );
     }
 
@@ -1248,7 +1248,7 @@ const commercialAdjustmentsJson =
         error:
           error instanceof Error
             ? error.message
-            : "NÃƒÂ£o foi possÃƒÂ­vel criar o pedido.",
+            : "Não foi possível criar o pedido.",
       },
       { status: 500 }
     );
