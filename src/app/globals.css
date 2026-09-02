@@ -24,3 +24,104 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+::selection {
+  background: #e9d6eb;
+  color: #412047;
+}
+
+/* =========================================================
+   BIO FLORAIS — CARDS TORTOS INTERATIVOS
+   ========================================================= */
+
+.trio-card {
+  cursor: pointer;
+  box-shadow: 0 20px 45px rgba(48, 30, 50, 0.14);
+  transition:
+    transform 380ms cubic-bezier(.2,.8,.2,1),
+    box-shadow 380ms ease,
+    filter 380ms ease;
+  will-change: transform;
+}
+
+.trio-card-a {
+  z-index: 10;
+  transform: rotate(-5deg);
+}
+
+.trio-card-b {
+  z-index: 20;
+  transform: rotate(5deg);
+}
+
+.trio-card-c {
+  z-index: 30;
+  transform: rotate(-2deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+  .trio-card-a:hover {
+    z-index: 60;
+    transform:
+      translateY(-12px)
+      scale(1.05)
+      rotate(-1.5deg);
+    box-shadow: 0 32px 70px rgba(48, 30, 50, 0.24);
+  }
+
+  .trio-card-b:hover {
+    z-index: 60;
+    transform:
+      translateY(-12px)
+      scale(1.05)
+      rotate(1.5deg);
+    box-shadow: 0 32px 70px rgba(48, 30, 50, 0.24);
+  }
+
+  .trio-card-c:hover {
+    z-index: 60;
+    transform:
+      translateY(-12px)
+      scale(1.05)
+      rotate(1deg);
+    box-shadow: 0 32px 70px rgba(48, 30, 50, 0.24);
+  }
+}
+
+@media (max-width: 640px) {
+
+  .ugc-float {
+    right: 12px;
+    bottom: 12px;
+    padding: 9px 13px;
+  }
+
+  .trio-card {
+    box-shadow: 0 14px 32px rgba(48, 30, 50, 0.13);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .trio-card {
+    transition: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
