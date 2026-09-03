@@ -127,10 +127,40 @@ export default function Home() {
         </div>
       </header>
 
+      {/* HERO MOBILE */}
+      <section className="bg-[#fffdf9] lg:hidden">
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#fffaf6]">
+          <Image
+            src="/assets/home/hero/Hero.png"
+            alt="Bio Florais"
+            fill
+            priority
+            sizes="100vw"
+            className="object-contain"
+          />
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#fffdf9]/80 via-transparent to-[#fffdf9]/20" />
+
+          <p className="absolute left-4 top-4 text-[9px] font-extrabold uppercase tracking-[0.24em] text-[#9b6c24]">
+            Bio Florais · Desde 1997
+          </p>
+
+          <h1 className="absolute bottom-4 left-4 max-w-[245px] font-serif text-[27px] font-semibold leading-[0.95] tracking-[-0.04em] text-[#422347]">
+            Equilíbrio para viver melhor cada dia.
+          </h1>
+        </div>
+
+        <div className="px-5 py-3">
+          <p className="text-[12px] leading-5 text-[#594b58]">
+            Flores frescas brasileiras e fórmulas sem álcool para diferentes momentos da vida.
+          </p>
+        </div>
+      </section>
+
       {/* HERO */}
       <section
         id="topo"
-        className="relative min-h-[610px] overflow-hidden lg:min-h-[650px]"
+        className="relative hidden min-h-[610px] overflow-hidden lg:block lg:min-h-[650px]"
       >
         <Image
           src="/assets/home/hero/Hero.png"
@@ -189,7 +219,7 @@ export default function Home() {
       {/* TRIO */}
       <section
         id="destaques"
-        className="relative bg-white px-5 py-14 lg:px-10 lg:py-16"
+        className="relative hidden bg-white px-5 py-14 lg:block lg:px-10 lg:py-16"
       >
         <div className="mx-auto grid max-w-[1440px] gap-7 lg:grid-cols-[0.8fr_1.35fr] lg:items-center">
 
@@ -244,7 +274,7 @@ export default function Home() {
       </section>
 
       {/* INSTITUCIONAL COMPACTO */}
-      <section className="bg-[#4c2854] px-6 py-16 text-white lg:px-10 lg:py-20">
+      <section className="hidden bg-[#4c2854] px-6 py-16 text-white lg:block lg:px-10 lg:py-20">
         <div className="mx-auto max-w-[1120px] text-center">
 
           <p className="text-xs font-extrabold uppercase tracking-[0.28em] text-[#e2be72]">
@@ -276,7 +306,7 @@ export default function Home() {
       {/* QUIZ */}
       <section
         id="quiz"
-        className="bg-white px-5 py-16 lg:px-10 lg:py-20"
+        className="hidden bg-white px-5 py-16 lg:block lg:px-10 lg:py-20"
       >
         <div className="mx-auto grid max-w-[1440px] gap-9 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
 
@@ -286,7 +316,7 @@ export default function Home() {
             </p>
 
             <h2 className="mt-4 max-w-[530px] font-serif text-5xl font-semibold leading-[1.03] tracking-[-0.04em] text-[#422347] lg:text-6xl">
-              Qual Bio Floral combina com o seu momento?
+              Qual Bio Florais combina com o seu momento?
             </h2>
 
             <p className="mt-5 max-w-[500px] text-lg leading-8 text-[#6c5b69]">
@@ -326,7 +356,21 @@ export default function Home() {
       >
         <div className="mx-auto max-w-[1440px]">
 
-          <div className="mx-auto mb-10 max-w-[760px] text-center">
+          <div className="mb-7 text-left md:hidden">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[#a0742b]">
+              Para diferentes momentos
+            </p>
+
+            <h2 className="mt-2 font-serif text-[34px] font-semibold leading-[0.98] tracking-[-0.04em] text-[#422347]">
+              Tem um Bio Florais para o seu momento.
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-[#6c5b69]">
+              Para você, para quem você ama e para quem também faz parte da família.
+            </p>
+          </div>
+
+          <div className="mx-auto mb-10 hidden max-w-[760px] text-center md:block">
             <p className="text-xs font-extrabold uppercase tracking-[0.25em] text-[#a0742b]">
               Universo Bio Florais
             </p>
@@ -356,7 +400,52 @@ export default function Home() {
           </div>
 
           {/* 2ª LINHA */}
-          <div className="mt-6 grid gap-6 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:hidden">
+            <VisualLineCard
+              name="Infantil"
+              image="/assets/home/linhas/Infantil.png"
+            />
+
+            <VisualLineCard
+              name="Baby"
+              image="/assets/home/linhas/Baby.png"
+            />
+
+            <div className="rounded-[22px] bg-white px-4 py-5">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.23em] text-[#a0742b]">
+                Descubra seu Bio Floral
+              </p>
+
+              <h2 className="mt-2 font-serif text-[30px] font-semibold leading-[0.98] tracking-[-0.04em] text-[#422347]">
+                Qual Bio Florais combina com o seu momento?
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-[#6c5b69]">
+                Responda algumas perguntas e descubra por onde começar.
+              </p>
+
+              <Link
+                href="/quiz"
+                aria-label="Abrir Quiz Bio Florais"
+                className="mt-4 block overflow-hidden rounded-[20px] shadow-lg shadow-black/10"
+              >
+                <Image
+                  src="/assets/home/quiz/Quiz.png"
+                  alt="Descubra seu Bio Floral"
+                  width={1600}
+                  height={900}
+                  className="h-auto w-full"
+                />
+              </Link>
+            </div>
+
+            <VisualLineCard
+              name="Kids"
+              image="/assets/home/linhas/Kids.png"
+            />
+          </div>
+
+          <div className="mt-6 hidden gap-6 md:grid md:grid-cols-3">
             {rowTwo.map((line) => (
               <VisualLineCard
                 key={line.name}
@@ -399,25 +488,25 @@ export default function Home() {
       </section>
 
       {/* CTA FINAL */}
-      <section className="bg-[#352238] px-6 py-16 text-center text-white lg:px-10 lg:py-20">
+      <section className="bg-[#352238] px-5 py-8 text-center text-white lg:px-10 lg:py-20">
         <div className="mx-auto max-w-[900px]">
 
           <p className="text-xs font-extrabold uppercase tracking-[0.26em] text-[#e0bd76]">
             Bio Florais
           </p>
 
-          <h2 className="mt-4 font-serif text-5xl font-semibold leading-[1.05] tracking-[-0.04em] sm:text-6xl">
+          <h2 className="mt-2 font-serif text-3xl font-semibold leading-[1.02] tracking-[-0.04em] sm:mt-4 sm:text-6xl">
             Equilíbrio para viver melhor.
           </h2>
 
-          <p className="mx-auto mt-5 max-w-[620px] text-lg leading-8 text-[#e4d7e5]">
+          <p className="mx-auto mt-3 max-w-[620px] text-sm leading-6 text-[#e4d7e5] sm:mt-5 sm:text-lg sm:leading-8">
             Descubra o universo Bio Florais e encontre o cuidado que combina
             com o seu momento.
           </p>
 
           <Link
             href="#linhas"
-            className="mt-7 inline-flex rounded-full bg-[#f4dfc5] px-8 py-4 text-sm font-extrabold text-[#3d2840] transition hover:-translate-y-0.5"
+            className="mt-4 inline-flex rounded-full bg-[#f4dfc5] px-5 py-2.5 text-xs font-extrabold text-[#3d2840] transition hover:-translate-y-0.5 sm:mt-7 sm:px-8 sm:py-4 sm:text-sm"
           >
             Explorar Bio Florais
           </Link>
