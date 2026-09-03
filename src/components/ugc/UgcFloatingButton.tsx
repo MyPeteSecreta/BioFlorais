@@ -50,9 +50,10 @@ export default function UgcFloatingButton() {
         aria-label="Conheça o programa de criadoras Bio Florais"
         className="
           fixed
-          bottom-5
+          bottom-14
           right-5
           z-50
+          md:bottom-5
           flex
           items-center
           gap-3
@@ -305,15 +306,19 @@ export default function UgcFloatingButton() {
 
                 <div className="h-5 shrink-0" />
 
-                <button
-                  type="button"
+                <a
+                  href="https://academia.angelblanc.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="
                     mt-auto
+                    block
                     w-full
                     rounded-full
                     bg-[#32183a]
                     px-6
                     py-4
+                    text-center
                     text-sm
                     font-extrabold
                     text-white
@@ -323,7 +328,7 @@ export default function UgcFloatingButton() {
                   "
                 >
                   Quero ser Criadora
-                </button>
+                </a>
               </section>
 
 
@@ -436,15 +441,19 @@ export default function UgcFloatingButton() {
 
                 <div className="h-5 shrink-0" />
 
-                <button
-                  type="button"
+                <a
+                  href="https://academia.angelblanc.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="
                     mt-auto
+                    block
                     w-full
                     rounded-full
                     bg-[#b52867]
                     px-6
                     py-4
+                    text-center
                     text-sm
                     font-extrabold
                     text-white
@@ -454,7 +463,7 @@ export default function UgcFloatingButton() {
                   "
                 >
                   Quero criar meu cupom
-                </button>
+                </a>
               </section>
 
             </div>

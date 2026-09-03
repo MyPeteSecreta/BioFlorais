@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/cart/CartProvider";
 import GlobalCartButton from "@/components/cart/GlobalCartButton";
 import SiteFooter from "@/components/layout/SiteFooter";
+import MobileLineBar from "@/components/layout/MobileLineBar";
 import UgcFloatingButton from "@/components/ugc/UgcFloatingButton";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
           <GlobalCartButton />
           <SiteFooter />
           <UgcFloatingButton />
+          <MobileLineBar />
         </CartProvider>
       </body>
     </html>
