@@ -109,7 +109,7 @@ export default function Home() {
               Infantil
             </Link>
 
-            <Link href="#quiz" className="transition hover:text-[#7f4189]">
+            <Link href="/quiz" className="transition hover:text-[#7f4189]">
               Descubra seu Bio
             </Link>
 
@@ -161,7 +161,7 @@ export default function Home() {
 
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="#quiz"
+                href="/quiz"
                 className="rounded-full bg-[#63326d] px-7 py-4 text-sm font-extrabold text-white shadow-lg shadow-[#63326d]/10 transition hover:-translate-y-0.5"
               >
                 Encontrar meu floral
@@ -293,19 +293,21 @@ export default function Home() {
               Responda algumas perguntas e descubra por onde começar.
             </p>
 
-            <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#9a7d9d]">
-              Quiz Bio Florais · em breve
-            </p>
+            
 
-            <button
-              type="button"
-              className="mt-7 rounded-full bg-[#63326d] px-7 py-4 text-sm font-extrabold text-white opacity-80"
+            <Link
+              href="/quiz"
+              className="mt-7 inline-block rounded-full bg-[#63326d] px-7 py-4 text-sm font-extrabold text-white transition hover:-translate-y-0.5"
             >
               Descobrir meu Bio Floral
-            </button>
+            </Link>
           </div>
 
-          <div className="overflow-hidden rounded-[30px] shadow-xl shadow-black/10">
+          <Link
+            href="/quiz"
+            aria-label="Abrir Quiz Bio Florais"
+            className="block overflow-hidden rounded-[30px] shadow-xl shadow-black/10 transition hover:-translate-y-0.5"
+          >
             <Image
               src="/assets/home/quiz/Quiz.png"
               alt="Descubra seu Bio Floral"
@@ -313,7 +315,7 @@ export default function Home() {
               height={900}
               className="h-auto w-full"
             />
-          </div>
+          </Link>
         </div>
       </section>
 

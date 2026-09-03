@@ -1768,7 +1768,8 @@ export default function CheckoutPage() {
 
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("card")}
+                  disabled
+                  aria-disabled="true"
                   aria-pressed={paymentMethod === "card"}
                   className={`relative min-h-36 rounded-2xl border p-5 text-left transition ${
                     paymentMethod === "card"
