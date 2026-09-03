@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { getProduct, formatBRL } from "@/lib/catalog/bio-products";
@@ -40,6 +40,51 @@ function ProductCard({
 }) {
   const product = getProduct(slug);
 
+  const [resolvedImage, setResolvedImage] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadImage() {
+      try {
+        const response = await fetch(
+          `/api/quiz/product-image?slug=${encodeURIComponent(slug)}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setResolvedImage(product?.image ?? null);
+          }
+          return;
+        }
+
+        const data = (await response.json()) as {
+          image?: string | null;
+        };
+
+        if (!cancelled) {
+          setResolvedImage(
+            data.image ?? product?.image ?? null
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setResolvedImage(product?.image ?? null);
+        }
+      }
+    }
+
+    loadImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, product?.image]);
+
   if (!product) return null;
 
   return (
@@ -50,9 +95,9 @@ function ProductCard({
 
       <div className="grid gap-5 sm:grid-cols-[140px_1fr] sm:items-center">
         <div className="flex min-h-[150px] items-center justify-center rounded-[22px] bg-[#fffaf4] p-3">
-          {product.image ? (
+          {resolvedImage ? (
             <img
-              src={product.image}
+              src={resolvedImage}
               alt={product.name}
               className="max-h-[150px] w-auto object-contain"
             />
