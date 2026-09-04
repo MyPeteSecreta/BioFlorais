@@ -62,7 +62,7 @@ function VisualLineCard({
         large ? "min-h-0" : ""
       }`}
     >
-      <div className="relative aspect-[3/2] w-full overflow-hidden bg-[#fffaf6]">
+      <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#fffaf6]">
         <Image
           src={image}
           alt={`Bio Florais ${name}`}
