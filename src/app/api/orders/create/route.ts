@@ -12,6 +12,8 @@ import {
 
 import { db } from "@/lib/db/client";
 
+import { validatePartnerCoupon } from "@/lib/partners/academia";
+
 import {
   melhorEnvioProvider,
 } from "@/lib/shipping/melhorenvio";
@@ -89,7 +91,6 @@ function onlyDigits(
 async function resolveCoupon(
   codeInput: string | null | undefined,
   subtotalCents: number,
-  expectedType: "normal" | "partner",
   customerEmail: string
 ) {
   const code =
@@ -121,11 +122,9 @@ async function resolveCoupon(
       ? "partner"
       : "normal";
 
-  if (couponType !== expectedType) {
+  if (couponType !== "normal") {
     throw new Error(
-      expectedType === "partner"
-        ? "O cupom informado nao e um cupom UGC/parceira."
-        : "O cupom informado nao e um cupom comercial."
+      "O cupom informado nao e um cupom comercial."
     );
   }
 
@@ -173,9 +172,6 @@ async function resolveCoupon(
     );
   }
 
-  /*
-   * Cupom limitado a um uso por cliente.
-   */
   if (
     coupon.onePerCustomer &&
     customerEmail
@@ -235,17 +231,62 @@ async function resolveCoupon(
   return {
     id: coupon.id,
     code,
-    couponType,
-
-    partnerId:
-      coupon.partnerId ?? null,
-
-    commissionPercent:
-      coupon.commissionPercent ?? 0,
-
+    couponType: "normal" as const,
     discountCents,
   };
 }
+
+async function resolvePartnerCoupon(
+  codeInput: string | null | undefined,
+  subtotalCents: number
+) {
+  const code =
+    clean(codeInput).toUpperCase();
+
+  if (!code) {
+    return null;
+  }
+
+  const validated =
+    await validatePartnerCoupon(
+      code,
+      subtotalCents
+    );
+
+  if (!validated) {
+    throw new Error(
+      `Cupom UGC/parceira ${code} invalido ou indisponivel.`
+    );
+  }
+
+  const discountCents =
+    Math.max(
+      0,
+      Math.min(
+        subtotalCents,
+        Math.round(
+          subtotalCents *
+            (validated.discountPercent / 100)
+        )
+      )
+    );
+
+  return {
+    code: validated.code,
+    couponType: "partner" as const,
+    partnerId: validated.partnerId,
+    commissionPercent:
+      validated.commissionPercent,
+    campaign:
+      validated.campaign,
+    startsAt:
+      validated.startsAt,
+    expiresAt:
+      validated.expiresAt,
+    discountCents,
+  };
+}
+
 export async function POST(
   request: NextRequest
 ) {
@@ -855,7 +896,6 @@ export async function POST(
       await resolveCoupon(
         body.couponCode,
         couponBaseCents,
-        "normal",
         email
       );
 
@@ -873,11 +913,9 @@ export async function POST(
       );
 
     const partnerCoupon =
-      await resolveCoupon(
+      await resolvePartnerCoupon(
         body.partnerCouponCode,
-        partnerCouponBaseCents,
-        "partner",
-        email
+        partnerCouponBaseCents
       );
 
     const partnerCouponDiscountCents =
@@ -1158,37 +1196,6 @@ const commercialAdjustmentsJson =
         );
     }
 
-    if (partnerCoupon) {
-
-      await db
-        .insert(couponRedemptions)
-        .values({
-          couponId:
-            partnerCoupon.id,
-
-          customerEmail:
-            email,
-
-          orderId:
-            order.id,
-
-          discountCents:
-            partnerCouponDiscountCents,
-        });
-
-      await db
-        .update(coupons)
-        .set({
-          usedCount:
-            sql`${coupons.usedCount} + 1`,
-        })
-        .where(
-          eq(
-            coupons.id,
-            partnerCoupon.id
-          )
-        );
-    }
 
     return NextResponse.json({
       success: true,
