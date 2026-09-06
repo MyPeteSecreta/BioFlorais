@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import {
   orders,
+  partnerEventOutbox,
   payments,
 } from "@/lib/db/schema";
 
@@ -188,6 +189,107 @@ export async function GET(
                   )
                 );
 
+              /*
+               * Partner 3B:
+               * se este pedido possui atribuicao Partner,
+               * registra o fato paid de forma idempotente.
+               */
+              const partnerOrders =
+                await db
+                  .select({
+                    partnerCouponId:
+                      orders.partnerCouponId,
+
+                    totalCents:
+                      orders.totalCents,
+                  })
+                  .from(orders)
+                  .where(
+                    eq(
+                      orders.id,
+                      orderId
+                    )
+                  )
+                  .limit(1);
+
+              const partnerOrder =
+                partnerOrders[0];
+
+              if (
+                partnerOrder?.partnerCouponId
+              ) {
+                const paidEventId =
+                  `bio-florais:${orderId}:paid`;
+
+                const paidAt =
+                  new Date().toISOString();
+
+                const paidPayload = {
+                  schemaVersion: 1 as const,
+                  eventId:
+                    paidEventId,
+
+                  eventType:
+                    "paid" as const,
+
+                  brand:
+                    "bio-florais" as const,
+
+                  externalOrderId:
+                    orderId,
+
+                  occurredAt:
+                    paidAt,
+
+                  payment: {
+                    provider:
+                      "lunium",
+
+                    providerPaymentId:
+                      charge.cashin_id,
+
+                    paidAmountCents:
+                      partnerOrder.totalCents,
+
+                    currency:
+                      "BRL" as const,
+
+                    paidAt,
+                  },
+                };
+
+                await db
+                  .insert(
+                    partnerEventOutbox
+                  )
+                  .values({
+                    eventId:
+                      paidEventId,
+
+                    eventType:
+                      "paid",
+
+                    brand:
+                      "bio-florais",
+
+                    externalOrderId:
+                      orderId,
+
+                    partnerCouponId:
+                      partnerOrder.partnerCouponId,
+
+                    payload:
+                      paidPayload,
+
+                    status:
+                      "pending",
+                  })
+                  .onConflictDoNothing({
+                    target:
+                      partnerEventOutbox.eventId,
+                  });
+              }
+
               currentStatus =
                 "paid";
 
@@ -261,3 +363,4 @@ export async function GET(
     );
   }
 }
+

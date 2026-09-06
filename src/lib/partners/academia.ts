@@ -1,11 +1,17 @@
-﻿import { createPartnerProgramClient } from "@angelblancdigital/partners";
+﻿import {
+  createPartnerProgramClient,
+} from "@angelblancdigital/partners";
 
 export type ValidatedPartnerCoupon = {
+  partnerCouponId: string;
   code: string;
-  partnerId: string | null;
+  partnerId: string;
   discountPercent: number;
   commissionPercent: number | null;
-  campaign: string | null;
+  campaign: {
+    id: string;
+    name: string;
+  };
   startsAt: string | null;
   expiresAt: string | null;
 };
@@ -16,24 +22,34 @@ function getPartnerClient() {
   const baseUrl =
     process.env.ACADEMIA_PARTNER_API_URL?.trim();
 
-  const apiKey =
-    process.env.PARTNER_API_KEY?.trim();
+  const clientId =
+    process.env.ACADEMIA_PARTNER_CLIENT_ID?.trim();
+
+  const clientSecret =
+    process.env.ACADEMIA_PARTNER_CLIENT_SECRET?.trim();
 
   if (!baseUrl) {
     throw new Error(
-      "ACADEMIA_PARTNER_API_URL nao configurada."
+      "ACADEMIA_PARTNER_API_URL não configurada."
     );
   }
 
-  if (!apiKey) {
+  if (!clientId) {
     throw new Error(
-      "PARTNER_API_KEY nao configurada."
+      "ACADEMIA_PARTNER_CLIENT_ID não configurado."
+    );
+  }
+
+  if (!clientSecret) {
+    throw new Error(
+      "ACADEMIA_PARTNER_CLIENT_SECRET não configurado."
     );
   }
 
   return createPartnerProgramClient({
     baseUrl,
-    apiKey,
+    clientId,
+    clientSecret,
   });
 }
 
@@ -42,70 +58,67 @@ export async function validatePartnerCoupon(
   subtotalCents: number
 ): Promise<ValidatedPartnerCoupon | null> {
   const code =
-    couponCode.trim().toUpperCase();
+    couponCode
+      .trim()
+      .toUpperCase();
 
   if (!code) {
     return null;
   }
 
-  if (
-    !Number.isInteger(subtotalCents) ||
-    subtotalCents <= 0
-  ) {
-    throw new Error(
-      "Subtotal invalido para validar cupom de parceira."
-    );
-  }
+  const client =
+    getPartnerClient();
 
-  const client = getPartnerClient();
-
-  const data = await client.validateCoupon({
-    brand: BIO_PARTNER_BRAND,
-    couponCode: code,
-    subtotal: subtotalCents / 100,
-  });
+  const data =
+    await client.validateCoupon({
+      brand: BIO_PARTNER_BRAND,
+      couponCode: code,
+      subtotalCents,
+    });
 
   if (!data.valid) {
     return null;
   }
 
-  const discountPercent =
-    Number(data.discountPercent);
-
-  if (
-    !Number.isFinite(discountPercent) ||
-    discountPercent <= 0 ||
-    discountPercent > 100
-  ) {
-    throw new Error(
-      "Desconto invalido retornado pela Academia."
-    );
-  }
-
   return {
+    partnerCouponId:
+      data.partnerCouponId,
+
     code:
-      data.couponCode?.trim().toUpperCase() ||
-      code,
+      data.couponCode,
 
     partnerId:
-      data.partnerId ?? null,
+      data.partnerId,
 
-    discountPercent,
+    discountPercent:
+      data.discountPercent,
 
     commissionPercent:
-      typeof data.commissionPercent === "number"
-        ? data.commissionPercent
-        : null,
+      data.commissionPercent,
 
-    campaign:
-      data.campaign ?? null,
+    campaign: {
+      id:
+        data.campaign.id,
+
+      name:
+        data.campaign.name,
+    },
 
     startsAt:
-      data.startsAt ?? null,
+      data.startsAt,
 
     expiresAt:
-      data.expiresAt ?? null,
+      data.expiresAt,
   };
 }
 
+export async function sendPartnerEvent(
+  event: Parameters<
+    ReturnType<typeof createPartnerProgramClient>["sendEvent"]
+  >[0]
+) {
+  const client =
+    getPartnerClient();
 
+  return client.sendEvent(event);
+}

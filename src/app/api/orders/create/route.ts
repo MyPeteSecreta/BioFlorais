@@ -1,4 +1,4 @@
-import {
+﻿import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -30,6 +30,7 @@ import {
   customers,
   orderItems,
   orders,
+  partnerEventOutbox,
   products,
 } from "@/lib/db/schema";
 
@@ -61,7 +62,7 @@ type RequestBody = {
 
   /*
    * O navegador informa somente a oferta escolhida.
-   * Preço e percentual nunca vêm do cliente.
+   * PreÃ§o e percentual nunca vÃªm do cliente.
    */
   offers?: SelectedOfferInput[];
 
@@ -272,11 +273,19 @@ async function resolvePartnerCoupon(
     );
 
   return {
+    partnerCouponId:
+      validated.partnerCouponId,
+
     code: validated.code,
     couponType: "partner" as const,
     partnerId: validated.partnerId,
+
+    discountPercent:
+      validated.discountPercent,
+
     commissionPercent:
       validated.commissionPercent,
+
     campaign:
       validated.campaign,
     startsAt:
@@ -307,7 +316,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Dados do cliente não informados.",
+            "Dados do cliente nÃ£o informados.",
         },
         { status: 400 }
       );
@@ -351,7 +360,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um e-mail válido.",
+            "Informe um e-mail vÃ¡lido.",
         },
         { status: 400 }
       );
@@ -364,7 +373,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um CPF válido.",
+            "Informe um CPF vÃ¡lido.",
         },
         { status: 400 }
       );
@@ -377,7 +386,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Informe um CNPJ válido.",
+            "Informe um CNPJ vÃ¡lido.",
         },
         { status: 400 }
       );
@@ -387,7 +396,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Endereço não informado.",
+            "EndereÃ§o nÃ£o informado.",
         },
         { status: 400 }
       );
@@ -423,7 +432,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Preencha corretamente o endereço de entrega.",
+            "Preencha corretamente o endereÃ§o de entrega.",
         },
         { status: 400 }
       );
@@ -436,7 +445,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "O pedido não possui produtos.",
+            "O pedido nÃ£o possui produtos.",
         },
         { status: 400 }
       );
@@ -468,7 +477,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Há produtos inválidos no pedido.",
+            "HÃ¡ produtos invÃ¡lidos no pedido.",
         },
         { status: 400 }
       );
@@ -502,7 +511,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Um ou mais produtos não foram encontrados.",
+            "Um ou mais produtos nÃ£o foram encontrados.",
         },
         { status: 400 }
       );
@@ -531,7 +540,7 @@ export async function POST(
             !product.active
           ) {
             throw new Error(
-              `Produto indisponível: ${item.productSlug}`
+              `Produto indisponÃ­vel: ${item.productSlug}`
             );
           }
 
@@ -547,11 +556,11 @@ export async function POST(
      * ======================================================
      * ORDEM COMERCIAL BIO
      *
-     * 1. preços-base Neon
+     * 1. preÃ§os-base Neon
      * 2. ofertas/combos
-     * 3. promoções
+     * 3. promoÃ§Ãµes
      * 4. cupom
-     * 5. crédito UGC
+     * 5. crÃ©dito UGC
      * 6. frete
      * 7. pagamento
      * ======================================================
@@ -586,7 +595,7 @@ export async function POST(
       );
 
     /*
-     * SUBTOTAL É SEMPRE BRUTO.
+     * SUBTOTAL Ã‰ SEMPRE BRUTO.
      */
     const subtotalCents =
       offerResult
@@ -922,7 +931,9 @@ export async function POST(
       partnerCoupon?.discountCents ?? 0;
 
     const partnerCommissionPercent =
-      partnerCoupon?.commissionPercent ?? 0;
+      partnerCoupon
+        ? partnerCoupon.commissionPercent
+        : null;
 
     /*
      * Base da comissao:
@@ -937,7 +948,8 @@ export async function POST(
       );
 
     const partnerCommissionCents =
-      partnerCoupon
+      partnerCoupon &&
+      partnerCommissionPercent !== null
         ? Math.round(
             partnerCommissionBaseCents *
               (partnerCommissionPercent / 100)
@@ -1029,7 +1041,7 @@ const commercialAdjustmentsJson =
 
     if (!customerId) {
       throw new Error(
-        "Cliente não pôde ser criado."
+        "Cliente nÃ£o pÃ´de ser criado."
       );
     }
 
@@ -1062,7 +1074,7 @@ const commercialAdjustmentsJson =
 
     if (!shippingAddressId) {
       throw new Error(
-        "Endereço não pôde ser criado."
+        "EndereÃ§o nÃ£o pÃ´de ser criado."
       );
     }
 
@@ -1099,7 +1111,25 @@ const commercialAdjustmentsJson =
           partnerId:
             partnerCoupon?.partnerId ?? null,
 
-          partnerCommissionPercent,
+          partnerCouponId:
+            partnerCoupon?.partnerCouponId ?? null,
+
+          partnerCampaignId:
+            partnerCoupon?.campaign.id ?? null,
+
+          partnerCampaignName:
+            partnerCoupon?.campaign.name ?? null,
+
+          partnerDiscountPercent:
+            partnerCoupon
+              ? String(partnerCoupon.discountPercent)
+              : null,
+
+          partnerCommissionPercent:
+            partnerCommissionPercent !== null
+              ? String(partnerCommissionPercent)
+              : null,
+
           partnerCommissionCents,
 
           partnerCommissionStatus:
@@ -1135,7 +1165,7 @@ const commercialAdjustmentsJson =
 
     if (!order) {
       throw new Error(
-        "Pedido não pôde ser criado."
+        "Pedido nÃ£o pÃ´de ser criado."
       );
     }
 
@@ -1161,6 +1191,110 @@ const commercialAdjustmentsJson =
         )
       );
 
+    /*
+     * Partner 3B:
+     * persiste o fato order_created na outbox.
+     * O payload e criado uma unica vez e sera reutilizado nos retries.
+     */
+    if (partnerCoupon) {
+      const partnerEventId =
+        `bio-florais:${order.id}:order_created`;
+
+      const partnerOrderCreatedPayload = {
+        schemaVersion: 1 as const,
+        eventId: partnerEventId,
+        eventType: "order_created" as const,
+        brand: "bio-florais" as const,
+        externalOrderId: order.id,
+
+        partner: {
+          partnerCouponId:
+            partnerCoupon.partnerCouponId,
+
+          partnerId:
+            partnerCoupon.partnerId,
+
+          couponCode:
+            partnerCoupon.code,
+
+          campaign: {
+            id:
+              partnerCoupon.campaign.id,
+
+            name:
+              partnerCoupon.campaign.name,
+          },
+
+          discountPercent:
+            partnerCoupon.discountPercent,
+
+          commissionPercent:
+            partnerCoupon.commissionPercent,
+        },
+
+        commercial: {
+          currency: "BRL" as const,
+
+          subtotalCents,
+
+          /*
+           * Offers e promocoes sao descontos promocionais
+           * de mercadoria para o contrato Partner.
+           */
+          promotionDiscountCents:
+            offerDiscountCents +
+            promotionDiscountCents,
+
+          commercialCouponDiscountCents:
+            couponDiscountCents,
+
+          partnerDiscountCents:
+            partnerCouponDiscountCents,
+
+          shippingCents,
+
+          /*
+           * creditCents nao e mascarado como desconto Partner.
+           * O contrato de credito/tender sera tratado separadamente.
+           */
+          totalCents:
+            subtotalCents -
+            offerDiscountCents -
+            promotionDiscountCents -
+            couponDiscountCents -
+            partnerCouponDiscountCents +
+            shippingCents,
+        },
+
+        orderCreatedAt:
+          new Date().toISOString(),
+      };
+
+      await db
+        .insert(partnerEventOutbox)
+        .values({
+          eventId:
+            partnerEventId,
+
+          eventType:
+            "order_created",
+
+          brand:
+            "bio-florais",
+
+          externalOrderId:
+            order.id,
+
+          partnerCouponId:
+            partnerCoupon.partnerCouponId,
+
+          payload:
+            partnerOrderCreatedPayload,
+
+          status:
+            "pending",
+        });
+    }
     /*
      * Persistencia do uso dos cupons.
      */
@@ -1255,11 +1389,13 @@ const commercialAdjustmentsJson =
         error:
           error instanceof Error
             ? error.message
-            : "Não foi possível criar o pedido.",
+            : "NÃ£o foi possÃ­vel criar o pedido.",
       },
       { status: 500 }
     );
   }
 }
+
+
 
 

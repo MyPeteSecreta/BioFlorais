@@ -1,7 +1,8 @@
-import {
+﻿import {
   boolean,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -110,7 +111,7 @@ export const customers = pgTable(
 
 /*
  * ============================================================
- * ENDEREÃƒÆ’Ã¢â‚¬Â¡OS
+ * ENDEREÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡OS
  * ============================================================
  */
 
@@ -258,11 +259,40 @@ export const orders = pgTable(
     partnerId:
       text("partner_id"),
 
-    partnerCommissionPercent:
-      integer("partner_commission_percent")
-        .notNull()
-        .default(0),
+    /*
+     * Snapshot imutavel da atribuicao Partner 3B.
+     * partnerCouponId e a identidade historica canonica.
+     */
+    partnerCouponId:
+      text("partner_coupon_id"),
 
+    partnerCampaignId:
+      text("partner_campaign_id"),
+
+    partnerCampaignName:
+      text("partner_campaign_name"),
+
+    partnerDiscountPercent:
+      numeric(
+        "partner_discount_percent",
+        { precision: 10, scale: 4 }
+      ),
+
+    /*
+     * NULL = comissao ainda nao definida.
+     * Zero = comissao explicitamente definida como 0%.
+     * Percentuais decimais sao preservados sem float no banco.
+     */
+    partnerCommissionPercent:
+      numeric(
+        "partner_commission_percent",
+        { precision: 10, scale: 4 }
+      ),
+
+    /*
+     * Campo legado preservado por compatibilidade.
+     * A autoridade financeira da comissao e a Academia.
+     */
     partnerCommissionCents:
       integer("partner_commission_cents")
         .notNull()
@@ -487,7 +517,7 @@ export const integrationCredentials = pgTable(
 );
 
 // ============================================================================
-// CUPONS Ã¢â‚¬â€ COMERCIAL + PARCEIRA / UGC
+// CUPONS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â COMERCIAL + PARCEIRA / UGC
 // ============================================================================
 
 export const coupons = pgTable("coupons", {
@@ -570,3 +600,72 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
   redeemedAt: timestamp("redeemed_at")
     .defaultNow(),
 });
+
+/*
+ * ============================================================
+ * PARTNER EVENT OUTBOX
+ * ============================================================
+ *
+ * Entrega duravel dos fatos do ecommerce para a Academia.
+ * O payload original e imutavel e deve ser reutilizado em retries.
+ */
+export const partnerEventOutbox = pgTable(
+  "partner_event_outbox",
+  {
+    id:
+      uuid("id")
+        .defaultRandom()
+        .primaryKey(),
+
+    eventId:
+      text("event_id")
+        .notNull()
+        .unique(),
+
+    eventType:
+      text("event_type")
+        .notNull(),
+
+    brand:
+      text("brand")
+        .notNull(),
+
+    externalOrderId:
+      text("external_order_id")
+        .notNull(),
+
+    partnerCouponId:
+      text("partner_coupon_id"),
+
+    payload:
+      jsonb("payload")
+        .notNull(),
+
+    status:
+      text("status")
+        .notNull()
+        .default("pending"),
+
+    attemptCount:
+      integer("attempt_count")
+        .notNull()
+        .default(0),
+
+    nextAttemptAt:
+      timestamp("next_attempt_at"),
+
+    lastAttemptAt:
+      timestamp("last_attempt_at"),
+
+    lastErrorCode:
+      text("last_error_code"),
+
+    deliveredAt:
+      timestamp("delivered_at"),
+
+    createdAt:
+      timestamp("created_at")
+        .defaultNow()
+        .notNull(),
+  }
+);

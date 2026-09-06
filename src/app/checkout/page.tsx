@@ -38,7 +38,7 @@ interface AppliedCoupon {
   discountCents: number;
   couponType: "normal" | "partner";
   partnerId: string | null;
-  commissionPercent: number;
+  commissionPercent: number | null;
 }
 interface Quote {
   items: QuoteItem[];
@@ -172,6 +172,11 @@ export default function CheckoutPage() {
   ] = useState("");
 
   const [
+    partnerCouponCode,
+    setPartnerCouponCode,
+  ] = useState("");
+
+  const [
     appliedCoupon,
     setAppliedCoupon,
   ] = useState<AppliedCoupon | null>(null);
@@ -187,8 +192,18 @@ export default function CheckoutPage() {
   ] = useState("");
 
   const [
+    partnerCouponError,
+    setPartnerCouponError,
+  ] = useState("");
+
+  const [
     loadingCoupon,
     setLoadingCoupon,
+  ] = useState(false);
+
+  const [
+    loadingPartnerCoupon,
+    setLoadingPartnerCoupon,
   ] = useState(false);
 
   const [
@@ -235,6 +250,11 @@ export default function CheckoutPage() {
     pixCopied,
     setPixCopied,
   ] = useState(false);
+
+  const [
+    pixRetryNonce,
+    setPixRetryNonce,
+  ] = useState(0);
 
   useEffect(() => {
     try {
@@ -423,6 +443,7 @@ export default function CheckoutPage() {
     pendingOrderId,
     paymentMethod,
     pendingOrderStatus,
+    pixRetryNonce,
   ]);
   const requestKey =
     useMemo(
@@ -602,8 +623,8 @@ export default function CheckoutPage() {
               serviceName:
                 option.serviceName
                   .replace(
-                    /\s*Ã¢\s*/g,
-                    " — "
+                    /\s*\u2014\s*/g,
+                    " \u2014 "
                   )
                   .replace(
                     /\s*—\s*/g,
@@ -766,7 +787,7 @@ export default function CheckoutPage() {
     }
   }
 
-  async function validateCoupon(
+  async function validateCommercialCoupon(
     code: string,
     subtotalCents: number
   ): Promise<AppliedCoupon> {
@@ -789,7 +810,7 @@ export default function CheckoutPage() {
     if (!response.ok) {
       throw new Error(
         data?.error ??
-          "Nao foi possivel validar o cupom."
+          "N\u00e3o foi poss\u00edvel validar o cupom."
       );
     }
 
@@ -798,93 +819,147 @@ export default function CheckoutPage() {
       discountType: data.coupon.discountType,
       discountValue: data.coupon.discountValue,
       discountCents: data.discountCents,
-      couponType: data.coupon.couponType,
-      partnerId: data.coupon.partnerId ?? null,
-      commissionPercent:
-        data.coupon.commissionPercent ?? 0,
+      couponType: "normal",
+      partnerId: null,
+      commissionPercent: null,
     };
   }
 
-  async function handleApplyCoupon() {
+  async function validatePartnerCouponUi(
+    code: string,
+    subtotalCents: number
+  ): Promise<AppliedCoupon> {
+    const response = await fetch(
+      "/api/partners/validate-coupon",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          subtotalCents,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error ??
+          "N\u00e3o foi poss\u00edvel validar o cupom UGC/parceira."
+      );
+    }
+
+    return {
+      code: data.coupon.code,
+      discountType: data.coupon.discountType,
+      discountValue: data.coupon.discountValue,
+      discountCents: data.discountCents,
+      couponType: "partner",
+      partnerId: data.coupon.partnerId ?? null,
+      commissionPercent:
+        data.coupon.commissionPercent ?? null,
+    };
+  }
+
+  async function handleApplyCommercialCoupon() {
     const code =
       couponCode.trim().toUpperCase();
 
     if (!code || !quote) return;
+
+    if (appliedCoupon) {
+      setCouponError(
+        "J\u00e1 existe um cupom comercial aplicado."
+      );
+      return;
+    }
 
     setLoadingCoupon(true);
     setCouponError("");
 
     try {
       const validation =
-        await validateCoupon(
+        await validateCommercialCoupon(
           code,
           quote.totalCents
         );
 
-      if (validation.couponType === "partner") {
+      setAppliedCoupon(validation);
 
-        if (appliedPartnerCoupon) {
-          throw new Error(
-            "Ja existe um cupom UGC/parceira aplicado."
-          );
-        }
-
+      if (appliedPartnerCoupon) {
         const partnerBaseCents =
           Math.max(
             0,
             quote.totalCents -
-              (appliedCoupon?.discountCents ?? 0)
+              validation.discountCents
           );
 
-        const partner =
-          await validateCoupon(
-            code,
+        const recalculatedPartner =
+          await validatePartnerCouponUi(
+            appliedPartnerCoupon.code,
             partnerBaseCents
           );
 
-        setAppliedPartnerCoupon(partner);
-      }
-      else {
-
-        if (appliedCoupon) {
-          throw new Error(
-            "Ja existe um cupom comercial aplicado."
-          );
-        }
-
-        setAppliedCoupon(validation);
-
-        if (appliedPartnerCoupon) {
-          const partnerBaseCents =
-            Math.max(
-              0,
-              quote.totalCents -
-                validation.discountCents
-            );
-
-          const recalculatedPartner =
-            await validateCoupon(
-              appliedPartnerCoupon.code,
-              partnerBaseCents
-            );
-
-          setAppliedPartnerCoupon(
-            recalculatedPartner
-          );
-        }
+        setAppliedPartnerCoupon(
+          recalculatedPartner
+        );
       }
 
       setCouponCode("");
-    }
-    catch (err) {
+    } catch (err) {
       setCouponError(
         err instanceof Error
           ? err.message
-          : "Nao foi possivel aplicar o cupom."
+          : "N\u00e3o foi poss\u00edvel aplicar o cupom."
       );
-    }
-    finally {
+    } finally {
       setLoadingCoupon(false);
+    }
+  }
+
+  async function handleApplyPartnerCoupon() {
+    const code =
+      partnerCouponCode.trim().toUpperCase();
+
+    if (!code || !quote) return;
+
+    if (appliedPartnerCoupon) {
+      setPartnerCouponError(
+        "J\u00e1 existe um cupom UGC/parceira aplicado."
+      );
+      return;
+    }
+
+    setLoadingPartnerCoupon(true);
+    setPartnerCouponError("");
+
+    try {
+      const partnerBaseCents =
+        Math.max(
+          0,
+          quote.totalCents -
+            (appliedCoupon?.discountCents ?? 0)
+        );
+
+      const validation =
+        await validatePartnerCouponUi(
+          code,
+          partnerBaseCents
+        );
+
+      setAppliedPartnerCoupon(validation);
+      setPartnerCouponCode("");
+    } catch (err) {
+      setPartnerCouponError(
+        err instanceof Error
+          ? err.message
+          : "N\u00e3o foi poss\u00edvel aplicar o cupom UGC/parceira."
+      );
+    } finally {
+      setLoadingPartnerCoupon(false);
     }
   }
 
@@ -895,8 +970,9 @@ export default function CheckoutPage() {
 
   function removePartnerCoupon() {
     setAppliedPartnerCoupon(null);
-    setCouponError("");
+    setPartnerCouponError("");
   }
+
   const merchandiseTotalCents =
     quote?.totalCents ?? 0;
 
@@ -1628,7 +1704,7 @@ export default function CheckoutPage() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
-                          void handleApplyCoupon();
+                          void handleApplyCommercialCoupon();
                         }
                       }}
                       className="min-w-0 flex-1 rounded-full border border-[#26352c]/15 bg-white px-4 py-3 text-sm outline-none"
@@ -1638,7 +1714,7 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        void handleApplyCoupon()
+                        void handleApplyCommercialCoupon()
                       }
                       disabled={
                         loadingCoupon ||
@@ -1682,6 +1758,60 @@ export default function CheckoutPage() {
                       </button>
                     </div>
                   ) : null}
+
+                  <div className="mt-4 border-t border-[#26352c]/10 pt-4">
+                    <label className="text-sm font-medium">
+                      Cupom UGC/parceira
+                    </label>
+
+                    <p className="mt-1 text-[11px] leading-5 text-[#26352c]/45">
+                      Recebeu um c\u00f3digo de uma parceira? Digite aqui.
+                    </p>
+
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        name="partnerCoupon"
+                        value={partnerCouponCode}
+                        onChange={(event) => {
+                          setPartnerCouponCode(
+                            event.target.value
+                          );
+                          setPartnerCouponError("");
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void handleApplyPartnerCoupon();
+                          }
+                        }}
+                        className="min-w-0 flex-1 rounded-full border border-[#26352c]/15 bg-white px-4 py-3 text-sm outline-none"
+                        placeholder="Digite o cupom da parceira"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleApplyPartnerCoupon()
+                        }
+                        disabled={
+                          loadingPartnerCoupon ||
+                          !partnerCouponCode.trim() ||
+                          !quote
+                        }
+                        className="rounded-full border border-[#26352c]/20 px-5 py-3 text-xs font-medium transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {loadingPartnerCoupon
+                          ? "Validando..."
+                          : "Aplicar"}
+                      </button>
+                    </div>
+
+                    {partnerCouponError ? (
+                      <p className="mt-2 text-xs leading-5 text-red-700">
+                        {partnerCouponError}
+                      </p>
+                    ) : null}
+                  </div>
 
                   {appliedPartnerCoupon ? (
                     <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5 text-xs">
@@ -2033,6 +2163,23 @@ export default function CheckoutPage() {
                             <p className="mt-1 text-xs leading-5 text-[#26352c]/55">
                               {pixError}
                             </p>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPixError("");
+                                setPixPayment(null);
+                                setPixRetryNonce(
+                                  (value) => value + 1
+                                );
+                              }}
+                              disabled={loadingPix}
+                              className="mt-4 w-full rounded-full border border-[#26352c]/20 bg-[#26352c] px-4 py-3 text-xs font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {loadingPix
+                                ? "Tentando novamente..."
+                                : "Tentar gerar Pix novamente"}
+                            </button>
                           </div>
                         ) : null}
 
