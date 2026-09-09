@@ -139,9 +139,15 @@ export default function SiteFooter() {
 
       <div className="mx-auto mt-5 flex max-w-[1440px] flex-col gap-2 border-t border-[#eadfd9] pt-4 text-[10px] text-[#8b7c89] sm:mt-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pt-6 sm:text-xs">
 
-        <span>
-          © 2026 Bio Florais
-        </span>
+        <div>
+          <span>
+            © 2026 Bio Florais
+          </span>
+
+          <p className="mt-1 text-[10px] leading-4 text-[#8b7c89] sm:text-xs">
+            Operado por Pharma e Natural Distribuidora Ltda. · CNPJ 27.707.550/0001-00
+          </p>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-5">
           <span>
