@@ -189,6 +189,16 @@ export const orders = pgTable(
         )
         .notNull(),
 
+    /*
+     * Dados operacionais de expedição.
+     * Mantidos no próprio pedido no Bio Florais.
+     */
+    shippingServiceName:
+      text("shipping_service_name"),
+
+    trackingCode:
+      text("tracking_code"),
+
     status:
       text("status")
         .notNull()
