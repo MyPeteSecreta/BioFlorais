@@ -71,6 +71,16 @@ export default function ProductPurchaseActions({
         mt-8
       "
     >
+      <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <span className="font-semibold text-[#8b6524]">
+          Frete grátis a partir de R$ 100
+        </span>
+
+        <span className="text-[#6c5b69]">
+          · na modalidade econômica
+        </span>
+      </div>
+
       <p
         className="
           mb-2

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import {
@@ -179,6 +179,26 @@ export default function CartPage() {
       ) ?? []
     );
 
+  const freeShippingThresholdCents = 10000;
+  const freeShippingBaseCents =
+    quote?.grossSubtotalCents ?? 0;
+  const freeShippingRemainingCents =
+    Math.max(
+      0,
+      freeShippingThresholdCents -
+        freeShippingBaseCents
+    );
+  const freeShippingProgress =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        (freeShippingBaseCents /
+          freeShippingThresholdCents) *
+          100
+      )
+    );
+
   return (
     <main className="min-h-screen bg-[#f8f5ee] text-[#26352c]">
       <div className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-14">
@@ -322,6 +342,53 @@ export default function CartPage() {
                   );
                 }
               )}
+
+              {quote ? (
+                <div className="rounded-[24px] border border-[#46644f]/15 bg-[#f3f6f1] p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-[#26352c]">
+                        {freeShippingRemainingCents >
+                        0 ? (
+                          <>
+                            Faltam{" "}
+                            <strong className="font-semibold text-[#46644f]">
+                              {formatMoney(
+                                freeShippingRemainingCents
+                              )}
+                            </strong>{" "}
+                            para você ganhar frete grátis
+                          </>
+                        ) : (
+                          <>
+                            Você ganhou frete grátis{" "}
+                            <span
+                              className="text-[#46644f]"
+                              aria-hidden="true"
+                            >
+                              ✓
+                            </span>
+                          </>
+                        )}
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-[#26352c]/55">
+                        Frete grátis a partir de R$ 100,00
+                        na modalidade econômica.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#46644f]/10">
+                    <div
+                      className="h-full rounded-full bg-[#46644f] transition-[width] duration-300 ease-out"
+                      style={{
+                        width: `${freeShippingProgress}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <button
                 type="button"

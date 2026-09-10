@@ -979,6 +979,24 @@ export default function CheckoutPage() {
   const hasFreeShipping =
     merchandiseTotalCents >= 10000;
 
+  const freeShippingThresholdCents = 10000;
+  const freeShippingRemainingCents =
+    Math.max(
+      0,
+      freeShippingThresholdCents -
+        merchandiseTotalCents
+    );
+  const freeShippingProgress =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        (merchandiseTotalCents /
+          freeShippingThresholdCents) *
+          100
+      )
+    );
+
   // Custo real da transportadora.
   const shippingCostCents =
     selectedShipping?.priceCents ?? 0;
@@ -1548,6 +1566,50 @@ export default function CheckoutPage() {
                     ) : null}
                   </div>
 
+                  {hasFreeShipping ? (
+                    <div className="mt-3 rounded-2xl border border-[#46644f]/15 bg-[#f3f6f1] p-4">
+                      <p className="text-xs font-medium text-[#46644f]">
+                        Você ganhou frete grátis{" "}
+                        <span aria-hidden="true">
+                          ✓
+                        </span>
+                      </p>
+
+                      <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
+                        Na modalidade econômica.
+                      </p>
+
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#46644f]/10">
+                        <div className="h-full w-full rounded-full bg-[#46644f]" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-2xl border border-[#46644f]/15 bg-[#f3f6f1] p-4">
+                      <p className="text-xs font-medium text-[#26352c]">
+                        Faltam{" "}
+                        <strong className="font-semibold text-[#46644f]">
+                          {formatMoney(
+                            freeShippingRemainingCents
+                          )}
+                        </strong>{" "}
+                        para você ganhar frete grátis.
+                      </p>
+
+                      <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
+                        Enquanto isso, a Bio Florais subsidia 25% do seu frete.
+                      </p>
+
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#46644f]/10">
+                        <div
+                          className="h-full rounded-full bg-[#46644f] transition-[width] duration-300 ease-out"
+                          style={{
+                            width: `${freeShippingProgress}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {loadingShipping ? (
                     <p className="mt-4 text-xs text-[#26352c]/55">
                       Consultando opções de entrega...
@@ -1675,15 +1737,7 @@ export default function CheckoutPage() {
                     </div>
                   ) : null}
 
-                  {hasFreeShipping ? (
-                    <p className="mt-3 text-[11px] leading-5 text-[#46644f]">
-                      Acima de R$ 100,00, a opção econômica recebe gratuidade integral.
-                    </p>
-                  ) : (
-                    <p className="mt-3 text-[11px] leading-5 text-[#46644f]">
-                      A Bio Florais subsidia 25% do seu frete.
-                    </p>
-                  )}
+
                 </div>
 
                 <div className="rounded-2xl border border-[#26352c]/10 bg-[#f8f5ee] p-5">

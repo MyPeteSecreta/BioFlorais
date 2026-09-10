@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 
 const rowTwo = [
@@ -118,12 +118,26 @@ export default function Home() {
             </Link>
           </nav>
 
-          <Link
-            href="#linhas"
-            className="rounded-full bg-[#63326d] px-6 py-3 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-[#53285d]"
-          >
-            Ver produtos
-          </Link>
+          <div className="hidden items-center gap-5 lg:flex">
+            <div className="flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-[#7b5d2c]">
+              <span
+                aria-hidden="true"
+                className="text-[14px]"
+              >
+                🚚
+              </span>
+              <span>
+                Frete grátis a partir de R$ 100
+              </span>
+            </div>
+
+            <Link
+              href="#linhas"
+              className="rounded-full bg-[#63326d] px-6 py-3 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-[#53285d]"
+            >
+              Ver produtos
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -356,6 +370,24 @@ export default function Home() {
       >
         <div className="mx-auto max-w-[1440px]">
 
+          <div className="mb-10 hidden rounded-[22px] border border-[#b17d22]/15 bg-[#fffdf9] px-8 py-5 shadow-sm md:block">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-10">
+              <div className="shrink-0">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.24em] text-[#a0742b] sm:text-[10px]">
+                  Um cuidado a mais da Bio Florais
+                </p>
+
+                <h2 className="mt-1.5 font-serif text-[26px] font-semibold leading-[1.02] tracking-[-0.035em] text-[#422347] sm:text-[30px]">
+                  Frete grátis a partir de R$ 100.
+                </h2>
+              </div>
+
+              <p className="max-w-[560px] text-sm leading-6 text-[#6c5b69] md:text-right">
+                Escolha os cuidados que combinam com o seu momento e, na modalidade econômica, a entrega é por nossa conta.
+              </p>
+            </div>
+          </div>
+
           <div className="mb-7 text-left md:hidden">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[#a0742b]">
               Para diferentes momentos
@@ -366,7 +398,10 @@ export default function Home() {
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-[#6c5b69]">
-              Para você, para quem você ama e para quem também faz parte da família.
+              Para você, para quem você ama e para quem também faz parte da família.{" "}
+              <span className="font-semibold text-[#8b6524]">
+                Frete grátis a partir de R$ 100.
+              </span>
             </p>
           </div>
 
