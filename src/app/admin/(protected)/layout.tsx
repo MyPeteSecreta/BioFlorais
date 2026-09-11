@@ -1,4 +1,4 @@
-﻿import crypto from "node:crypto";
+import crypto from "node:crypto";
 
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -53,16 +53,8 @@ export default async function ProtectedAdminLayout({
     );
   }
 
-  const configuredCentralOmieUrl =
-    process.env
-      .CENTRAL_OMIE_URL
-      ?.trim();
-
   const centralOmieUrl =
-    configuredCentralOmieUrl &&
-    !configuredCentralOmieUrl.includes("localhost")
-      ? configuredCentralOmieUrl
-      : "https://www.mypeteme.com.br/admin/omie";
+    "https://www.mypeteme.com.br/admin/omie-entry";
 
   return (
     <div className="min-h-screen bg-[#fffdf9]">
