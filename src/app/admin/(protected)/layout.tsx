@@ -53,10 +53,16 @@ export default async function ProtectedAdminLayout({
     );
   }
 
-  const centralOmieUrl =
+  const configuredCentralOmieUrl =
     process.env
       .CENTRAL_OMIE_URL
       ?.trim();
+
+  const centralOmieUrl =
+    configuredCentralOmieUrl &&
+    !configuredCentralOmieUrl.includes("localhost")
+      ? configuredCentralOmieUrl
+      : "https://www.mypeteme.com.br/admin/omie";
 
   return (
     <div className="min-h-screen bg-[#fffdf9]">
@@ -115,3 +121,5 @@ export default async function ProtectedAdminLayout({
     </div>
   );
 }
+
+
