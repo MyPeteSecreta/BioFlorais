@@ -1,4 +1,24 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
+
+import { getSiteUrl } from "@/lib/seo/site-url";
+
+// Página legal/compliance (Metadata SEO V2.1, Seção 2/8): mesma classificação
+// de /cookies e /privacidade — noindex, sem intenção de busca de aquisição.
+export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
+  title: "Termos de Compra | Bio Florais",
+  description:
+    "Termos e condições de compra da Bio Florais: fornecedor, produtos, preços, pagamento, entrega e demais regras da venda.",
+  alternates: {
+    canonical: "/termos-de-compra",
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function Page() {
   return (

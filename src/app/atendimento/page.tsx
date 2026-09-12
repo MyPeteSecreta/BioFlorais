@@ -1,4 +1,26 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
+
+import { getSiteUrl } from "@/lib/seo/site-url";
+
+// Sem FAQ real nesta página (apenas WhatsApp/e-mail) — conteúdo utilitário,
+// não tem intenção de busca própria. Classificado como noindex conforme a
+// lógica da Metadata SEO V2.1 (Seção 2/10: "index condicional" dependia de
+// confirmar se há FAQ substantiva; confirmado que não há).
+export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
+  title: "Atendimento | Bio Florais",
+  description:
+    "Fale com a Bio Florais por WhatsApp ou e-mail. Nossa equipe está à disposição para ajudar você.",
+  alternates: {
+    canonical: "/atendimento",
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function Page() {
   return (
