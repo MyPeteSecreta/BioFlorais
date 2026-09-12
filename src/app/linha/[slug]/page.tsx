@@ -1293,6 +1293,26 @@ function isHairPairCategory(
 function buildVisualCards(
   products: BioProduct[]
 ) {
+  /*
+   * PAGINA B:
+   *
+   * Apresentacoes comerciais adicionais permanecem como
+   * produtos/SKUs reais no catalogo, mas nao geram um novo
+   * card visual da familia.
+   *
+   * Exemplos:
+   * - perfume 120 ml + 500 ml = 1 card na Pagina B;
+   * - shampoo/condicionador 500 ml + 5 L = 1 card/familia.
+   *
+   * A escolha da apresentacao acontece na Pagina C.
+   */
+  const cardProducts =
+    products.filter(
+      (product) =>
+        !product.slug.endsWith("-500ml") &&
+        !product.slug.endsWith("-5l")
+    );
+
   const cards: VisualCard[] =
     [];
 
@@ -1300,7 +1320,7 @@ function buildVisualCards(
     new Set<string>();
 
   for (
-    const product of products
+    const product of cardProducts
   ) {
     if (
       consumed.has(
@@ -1316,7 +1336,7 @@ function buildVisualCards(
       )
     ) {
       const pair =
-        products.filter(
+        cardProducts.filter(
           (candidate) =>
             candidate.lineSlug ===
               product.lineSlug &&
