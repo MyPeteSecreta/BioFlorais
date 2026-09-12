@@ -1,5 +1,51 @@
+import type { Metadata } from "next";
+
 import Image from "next/image";
 import Link from "next/link";
+
+import { getSiteUrl } from "@/lib/seo/site-url";
+
+const siteUrl = getSiteUrl();
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: "Bio Florais | Terapia Floral, Florais de Bach e Essências Brasileiras",
+  description:
+    "Terapia floral com essências brasileiras de produção própria, inspirada no sistema de Edward Bach. Fórmulas Bio Florais para adultos, crianças, bebês e pets.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    title: "Bio Florais | Terapia Floral, Florais de Bach e Essências Brasileiras",
+    description:
+      "Terapia floral com essências brasileiras de produção própria, inspirada no sistema de Edward Bach. Fórmulas Bio Florais para adultos, crianças, bebês e pets.",
+    url: siteUrl,
+    siteName: "Bio Florais",
+    locale: "pt_BR",
+  },
+};
+
+// Organization + WebSite (schema.org) — Metadata SEO V2.1, Seção 3.
+// `sameAs` lista apenas os perfis reais já publicados no rodapé do site.
+// Nenhum SearchAction: não há confirmação de busca interna funcional.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Bio Florais",
+  url: siteUrl,
+  sameAs: [
+    "https://www.instagram.com/bioflorais",
+    "https://www.instagram.com/insta.biofloraispet/",
+  ],
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Bio Florais",
+  url: siteUrl,
+};
 
 const rowTwo = [
   {
@@ -82,6 +128,19 @@ function VisualLineCard({
 export default function Home() {
   return (
     <main className="overflow-hidden bg-[#fffdf9] text-[#2f2231]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationJsonLd),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteJsonLd),
+        }}
+      />
+
 
       {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-[#ece2df]/80 bg-[#fffdf9]/95 backdrop-blur-xl">
