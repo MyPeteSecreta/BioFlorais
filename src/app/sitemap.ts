@@ -14,6 +14,14 @@ import { getSiteUrl } from "@/lib/seo/site-url";
  * "index condicional", pendente de confirmação do estado real de conteúdo
  * (ver auditoria). Páginas noindex (legais, carrinho, checkout, admin, api)
  * nunca devem entrar em sitemap nenhum.
+ *
+ * Produtos terminados em "-5l" ou "-500ml" (apresentações maiores de
+ * Cosméticos Pet: shampoo/condicionador 5L, perfume 500ml) NÃO são páginas
+ * públicas de navegação — não há nenhum link para elas em lugar nenhum do
+ * site. São registros de catálogo usados pela própria PDP da apresentação
+ * base para oferecer a compra da versão maior/kit direto no carrinho, sem
+ * navegação. Ficam de fora do sitemap; sem conteúdo editorial próprio, não
+ * devem ser indexadas.
  */
 export function generateSitemaps() {
   return [{ id: 0 }, { id: 1 }];
@@ -27,10 +35,16 @@ export default function sitemap({
   const siteUrl = getSiteUrl();
 
   if (id === 1) {
-    return bioProducts.map((product) => ({
-      url: `${siteUrl}/produto/${product.slug}`,
-      priority: 0.6,
-    }));
+    return bioProducts
+      .filter(
+        (product) =>
+          !product.slug.endsWith("-5l") &&
+          !product.slug.endsWith("-500ml"),
+      )
+      .map((product) => ({
+        url: `${siteUrl}/produto/${product.slug}`,
+        priority: 0.6,
+      }));
   }
 
   const institutionalRoutes = [
