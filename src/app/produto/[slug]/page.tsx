@@ -7,7 +7,7 @@ import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchaseActions from "@/components/product/ProductPurchaseActions";
 import { getProductEditorialContent } from "@/lib/content/product-content";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   bioProducts,
@@ -101,7 +101,8 @@ function findProductFolder(product: BioProduct) {
     ];
 
   const categoryFolder =
-    product.lineSlug === "cosmeticos"
+    product.lineSlug === "cosmeticos" ||
+    product.lineSlug === "cosmeticos-pet"
       ? normalizePhysicalName(
           product.category
         )
@@ -278,6 +279,95 @@ function getProductGallery(product: BioProduct) {
       `${folder.publicBase}/${file}`
   );
 }
+function getPetPerfume500Gallery() {
+  const folderAbsolute =
+    path.join(
+      process.cwd(),
+      "public",
+      "products",
+      "cosmeticos-pet",
+      "perfume-spray",
+      "perfume500"
+    );
+
+  if (
+    !fs.existsSync(
+      folderAbsolute
+    )
+  ) {
+    return [];
+  }
+
+  function collect(
+    current: string
+  ): string[] {
+    const entries =
+      fs.readdirSync(
+        current,
+        {
+          withFileTypes: true,
+        }
+      );
+
+    return entries.flatMap(
+      (entry) => {
+        const absolute =
+          path.join(
+            current,
+            entry.name
+          );
+
+        if (
+          entry.isDirectory()
+        ) {
+          return collect(
+            absolute
+          );
+        }
+
+        if (
+          entry.isFile() &&
+          /\.(jpg|jpeg|png|webp|avif)$/i.test(
+            entry.name
+          )
+        ) {
+          return [
+            "/" +
+            path
+              .relative(
+                path.join(
+                  process.cwd(),
+                  "public"
+                ),
+                absolute
+              )
+              .replace(
+                /\\/g,
+                "/"
+              ),
+          ];
+        }
+
+        return [];
+      }
+    );
+  }
+
+  return collect(
+    folderAbsolute
+  ).sort(
+    (a, b) =>
+      a.localeCompare(
+        b,
+        "pt-BR",
+        {
+          numeric: true,
+          sensitivity: "base",
+        }
+      )
+  );
+}
+
 function imageExists(
   publicPath: string
 ) {
@@ -360,6 +450,26 @@ export default async function ProductPage({
   } =
     await params;
 
+  if (
+    slug.startsWith("cosmeticos-pet-") &&
+    slug.endsWith("-5l")
+  ) {
+    redirect(
+      `/produto/${slug.slice(0, -3)}`
+    );
+  }
+
+  if (
+    slug.startsWith(
+      "cosmeticos-pet-perfume-spray-"
+    ) &&
+    slug.endsWith("-500ml")
+  ) {
+    redirect(
+      `/produto/${slug.slice(0, -6)}`
+    );
+  }
+
   const product =
     getProduct(slug);
 
@@ -371,6 +481,28 @@ export default async function ProductPage({
     isPairCategory(
       product.category
     );
+
+  const hasPet5lMatrix =
+    isPair &&
+    product.lineSlug === "cosmeticos-pet";
+
+  const isPetPerfume =
+    product.lineSlug ===
+      "cosmeticos-pet" &&
+    product.category ===
+      "Perfume Spray" &&
+    !product.slug.endsWith(
+      "-500ml"
+    );
+
+  const perfume500 =
+    isPetPerfume
+      ? bioProducts.find(
+          (candidate) =>
+            candidate.slug ===
+            `${product.slug}-500ml`
+        )
+      : undefined;
 
   const pairProducts =
     isPair
@@ -388,43 +520,82 @@ export default async function ProductPage({
           product,
         ];
 
-  const shampoo =
+  const shampoo500 =
     pairProducts.find(
       (item) =>
         item.category
           .toLowerCase() ===
-        "shampoo"
+          "shampoo" &&
+        !item.slug.endsWith("-5l")
     );
 
-  const conditioner =
+  const conditioner500 =
     pairProducts.find(
       (item) =>
         item.category
           .toLowerCase() ===
-        "condicionador"
+          "condicionador" &&
+        !item.slug.endsWith("-5l")
     );
 
-  const kitPrice =
-    shampoo &&
-    conditioner
+  const shampoo5l =
+    pairProducts.find(
+      (item) =>
+        item.category
+          .toLowerCase() ===
+          "shampoo" &&
+        item.slug.endsWith("-5l")
+    );
+
+  const conditioner5l =
+    pairProducts.find(
+      (item) =>
+        item.category
+          .toLowerCase() ===
+          "condicionador" &&
+        item.slug.endsWith("-5l")
+    );
+
+  const kitPrice500 =
+    shampoo500 &&
+    conditioner500
       ? comboPrice([
-          shampoo.priceCents,
-          conditioner.priceCents,
+          shampoo500.priceCents,
+          conditioner500.priceCents,
+        ])
+      : null;
+
+  const kitPrice5l =
+    shampoo5l &&
+    conditioner5l
+      ? comboPrice([
+          shampoo5l.priceCents,
+          conditioner5l.priceCents,
         ])
       : null;
 
   const galleryProduct =
-    shampoo ??
+    shampoo500 ??
     product;
 
-  const gallery =
+  const baseGallery =
     getProductGallery(
       galleryProduct
     );
 
+  const gallery =
+    isPetPerfume
+      ? Array.from(
+          new Set([
+            ...baseGallery,
+            ...getPetPerfume500Gallery(),
+          ])
+        )
+      : baseGallery;
+
   const mainImage =
     gallery[0] ??
-    shampoo?.image ??
+    shampoo500?.image ??
     product.image;
 
   const hasImage =
@@ -608,264 +779,686 @@ export default async function ProductPage({
 
 
 
-          {isPair ? (
-            <div
-              className="
-                mt-7
-                grid
-                gap-4
-              "
-            >
-              {shampoo && (
+          {hasPet5lMatrix ? (
+            <div className="mt-7">
+              <div
+                className="
+                  overflow-hidden
+                  rounded-[24px]
+                  border
+                  border-[#ddcfda]
+                  bg-white
+                "
+              >
                 <div
                   className="
-                    rounded-[22px]
-                    border
-                    border-[#ddcfda]
-                    bg-white
-                    p-5
+                    grid
+                    grid-cols-[1.15fr_1fr_1fr]
+                    border-b
+                    border-[#eadfd9]
+                    bg-[#faf6ee]
                   "
                 >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-4
-                    "
-                  >
-                    <div>
-                      <p
-                        className="
-                          text-xs
-                          font-extrabold
-                          uppercase
-                          tracking-[0.14em]
-                          text-[#a0742b]
-                        "
-                      >
-                        Shampoo
-                      </p>
-
-                      <p
-                        className="
-                          mt-2
-                          text-2xl
-                          font-extrabold
-                          text-[#55245f]
-                        "
-                      >
-                        {
-                          formatBRL(
-                            shampoo.priceCents
-                          )
-                        }
-                      </p>
-                    </div>
-
-                    <AddToCartButton
-                      mode="product"
-                      product={{
-                        productSlug:
-                          shampoo.slug,
-                        name:
-                          shampoo.name,
-                        image:
-                          shampoo.image ?? null,
-                      }}
-                      className="
-                        rounded-full
-                        bg-[#63326d]
-                        px-5
-                        py-3
-                        text-sm
-                        font-extrabold
-                        text-white
-                      "
-                    >
-                      Escolher
-                    </AddToCartButton>
-                  </div>
-                </div>
-              )}
-
-              {conditioner && (
-                <div
-                  className="
-                    rounded-[22px]
-                    border
-                    border-[#ddcfda]
-                    bg-white
-                    p-5
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-4
-                    "
-                  >
-                    <div>
-                      <p
-                        className="
-                          text-xs
-                          font-extrabold
-                          uppercase
-                          tracking-[0.14em]
-                          text-[#a0742b]
-                        "
-                      >
-                        Condicionador
-                      </p>
-
-                      <p
-                        className="
-                          mt-2
-                          text-2xl
-                          font-extrabold
-                          text-[#55245f]
-                        "
-                      >
-                        {
-                          formatBRL(
-                            conditioner.priceCents
-                          )
-                        }
-                      </p>
-                    </div>
-
-                    <AddToCartButton
-                      mode="product"
-                      product={{
-                        productSlug:
-                          conditioner.slug,
-                        name:
-                          conditioner.name,
-                        image:
-                          conditioner.image ?? null,
-                      }}
-                      className="
-                        rounded-full
-                        bg-[#63326d]
-                        px-5
-                        py-3
-                        text-sm
-                        font-extrabold
-                        text-white
-                      "
-                    >
-                      Escolher
-                    </AddToCartButton>
-                  </div>
-                </div>
-              )}
-
-              {shampoo &&
-                conditioner && (
-                  <div
-                    className="
-                      rounded-[24px]
-                      border
-                      border-[#c99c45]
-                      bg-[#fff8e8]
-                      p-5
-                    "
-                  >
+                  <div className="p-4">
                     <p
                       className="
                         text-xs
                         font-extrabold
                         uppercase
-                        tracking-[0.16em]
+                        tracking-[0.14em]
+                        text-[#8d7789]
+                      "
+                    >
+                      Produto
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      border-l
+                      border-[#eadfd9]
+                      p-4
+                      text-center
+                    "
+                  >
+                    <p
+                      className="
+                        text-sm
+                        font-extrabold
+                        uppercase
+                        tracking-[0.12em]
+                        text-[#55245f]
+                      "
+                    >
+                      500 ml
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      border-l
+                      border-[#eadfd9]
+                      bg-[#fff8e8]
+                      p-4
+                      text-center
+                    "
+                  >
+                    <p
+                      className="
+                        text-sm
+                        font-extrabold
+                        uppercase
+                        tracking-[0.12em]
                         text-[#9b6c24]
                       "
                     >
-                      Combo da versão
+                      5 L
                     </p>
+                  </div>
+                </div>
 
-                    <div
+                {/* SHAMPOO */}
+                <div
+                  className="
+                    grid
+                    grid-cols-[1.15fr_1fr_1fr]
+                    border-b
+                    border-[#eadfd9]
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      items-center
+                      p-4
+                    "
+                  >
+                    <p
                       className="
-                        mt-2
-                        flex
-                        items-end
-                        justify-between
-                        gap-5
+                        font-extrabold
+                        text-[#422347]
                       "
                     >
-                      <div>
+                      Shampoo
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#eadfd9]
+                      p-4
+                    "
+                  >
+                    {shampoo500 ? (
+                      <>
                         <p
                           className="
                             text-xl
                             font-extrabold
-                            text-[#422347]
+                            text-[#55245f]
                           "
                         >
-                          Shampoo +
-                          Condicionador
+                          {formatBRL(
+                            shampoo500.priceCents
+                          )}
                         </p>
 
-                        <p
+                        <AddToCartButton
+                          mode="product"
+                          product={{
+                            productSlug:
+                              shampoo500.slug,
+                            name:
+                              shampoo500.name,
+                            image:
+                              shampoo500.image ??
+                              null,
+                          }}
                           className="
-                            mt-1
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
                             text-sm
-                            font-bold
-                            text-[#9b6c24]
+                            font-extrabold
+                            text-white
                           "
                         >
-                          10% de desconto
-                        </p>
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
+                  </div>
 
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#eadfd9]
+                      bg-[#fffdf8]
+                      p-4
+                    "
+                  >
+                    {shampoo5l ? (
+                      <>
                         <p
                           className="
-                            mt-3
-                            text-3xl
+                            text-xl
                             font-extrabold
                             text-[#55245f]
                           "
                         >
-                          {
-                            formatBRL(
-                              kitPrice
-                            )
-                          }
+                          {formatBRL(
+                            shampoo5l.priceCents
+                          )}
                         </p>
-                      </div>
 
-                      <AddToCartButton
-                        mode="combo"
-                        shampoo={{
-                          productSlug:
-                            shampoo.slug,
-                          name:
-                            shampoo.name,
-                          image:
-                            shampoo.image ?? null,
-                        }}
-                        conditioner={{
-                          productSlug:
-                            conditioner.slug,
-                          name:
-                            conditioner.name,
-                          image:
-                            conditioner.image ?? null,
-                        }}
-                        className="
-                          rounded-full
-                          bg-[#63326d]
-                          px-6
-                          py-3
-                          text-sm
-                          font-extrabold
-                          text-white
-                        "
-                      >
-                        Quero o combo
-                      </AddToCartButton>
-                    </div>
+                        <AddToCartButton
+                          mode="product"
+                          product={{
+                            productSlug:
+                              shampoo5l.slug,
+                            name:
+                              shampoo5l.name,
+                            image:
+                              shampoo5l.image ??
+                              null,
+                          }}
+                          className="
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-extrabold
+                            text-white
+                          "
+                        >
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* CONDICIONADOR */}
+                <div
+                  className="
+                    grid
+                    grid-cols-[1.15fr_1fr_1fr]
+                    border-b
+                    border-[#eadfd9]
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      items-center
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        font-extrabold
+                        text-[#422347]
+                      "
+                    >
+                      Condicionador
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#eadfd9]
+                      p-4
+                    "
+                  >
+                    {conditioner500 ? (
+                      <>
+                        <p
+                          className="
+                            text-xl
+                            font-extrabold
+                            text-[#55245f]
+                          "
+                        >
+                          {formatBRL(
+                            conditioner500.priceCents
+                          )}
+                        </p>
+
+                        <AddToCartButton
+                          mode="product"
+                          product={{
+                            productSlug:
+                              conditioner500.slug,
+                            name:
+                              conditioner500.name,
+                            image:
+                              conditioner500.image ??
+                              null,
+                          }}
+                          className="
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-extrabold
+                            text-white
+                          "
+                        >
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#eadfd9]
+                      bg-[#fffdf8]
+                      p-4
+                    "
+                  >
+                    {conditioner5l ? (
+                      <>
+                        <p
+                          className="
+                            text-xl
+                            font-extrabold
+                            text-[#55245f]
+                          "
+                        >
+                          {formatBRL(
+                            conditioner5l.priceCents
+                          )}
+                        </p>
+
+                        <AddToCartButton
+                          mode="product"
+                          product={{
+                            productSlug:
+                              conditioner5l.slug,
+                            name:
+                              conditioner5l.name,
+                            image:
+                              conditioner5l.image ??
+                              null,
+                          }}
+                          className="
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-extrabold
+                            text-white
+                          "
+                        >
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* COMBO */}
+                <div
+                  className="
+                    grid
+                    grid-cols-[1.15fr_1fr_1fr]
+                    bg-[#fff8e8]
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      justify-center
+                      p-4
+                    "
+                  >
+                    <p
+                      className="
+                        font-extrabold
+                        text-[#422347]
+                      "
+                    >
+                      Combo
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        font-bold
+                        text-[#9b6c24]
+                      "
+                    >
+                      Shampoo + Condicionador
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        font-extrabold
+                        uppercase
+                        tracking-[0.08em]
+                        text-[#9b6c24]
+                      "
+                    >
+                      10% de desconto
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#dec68f]
+                      p-4
+                    "
+                  >
+                    {shampoo500 &&
+                    conditioner500 ? (
+                      <>
+                        <p
+                          className="
+                            text-xl
+                            font-extrabold
+                            text-[#55245f]
+                          "
+                        >
+                          {formatBRL(
+                            kitPrice500
+                          )}
+                        </p>
+
+                        <AddToCartButton
+                          mode="combo"
+                          shampoo={{
+                            productSlug:
+                              shampoo500.slug,
+                            name:
+                              shampoo500.name,
+                            image:
+                              shampoo500.image ??
+                              null,
+                          }}
+                          conditioner={{
+                            productSlug:
+                              conditioner500.slug,
+                            name:
+                              conditioner500.name,
+                            image:
+                              conditioner500.image ??
+                              null,
+                          }}
+                          className="
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-extrabold
+                            text-white
+                          "
+                        >
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      border-l
+                      border-[#dec68f]
+                      p-4
+                    "
+                  >
+                    {shampoo5l &&
+                    conditioner5l ? (
+                      <>
+                        <p
+                          className="
+                            text-xl
+                            font-extrabold
+                            text-[#55245f]
+                          "
+                        >
+                          {formatBRL(
+                            kitPrice5l
+                          )}
+                        </p>
+
+                        <AddToCartButton
+                          mode="combo"
+                          shampoo={{
+                            productSlug:
+                              shampoo5l.slug,
+                            name:
+                              shampoo5l.name,
+                            image:
+                              shampoo5l.image ??
+                              null,
+                          }}
+                          conditioner={{
+                            productSlug:
+                              conditioner5l.slug,
+                            name:
+                              conditioner5l.name,
+                            image:
+                              conditioner5l.image ??
+                              null,
+                          }}
+                          className="
+                            rounded-full
+                            bg-[#63326d]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-extrabold
+                            text-white
+                          "
+                        >
+                          Escolher
+                        </AddToCartButton>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[#9b8c98]">
+                        Indisponível
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : isPetPerfume &&
+            perfume500 ? (
+            <div
+              className="
+                mt-7
+                grid
+                gap-4
+                sm:grid-cols-2
+              "
+            >
+              <div
+                className="
+                  rounded-[22px]
+                  border
+                  border-[#ddcfda]
+                  bg-white
+                  p-5
+                "
+              >
+                <p
+                  className="
+                    text-xs
+                    font-extrabold
+                    uppercase
+                    tracking-[0.14em]
+                    text-[#a0742b]
+                  "
+                >
+                  Perfume 120 ml
+                </p>
+
+                <p
+                  className="
+                    mt-3
+                    text-3xl
+                    font-extrabold
+                    text-[#55245f]
+                  "
+                >
+                  {formatBRL(
+                    product.priceCents
+                  )}
+                </p>
+
+                <AddToCartButton
+                  mode="product"
+                  product={{
+                    productSlug:
+                      product.slug,
+                    name:
+                      product.name,
+                    image:
+                      mainImage ||
+                      product.image ||
+                      null,
+                  }}
+                  className="
+                    mt-5
+                    w-full
+                    rounded-full
+                    bg-[#63326d]
+                    px-5
+                    py-3
+                    text-sm
+                    font-extrabold
+                    text-white
+                  "
+                >
+                  Escolher
+                </AddToCartButton>
+              </div>
+
+              <div
+                className="
+                  rounded-[22px]
+                  border
+                  border-[#c99c45]
+                  bg-[#fff8e8]
+                  p-5
+                "
+              >
+                <p
+                  className="
+                    text-xs
+                    font-extrabold
+                    uppercase
+                    tracking-[0.14em]
+                    text-[#9b6c24]
+                  "
+                >
+                  Perfume 500 ml
+                </p>
+
+                <p
+                  className="
+                    mt-3
+                    text-3xl
+                    font-extrabold
+                    text-[#55245f]
+                  "
+                >
+                  {formatBRL(
+                    perfume500.priceCents
+                  )}
+                </p>
+
+                <AddToCartButton
+                  mode="product"
+                  product={{
+                    productSlug:
+                      perfume500.slug,
+                    name:
+                      perfume500.name,
+                    image:
+                      perfume500.image ??
+                      null,
+                  }}
+                  className="
+                    mt-5
+                    w-full
+                    rounded-full
+                    bg-[#63326d]
+                    px-5
+                    py-3
+                    text-sm
+                    font-extrabold
+                    text-white
+                  "
+                >
+                  Escolher
+                </AddToCartButton>
+              </div>
             </div>
           ) : (
             <ProductPurchaseActions
