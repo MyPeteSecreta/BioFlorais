@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -495,7 +495,19 @@ export async function POST(
 
     const dbProducts =
       await db
-        .select()
+        .select({
+          id: products.id,
+          slug: products.slug,
+          name: products.name,
+          priceCents: products.priceCents,
+          weightGrams: products.weightGrams,
+          lengthCm: products.lengthCm,
+          widthCm: products.widthCm,
+          heightCm: products.heightCm,
+          sku: products.sku,
+          stockQty: products.stockQty,
+          active: products.active,
+        })
         .from(products)
         .where(
           inArray(
@@ -1078,7 +1090,19 @@ const commercialAdjustmentsJson =
       );
     }
 
-    const orderRows =
+        // BIO_CHECKOUT_PAYMENT_METHOD_V1
+    // Cartao ainda e uma tentativa de checkout neste momento.
+    // Pix preserva o lifecycle existente.
+    const checkoutPaymentMethod =
+      String(
+        (body as { paymentMethod?: unknown }).paymentMethod ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const isCardCheckout =
+      checkoutPaymentMethod === "card";
+const orderRows =
       await db
         .insert(orders)
         .values({
@@ -1086,7 +1110,7 @@ const commercialAdjustmentsJson =
           shippingAddressId,
 
           status:
-            "pending",
+            isCardCheckout ? "checkout_pending" : "pending",
 
           fulfillmentStatus:
             "awaiting_payment",
@@ -1196,7 +1220,11 @@ const commercialAdjustmentsJson =
      * persiste o fato order_created na outbox.
      * O payload e criado uma unica vez e sera reutilizado nos retries.
      */
-    if (partnerCoupon) {
+        // BIO_CARD_DEFER_COMMERCIAL_EFFECTS_V1
+    // Checkout de cartao ainda nao e pedido comercial confirmado.
+    // O evento order_created da parceira sera diferido ate o
+    // pagamento efetivamente transformar o checkout em pedido.
+    if (partnerCoupon && !isCardCheckout) {
       const partnerEventId =
         `bio-florais:${order.id}:order_created`;
 
@@ -1298,7 +1326,10 @@ const commercialAdjustmentsJson =
     /*
      * Persistencia do uso dos cupons.
      */
-    if (commercialCoupon) {
+        // BIO_CARD_DEFER_COUPON_REDEMPTION_V1
+    // Cartao em checkout_pending nao consome cupom.
+    // Pix preserva a persistencia existente.
+    if (commercialCoupon && !isCardCheckout) {
 
       await db
         .insert(couponRedemptions)

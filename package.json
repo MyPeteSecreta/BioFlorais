@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@angelblancdigital/partners": "0.2.0",
+    "@angelblancdigital/payments": "^0.1.0",
+    "@mercadopago/sdk-react": "^1.0.7",
     "@neondatabase/serverless": "^1.1.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

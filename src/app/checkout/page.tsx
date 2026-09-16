@@ -1,5 +1,7 @@
 "use client";
 
+import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
+
 import Link from "next/link";
 
 import {
@@ -108,6 +110,7 @@ export default function CheckoutPage() {
   const {
     items,
     offers,
+    clearCart,
   } = useCart();
 
   const [
@@ -116,8 +119,17 @@ export default function CheckoutPage() {
   ] =
     useState<Quote | null>(null);
 
+  // BIO_CHECKOUT_DRAFT_V3
+  const [checkoutDraftRestored, setCheckoutDraftRestored] =
+    useState(false);
   const [paymentMethod, setPaymentMethod] =
     useState<"pix" | "card">("pix");
+
+  const [cardOrderTotalCents, setCardOrderTotalCents] =
+    useState<number | null>(null);
+
+  const [cardPayerEmail, setCardPayerEmail] =
+    useState("");
 
   const [
     loading,
@@ -256,6 +268,87 @@ export default function CheckoutPage() {
     setPixRetryNonce,
   ] = useState(0);
 
+  // BIO_CHECKOUT_DRAFT_RESTORE_V3
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(
+        "bio-checkout-draft"
+      );
+
+      if (!raw) {
+        setCheckoutDraftRestored(true);
+        return;
+      }
+
+      const draft = JSON.parse(raw) as {
+        fields?: Record<string, string>;
+        paymentMethod?: "pix" | "card";
+        shippingOptions?: ShippingOption[];
+        selectedShipping?: ShippingOption | null;
+        calculatedCep?: string;
+        appliedCoupon?: AppliedCoupon | null;
+        appliedPartnerCoupon?: AppliedCoupon | null;
+      };
+
+      if (
+        draft.paymentMethod === "pix" ||
+        draft.paymentMethod === "card"
+      ) {
+        setPaymentMethod(draft.paymentMethod);
+      }
+
+      if (Array.isArray(draft.shippingOptions)) {
+        setShippingOptions(draft.shippingOptions);
+      }
+
+      setSelectedShipping(
+        draft.selectedShipping ?? null
+      );
+
+      if (typeof draft.calculatedCep === "string") {
+        setCalculatedCep(draft.calculatedCep);
+      }
+
+      setAppliedCoupon(
+        draft.appliedCoupon ?? null
+      );
+
+      setAppliedPartnerCoupon(
+        draft.appliedPartnerCoupon ?? null
+      );
+
+      window.setTimeout(() => {
+        const form = document.getElementById(
+          "bio-checkout-form"
+        ) as HTMLFormElement | null;
+
+        if (form && draft.fields) {
+          for (const [name, value] of Object.entries(draft.fields)) {
+            const element = form.elements.namedItem(name);
+
+            if (
+              element instanceof HTMLInputElement ||
+              element instanceof HTMLTextAreaElement ||
+              element instanceof HTMLSelectElement
+            ) {
+              element.value = value ?? "";
+            }
+          }
+        }
+
+        setCheckoutDraftRestored(true);
+      }, 0);
+    } catch {
+      window.sessionStorage.removeItem(
+        "bio-checkout-draft"
+      );
+      setCheckoutDraftRestored(true);
+    }
+  }, []);
+  // BIO_PENDING_CART_SNAPSHOT
+  const [pendingCartRequestKey, setPendingCartRequestKey] =
+    useState<string | null>(null);
+
   useEffect(() => {
     try {
       const stored = window.sessionStorage.getItem(
@@ -269,10 +362,20 @@ export default function CheckoutPage() {
       const parsed = JSON.parse(stored) as {
         orderId?: string;
         paymentMethod?: "pix" | "card";
+        cardOrderTotalCents?: number;
+        cardPayerEmail?: string;
+        cartRequestKey?: string;
       };
 
       if (parsed.orderId) {
         setPendingOrderId(parsed.orderId);
+      }
+
+      if (
+        typeof parsed.cartRequestKey === "string" &&
+        parsed.cartRequestKey
+      ) {
+        setPendingCartRequestKey(parsed.cartRequestKey);
       }
 
       if (
@@ -281,12 +384,55 @@ export default function CheckoutPage() {
       ) {
         setPaymentMethod(parsed.paymentMethod);
       }
+
+      if (
+        parsed.paymentMethod === "card" &&
+        Number.isFinite(parsed.cardOrderTotalCents) &&
+        Number(parsed.cardOrderTotalCents) > 0 &&
+        typeof parsed.cardPayerEmail === "string" &&
+        parsed.cardPayerEmail.trim()
+      ) {
+        setCardOrderTotalCents(
+          Number(parsed.cardOrderTotalCents)
+        );
+        setCardPayerEmail(
+          parsed.cardPayerEmail.trim()
+        );
+      }
     } catch {
       window.sessionStorage.removeItem(
         "bio-payment-pending"
       );
     }
   }, []);
+  // BIO_LEGACY_CARD_PENDING_GUARD
+  useEffect(() => {
+    if (
+      !pendingOrderId ||
+      paymentMethod !== "card" ||
+      pendingOrderStatus === "paid" ||
+      pendingCartRequestKey
+    ) {
+      return;
+    }
+
+    // Pending de cartÃ£o anterior ao snapshot do carrinho:
+    // nÃ£o reutilizar contra a compra atual.
+    window.sessionStorage.removeItem(
+      "bio-payment-pending"
+    );
+
+    setPendingOrderId(null);
+    setPendingOrderStatus(null);
+    setCardOrderTotalCents(null);
+    setCardPayerEmail("");
+    setOrderError("");
+  }, [
+    pendingOrderId,
+    pendingOrderStatus,
+    paymentMethod,
+    pendingCartRequestKey,
+  ]);
 
   useEffect(() => {
     if (!pendingOrderId) {
@@ -324,9 +470,21 @@ export default function CheckoutPage() {
 
         if (data.paid) {
           setPendingOrderStatus("paid");
+
+          // BIO_PAID_CHECKOUT_FINALIZATION
+          // Mantem a confirmacao visivel nesta tela,
+          // mas encerra a persistencia do pedido pago
+          // e libera a sacola para uma nova compra.
+          window.sessionStorage.removeItem(
+            "bio-payment-pending"
+          );
+
+          setPendingCartRequestKey(null);
+          clearCart();
+          sessionStorage.removeItem("bio-checkout-draft");
         }
       } catch {
-        // Falha temporária de consulta não altera o pedido.
+        // Falha temporÃ¡ria de consulta nÃ£o altera o pedido.
       }
     }
 
@@ -341,7 +499,7 @@ export default function CheckoutPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [pendingOrderId]);
+  }, [pendingOrderId, clearCart]);
   useEffect(() => {
     if (
       !pendingOrderId ||
@@ -381,7 +539,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             data?.error ??
-              "Não foi possível gerar o Pix."
+              "NÃ£o foi possÃ­vel gerar o Pix."
           );
         }
 
@@ -390,7 +548,7 @@ export default function CheckoutPage() {
           !data?.pix?.qrCode
         ) {
           throw new Error(
-            "A cobrança Pix foi criada sem os dados necessários."
+            "A cobranÃ§a Pix foi criada sem os dados necessÃ¡rios."
           );
         }
 
@@ -425,7 +583,7 @@ export default function CheckoutPage() {
         setPixError(
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar o Pix."
+            : "NÃ£o foi possÃ­vel carregar o Pix."
         );
       } finally {
         if (!cancelled) {
@@ -445,6 +603,99 @@ export default function CheckoutPage() {
     pendingOrderStatus,
     pixRetryNonce,
   ]);
+  // BIO_CARD_AUTO_SCROLL_V1
+  useEffect(() => {
+    if (
+      !pendingOrderId ||
+      paymentMethod !== "card" ||
+      pendingOrderStatus === "paid" ||
+      !cardOrderTotalCents ||
+      !cardPayerEmail
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById("bio-card-payment-section")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 120);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    pendingOrderId,
+    paymentMethod,
+    pendingOrderStatus,
+    cardOrderTotalCents,
+    cardPayerEmail,
+  ]);
+  // BIO_CHECKOUT_DRAFT_SAVE_V3
+  const saveCheckoutDraft = () => {
+    try {
+      const form = document.getElementById(
+        "bio-checkout-form"
+      ) as HTMLFormElement | null;
+
+      const fields: Record<string, string> = {};
+
+      if (form) {
+        const data = new FormData(form);
+
+        for (const [name, value] of data.entries()) {
+          if (typeof value === "string") {
+            fields[name] = value;
+          }
+        }
+      }
+
+      window.sessionStorage.setItem(
+        "bio-checkout-draft",
+        JSON.stringify({
+          fields,
+          paymentMethod,
+          shippingOptions,
+          selectedShipping,
+          calculatedCep,
+          appliedCoupon,
+          appliedPartnerCoupon,
+        })
+      );
+    } catch {
+      // Storage nao pode bloquear o checkout.
+    }
+  };
+  // BIO_CONTINUE_SHOPPING_CARD_V1
+  const continueShoppingFromCard = () => {
+    if (
+      paymentMethod !== "card" ||
+      pendingOrderStatus === "paid"
+    ) {
+      return;
+    }
+
+    try {
+      window.sessionStorage.removeItem(
+        "bio-payment-pending"
+      );
+    } catch {
+      // sessionStorage indisponivel nao pode bloquear a navegacao.
+    }
+
+    setPendingOrderId(null);
+    setPendingOrderStatus(null);
+    setCardOrderTotalCents(null);
+    setCardPayerEmail(null);
+
+    saveCheckoutDraft();
+
+    // BIO_CONTINUE_SHOPPING_SAVE_DRAFT_V3
+    window.location.href = "/carrinho";
+  };
   const requestKey =
     useMemo(
       () =>
@@ -473,6 +724,53 @@ export default function CheckoutPage() {
         offers,
       ]
     );
+
+  // BIO_CHECKOUT_DRAFT_AUTOSAVE_V3
+  useEffect(() => {
+    if (!checkoutDraftRestored) {
+      return;
+    }
+
+    saveCheckoutDraft();
+  }, [
+    checkoutDraftRestored,
+    paymentMethod,
+    shippingOptions,
+    selectedShipping,
+    calculatedCep,
+    appliedCoupon,
+    appliedPartnerCoupon,
+  ]);
+  // BIO_PENDING_ORDER_CART_GUARD
+  useEffect(() => {
+    if (
+      !pendingOrderId ||
+      paymentMethod !== "card" ||
+      pendingOrderStatus === "paid" ||
+      !pendingCartRequestKey
+    ) {
+      return;
+    }
+
+    if (pendingCartRequestKey === requestKey) {
+      return;
+    }
+
+    // Carrinho alterado: nÃ£o reutilizar pedido antigo.
+    window.sessionStorage.removeItem("bio-payment-pending");
+    setPendingOrderId(null);
+    setPendingOrderStatus(null);
+    setPendingCartRequestKey(null);
+    setCardOrderTotalCents(null);
+    setCardPayerEmail("");
+    setOrderError("");
+  }, [
+    pendingOrderId,
+    pendingOrderStatus,
+    paymentMethod,
+    pendingCartRequestKey,
+    requestKey,
+  ]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -507,7 +805,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             data.error ??
-              "Não foi possível calcular o pedido."
+              "NÃ£o foi possÃ­vel calcular o pedido."
           );
         }
 
@@ -521,7 +819,7 @@ export default function CheckoutPage() {
           setError(
             err instanceof Error
               ? err.message
-              : "Não foi possível calcular o pedido."
+              : "NÃ£o foi possÃ­vel calcular o pedido."
           );
         }
       } finally {
@@ -541,7 +839,7 @@ export default function CheckoutPage() {
     requestKey,
   ]);
 
-  if (items.length === 0) {
+  if (items.length === 0 && pendingOrderStatus !== "paid") {
     return (
       <main className="min-h-screen bg-[#f8f5ee] px-5 py-16 text-[#26352c]">
         <div className="mx-auto max-w-3xl">
@@ -551,7 +849,7 @@ export default function CheckoutPage() {
             </p>
 
             <h1 className="mt-3 text-3xl font-medium">
-              Sua sacola está vazia
+              Sua sacola estÃ¡ vazia
             </h1>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#26352c]/65">
@@ -606,7 +904,7 @@ export default function CheckoutPage() {
       if (!response.ok) {
         throw new Error(
           data.error ??
-            "Não foi possível calcular o frete."
+            "NÃ£o foi possÃ­vel calcular o frete."
         );
       }
 
@@ -627,8 +925,8 @@ export default function CheckoutPage() {
                     " \u2014 "
                   )
                   .replace(
-                    /\s*—\s*/g,
-                    " — "
+                    /\s*â€”\s*/g,
+                    " â€” "
                   )
                   .trim(),
             })
@@ -644,7 +942,7 @@ export default function CheckoutPage() {
 
       if (options.length === 0) {
         throw new Error(
-          "Nenhuma opção de entrega disponível para este CEP."
+          "Nenhuma opÃ§Ã£o de entrega disponÃ­vel para este CEP."
         );
       }
 
@@ -656,7 +954,7 @@ export default function CheckoutPage() {
       setShippingError(
         err instanceof Error
           ? err.message
-          : "Não foi possível calcular o frete."
+          : "NÃ£o foi possÃ­vel calcular o frete."
       );
     } finally {
       setLoadingShipping(false);
@@ -682,14 +980,14 @@ export default function CheckoutPage() {
 
     if (cep.length !== 8) {
       setCepError(
-        "Digite um CEP com 8 números."
+        "Digite um CEP com 8 nÃºmeros."
       );
       return;
     }
 
     if (!form) {
       setCepError(
-        "Não foi possível localizar o formulário."
+        "NÃ£o foi possÃ­vel localizar o formulÃ¡rio."
       );
       return;
     }
@@ -717,7 +1015,7 @@ export default function CheckoutPage() {
 
       if (data.erro) {
         setCepError(
-          "CEP não encontrado."
+          "CEP nÃ£o encontrado."
         );
         return;
       }
@@ -780,7 +1078,7 @@ export default function CheckoutPage() {
       await loadShipping(cep);
     } catch {
       setCepError(
-        "Não foi possível consultar o CEP. Você pode preencher o endereço manualmente."
+        "NÃ£o foi possÃ­vel consultar o CEP. VocÃª pode preencher o endereÃ§o manualmente."
       );
     } finally {
       setSearchingCep(false);
@@ -1089,6 +1387,10 @@ export default function CheckoutPage() {
 
           <Link
             href="/carrinho"
+            // BIO_BACK_TO_CART_SAVE_DRAFT_V3
+            onClick={() => {
+              saveCheckoutDraft();
+            }}
             className="text-sm font-medium underline underline-offset-4"
           >
             Voltar para a sacola
@@ -1099,6 +1401,13 @@ export default function CheckoutPage() {
           <form
             id="bio-checkout-form"
             className="space-y-6"
+            // BIO_CHECKOUT_DRAFT_FORM_AUTOSAVE_V3
+            onInput={() => {
+              window.setTimeout(saveCheckoutDraft, 0);
+            }}
+            onChange={() => {
+              window.setTimeout(saveCheckoutDraft, 0);
+            }}
             onSubmit={async (event) => {
               event.preventDefault();
 
@@ -1285,6 +1594,8 @@ export default function CheckoutPage() {
                          * a modalidade escolhida.
                          * O servidor recalcula o preco.
                          */
+                        // BIO_PAYMENT_METHOD_TO_ORDER_V1
+                         paymentMethod,
                         shippingServiceName:
                           selectedShipping.serviceName,
                       }),
@@ -1310,18 +1621,42 @@ export default function CheckoutPage() {
                   );
                 }
 
+                const cardEmail =
+                  paymentMethod === "card"
+                    ? String(readField("email") ?? "").trim()
+                    : "";
+
+                const cardTotal =
+                  paymentMethod === "card"
+                    ? Number(data.order.totalCents)
+                    : null;
+
                 window.sessionStorage.setItem(
                   "bio-payment-pending",
                   JSON.stringify({
                     orderId: data.order.id,
                     paymentMethod,
+                    ...(paymentMethod === "card"
+                      ? {
+                          cardOrderTotalCents: cardTotal,
+                          cardPayerEmail: cardEmail,
+                          cartRequestKey: requestKey,
+                        }
+                      : {}),
                   })
                 );
 
                 setPendingOrderId(data.order.id);
                 setPendingOrderStatus(
-                  data.order.status ?? "awaiting_payment"
+                  data.order.status ?? (paymentMethod === "card" ? "checkout_pending" : "pending")
                 );
+
+                if (paymentMethod === "card") {
+                  setCardOrderTotalCents(cardTotal);
+                  setCardPayerEmail(cardEmail);
+                  setPendingCartRequestKey(requestKey);
+                }
+
                 setOrderError("");
 
               }
@@ -1408,11 +1743,11 @@ export default function CheckoutPage() {
                 </label>
 
                 <label className="text-sm font-medium">
-                  RG ou Inscrição Estadual
+                  RG ou InscriÃ§Ã£o Estadual
                   <input
                     name="secondaryDocument"
                     className={inputClass}
-                    placeholder="RG ou Inscrição Estadual"
+                    placeholder="RG ou InscriÃ§Ã£o Estadual"
                   />
                 </label>
               </div>
@@ -1424,7 +1759,7 @@ export default function CheckoutPage() {
               </p>
 
               <h2 className="mt-1 text-xl font-medium">
-                Endereço de entrega
+                EndereÃ§o de entrega
               </h2>
 
               <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -1442,7 +1777,7 @@ export default function CheckoutPage() {
 
                   {searchingCep ? (
                     <span className="mt-2 block text-xs text-[#26352c]/50">
-                      Buscando endereço...
+                      Buscando endereÃ§o...
                     </span>
                   ) : null}
 
@@ -1456,7 +1791,7 @@ export default function CheckoutPage() {
                 <div className="hidden md:block" />
 
                 <label className="text-sm font-medium md:col-span-2">
-                  Endereço
+                  EndereÃ§o
                   <input
                     name="street"
                     autoComplete="address-line1"
@@ -1467,7 +1802,7 @@ export default function CheckoutPage() {
                 </label>
 
                 <label className="text-sm font-medium">
-                  Número
+                  NÃºmero
                   <input
                     name="number"
                     onBlur={() => {
@@ -1538,7 +1873,7 @@ export default function CheckoutPage() {
               </p>
 
               <h2 className="mt-1 text-xl font-medium">
-                Entrega e benefícios
+                Entrega e benefÃ­cios
               </h2>
 
               <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -1561,7 +1896,7 @@ export default function CheckoutPage() {
 
                     {hasFreeShipping ? (
                       <span className="rounded-full bg-[#46644f]/10 px-3 py-1 text-[11px] font-semibold text-[#46644f]">
-                        Frete grátis
+                        Frete grÃ¡tis
                       </span>
                     ) : null}
                   </div>
@@ -1569,14 +1904,14 @@ export default function CheckoutPage() {
                   {hasFreeShipping ? (
                     <div className="mt-3 rounded-2xl border border-[#46644f]/15 bg-[#f3f6f1] p-4">
                       <p className="text-xs font-medium text-[#46644f]">
-                        Você ganhou frete grátis{" "}
+                        VocÃª ganhou frete grÃ¡tis{" "}
                         <span aria-hidden="true">
-                          ✓
+                          âœ“
                         </span>
                       </p>
 
                       <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
-                        Na modalidade econômica.
+                        Na modalidade econÃ´mica.
                       </p>
 
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#46644f]/10">
@@ -1592,7 +1927,7 @@ export default function CheckoutPage() {
                             freeShippingRemainingCents
                           )}
                         </strong>{" "}
-                        para você ganhar frete grátis.
+                        para vocÃª ganhar frete grÃ¡tis.
                       </p>
 
                       <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
@@ -1612,7 +1947,7 @@ export default function CheckoutPage() {
 
                   {loadingShipping ? (
                     <p className="mt-4 text-xs text-[#26352c]/55">
-                      Consultando opções de entrega...
+                      Consultando opÃ§Ãµes de entrega...
                     </p>
                   ) : null}
 
@@ -1626,7 +1961,7 @@ export default function CheckoutPage() {
                   !shippingError &&
                   shippingOptions.length === 0 ? (
                     <p className="mt-4 text-xs leading-5 text-[#26352c]/55">
-                      Informe seu CEP para calcular as opções de entrega.
+                      Informe seu CEP para calcular as opÃ§Ãµes de entrega.
                     </p>
                   ) : null}
 
@@ -1663,8 +1998,8 @@ export default function CheckoutPage() {
                                     Prazo estimado:{" "}
                                     {option.etaDays}{" "}
                                     {option.etaDays === 1
-                                      ? "dia útil"
-                                      : "dias úteis"}
+                                      ? "dia Ãºtil"
+                                      : "dias Ãºteis"}
                                   </p>
                                 </div>
 
@@ -1694,7 +2029,7 @@ export default function CheckoutPage() {
                                     return (
                                       <>
                                         <p className="text-[10px] text-[#26352c]/45">
-                                          Preço cheio{" "}
+                                          PreÃ§o cheio{" "}
                                           <span className="font-medium text-[#26352c]/65">
                                             {formatMoney(
                                               option.priceCents
@@ -1703,9 +2038,9 @@ export default function CheckoutPage() {
                                         </p>
 
                                         <p className="mt-0.5 text-[10px] text-[#46644f]">
-                                          Benefício Bio{" "}
+                                          BenefÃ­cio Bio{" "}
                                           <span className="font-medium">
-                                            −{" "}
+                                            âˆ’{" "}
                                             {formatMoney(
                                               optionBenefitCents
                                             )}
@@ -1713,11 +2048,11 @@ export default function CheckoutPage() {
                                         </p>
 
                                         <p className="mt-1 text-xs font-semibold text-[#26352c]">
-                                          Você paga{" "}
+                                          VocÃª paga{" "}
                                           {optionCustomerCents ===
                                           0 ? (
                                             <span className="text-[#46644f]">
-                                              Grátis
+                                              GrÃ¡tis
                                             </span>
                                           ) : (
                                             formatMoney(
@@ -1796,7 +2131,7 @@ export default function CheckoutPage() {
                           {appliedCoupon.code}
                         </strong>
                         <span className="text-[#26352c]/55">
-                          Cupom comercial · −{" "}
+                          Cupom comercial Â· âˆ’{" "}
                           {formatMoney(
                             appliedCoupon.discountCents
                           )}
@@ -1874,7 +2209,7 @@ export default function CheckoutPage() {
                           {appliedPartnerCoupon.code}
                         </strong>
                         <span className="text-[#26352c]/55">
-                          Cupom UGC/parceira · −{" "}
+                          Cupom UGC/parceira Â· âˆ’{" "}
                           {formatMoney(
                             appliedPartnerCoupon.discountCents
                           )}
@@ -1892,7 +2227,7 @@ export default function CheckoutPage() {
                   ) : null}
 
                   <p className="mt-3 text-[11px] leading-5 text-[#26352c]/45">
-                    Você pode usar 1 cupom comercial e 1 cupom de parceira/UGC no mesmo pedido.
+                    VocÃª pode usar 1 cupom comercial e 1 cupom de parceira/UGC no mesmo pedido.
                   </p>
                 </div>
               </div>
@@ -1939,21 +2274,20 @@ export default function CheckoutPage() {
                     </span>
                   ) : null}
 
-                  <div className="text-2xl">⚡</div>
+                  <div className="text-2xl">âš¡</div>
 
                   <p className="mt-4 font-medium">
                     Pix
                   </p>
 
                   <p className="mt-1 max-w-xs text-sm leading-5 text-[#26352c]/55">
-                    Pagamento à vista com QR Code e Pix Copia e Cola.
+                    Pagamento Ã  vista com QR Code e Pix Copia e Cola.
                   </p>
                 </button>
 
                 <button
                   type="button"
-                  disabled
-                  aria-disabled="true"
+                  onClick={() => setPaymentMethod("card")}
                   aria-pressed={paymentMethod === "card"}
                   className={`relative min-h-36 rounded-2xl border p-5 text-left transition ${
                     paymentMethod === "card"
@@ -1967,14 +2301,14 @@ export default function CheckoutPage() {
                     </span>
                   ) : null}
 
-                  <div className="text-2xl">💳</div>
+                  <div className="text-2xl">ðŸ’³</div>
 
                   <p className="mt-4 font-medium">
-                    Cartão de crédito
+                    CartÃ£o de crÃ©dito
                   </p>
 
                   <p className="mt-1 max-w-xs text-sm leading-5 text-[#26352c]/55">
-                    Pagamento com cartão de crédito. Consulte as opções de parcelamento na próxima etapa.
+                    Pagamento com cartÃ£o de crÃ©dito. Consulte as opÃ§Ãµes de parcelamento na prÃ³xima etapa.
                   </p>
                 </button>
               </div>
@@ -2006,7 +2340,7 @@ export default function CheckoutPage() {
                     className="flex justify-between gap-5 text-sm"
                   >
                     <span className="text-[#26352c]/70">
-                      {item.qty}×{" "}
+                      {item.qty}Ã—{" "}
                       {item.name}
                     </span>
 
@@ -2025,7 +2359,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom comercial</span>
                 <strong className="font-medium">
-                  − {formatMoney(couponDiscountCents)}
+                  âˆ’ {formatMoney(couponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2034,7 +2368,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom UGC/parceira</span>
                 <strong className="font-medium">
-                  − {formatMoney(partnerCouponDiscountCents)}
+                  âˆ’ {formatMoney(partnerCouponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2053,7 +2387,7 @@ export default function CheckoutPage() {
                       )
                     : loading
                       ? "Calculando..."
-                      : "—"}
+                      : "â€”"}
                 </strong>
               </div>
 
@@ -2072,7 +2406,7 @@ export default function CheckoutPage() {
                     </span>
 
                     <strong className="font-medium">
-                      −{" "}
+                      âˆ’{" "}
                       {formatMoney(
                         offer.discountCents
                       )}
@@ -2104,7 +2438,7 @@ export default function CheckoutPage() {
                     ? "Calculando..."
                     : selectedShipping
                       ? customerShippingCents === 0
-                        ? "Grátis"
+                        ? "GrÃ¡tis"
                         : formatMoney(
                             customerShippingCents
                           )
@@ -2117,7 +2451,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom comercial</span>
                 <strong className="font-medium">
-                  − {formatMoney(couponDiscountCents)}
+                  âˆ’ {formatMoney(couponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2126,7 +2460,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom UGC/parceira</span>
                 <strong className="font-medium">
-                  − {formatMoney(partnerCouponDiscountCents)}
+                  âˆ’ {formatMoney(partnerCouponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2140,13 +2474,13 @@ export default function CheckoutPage() {
               <div className="mt-2 flex items-center justify-between gap-4 text-sm">
                 <strong className="font-medium">
                   {paymentMethod === "pix"
-                    ? "⚡ Pix"
-                    : "💳 Cartão de crédito"}
+                    ? "âš¡ Pix"
+                    : "ðŸ’³ CartÃ£o de crÃ©dito"}
                 </strong>
 
                 <span className="text-right text-[#26352c]/55">
                   {paymentMethod === "pix"
-                    ? "À vista"
+                    ? "Ã€ vista"
                     : "Parcelamento conforme adquirente"}
                 </span>
               </div>
@@ -2163,7 +2497,7 @@ export default function CheckoutPage() {
                       )
                   : loading
                     ? "..."
-                    : "—"}
+                    : "â€”"}
               </strong>
             </div>
 
@@ -2174,12 +2508,15 @@ export default function CheckoutPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#46644f] text-sm text-white">
-                    ✓
+                    âœ“
                   </div>
 
                   <div>
                     <p className="font-medium text-[#26352c]">
-                      Pedido criado
+                      {paymentMethod === "card" &&
+                      pendingOrderStatus !== "paid"
+                        ? "Pagamento pronto"
+                        : "Pedido criado"}
                     </p>
 
                     <p className="mt-1 text-sm leading-5 text-[#26352c]/60">
@@ -2187,7 +2524,7 @@ export default function CheckoutPage() {
                         ? "Pagamento confirmado."
                         : paymentMethod === "pix"
                           ? "Aguardando pagamento via Pix."
-                          : "Aguardando pagamento com cartão."}
+                          : "Preencha os dados do cartÃ£o abaixo para concluir sua compra."}
                     </p>
 
                     <p className="mt-2 text-xs text-[#26352c]/45">
@@ -2199,6 +2536,33 @@ export default function CheckoutPage() {
                         Estamos acompanhando automaticamente o status do pagamento.
                       </p>
                     ) : null}
+                    {paymentMethod === "card" &&
+                    pendingOrderStatus !== "paid" &&
+                    (!cardOrderTotalCents || !cardPayerEmail) ? (
+                      <div className="mt-5 border-t border-[#26352c]/10 pt-5">
+                        <p className="text-sm leading-5 text-[#26352c]/65">
+                          Esta tentativa de pagamento nÃ£o pode ser retomada.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.sessionStorage.removeItem(
+                              "bio-payment-pending"
+                            );
+                            setPendingOrderId(null);
+                            setPendingOrderStatus(null);
+                            setCardOrderTotalCents(null);
+                            setCardPayerEmail("");
+                            setOrderError("");
+                          }}
+                          className="mt-3 w-full rounded-full border border-[#46644f]/30 bg-white px-4 py-3 text-sm font-medium text-[#26352c] transition hover:bg-[#f5f7f2]"
+                        >
+                          Fazer nova tentativa de pagamento
+                        </button>
+                      </div>
+                    ) : null}
+
                     {paymentMethod === "pix" &&
                     pendingOrderStatus !== "paid" ? (
                       <div className="mt-5 border-t border-[#26352c]/10 pt-5">
@@ -2211,7 +2575,7 @@ export default function CheckoutPage() {
                         {pixError ? (
                           <div className="rounded-xl border border-red-900/10 bg-white p-4">
                             <p className="text-sm font-medium text-[#26352c]">
-                              Não foi possível carregar o Pix.
+                              NÃ£o foi possÃ­vel carregar o Pix.
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-[#26352c]/55">
@@ -2285,13 +2649,13 @@ export default function CheckoutPage() {
                               className="w-full rounded-full bg-[#46644f] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
                             >
                               {pixCopied
-                                ? "Código Pix copiado"
-                                : "Copiar código Pix"}
+                                ? "CÃ³digo Pix copiado"
+                                : "Copiar cÃ³digo Pix"}
                             </button>
 
                             {pixPayment.expiresAt ? (
                               <p className="text-center text-xs text-[#26352c]/45">
-                                Esta cobrança possui prazo de expiração definido pelo provedor.
+                                Esta cobranÃ§a possui prazo de expiraÃ§Ã£o definido pelo provedor.
                               </p>
                             ) : null}
                           </div>
@@ -2321,23 +2685,74 @@ export default function CheckoutPage() {
               {creatingOrder
                 ? "Criando pedido..."
                 : pendingOrderId
-                  ? "Pedido criado"
+                  ? paymentMethod === "card" && pendingOrderStatus !== "paid" ? "Pagamento pendente" : "Pedido criado"
                   : paymentMethod === "pix"
                     ? "Continuar com Pix"
-                    : "Continuar com cartão"}
+                    : "Continuar com cartÃ£o"}
             </button>
 
             <p className="mt-3 text-center text-xs leading-5 text-[#26352c]/45">
               {pendingOrderId
                 ? pendingOrderStatus === "paid"
                   ? "Pagamento confirmado."
-                  : "Não feche esta página enquanto concluímos o pagamento."
-                : "O pedido será criado com os valores, descontos e entrega confirmados acima."}
+                  : "Sua compra ainda nÃ£o foi confirmada. Conclua o pagamento abaixo ou continue comprando."
+                : "O pedido serÃ¡ criado com os valores, descontos e entrega confirmados acima."}
             </p>
           </aside>
         </div>
       </div>
-    </main>
+
+      {/* BIO_WIDE_CARD_PAYMENT_SECTION_V1 */}
+      {pendingOrderId &&
+      paymentMethod === "card" &&
+      pendingOrderStatus !== "paid" &&
+      cardOrderTotalCents &&
+      cardPayerEmail ? (
+        <section
+          id="bio-card-payment-section"
+          className="mx-auto mt-8 w-full max-w-5xl scroll-mt-6 px-4 sm:px-6 lg:px-8"
+        >
+          <div className="rounded-[28px] border border-[#26352c]/10 bg-white p-4 shadow-[0_18px_60px_rgba(38,53,44,0.08)] sm:p-6 lg:p-8">
+            <div className="mb-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7445]">
+                Finalize seu pagamento
+              </p>
+
+              <h2 className="mt-2 text-2xl font-medium text-[#26352c]">
+                CartÃ£o de crÃ©dito
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#26352c]/60">
+                Escolha o parcelamento e preencha os dados do cartÃ£o em ambiente seguro.
+              </p>
+            </div>
+
+          {/* BIO_CONTINUE_SHOPPING_CARD_BUTTON_V1 */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-[#756674]">
+              Ainda nÃ£o quer finalizar? Seu carrinho continuarÃ¡ disponÃ­vel.
+            </p>
+
+            <button
+              type="button"
+              onClick={continueShoppingFromCard}
+              className="rounded-full border border-[#422347] bg-white px-5 py-2.5 text-sm font-extrabold text-[#422347] transition hover:bg-[#f7f1f5]"
+            >
+              â† Continuar comprando
+            </button>
+          </div>
+            <MercadoPagoCardPayment
+              orderId={pendingOrderId}
+              amountCents={cardOrderTotalCents}
+              payerEmail={cardPayerEmail}
+              onStatusChange={(status) => {
+                setPendingOrderStatus(status);
+              }}
+            />
+          </div>
+        </section>
+      ) : null}
+</main>
   );
 }
 

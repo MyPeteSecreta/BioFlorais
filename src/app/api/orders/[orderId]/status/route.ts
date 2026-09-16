@@ -1,8 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { createMercadoPagoCardAdapter } from "@angelblancdigital/payments";
+import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
-import { confirmPartnerPaid } from "@/lib/partners/confirm-paid";
+import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
 import {
   orders,
   payments,
@@ -62,6 +63,126 @@ export async function GET(
     let currentStatus =
       order.status;
 
+    /*
+     * MERCADO PAGO
+     *
+     * Reconcilia SOMENTE pagamentos de cartao
+     * que ja pertencem a este pedido.
+     *
+     * Nunca cria uma nova cobranca.
+     */
+    const orderPayments = await db
+      .select()
+      .from(payments)
+      .where(
+        eq(
+          payments.orderId,
+          orderId
+        )
+      );
+
+    const mercadoPagoPayment =
+      orderPayments.find(
+        (payment) =>
+          payment.provider ===
+            "mercadopago" &&
+          payment.method ===
+            "card" &&
+          Boolean(
+            payment.externalId
+          )
+      );
+
+    if (
+      mercadoPagoPayment?.externalId
+    ) {
+      let mercadoPagoPaid =
+        mercadoPagoPayment.status ===
+        "paid";
+
+      /*
+       * Se nosso banco ainda nao sabe
+       * que esta pago, consulta a Order
+       * JA EXISTENTE no Mercado Pago.
+       */
+      if (!mercadoPagoPaid) {
+        const accessToken =
+          process.env
+            .MERCADOPAGO_ACCESS_TOKEN
+            ?.trim();
+
+        if (accessToken) {
+          try {
+            const mercadoPago =
+              createMercadoPagoCardAdapter({
+                accessToken,
+              });
+
+            const remotePayment =
+              await mercadoPago
+                .getPaymentStatus({
+                  externalId:
+                    mercadoPagoPayment
+                      .externalId,
+                });
+
+            mercadoPagoPaid =
+              remotePayment.status ===
+              "paid";
+
+            if (mercadoPagoPaid) {
+              await db
+                .update(payments)
+                .set({
+                  status: "paid",
+                })
+                .where(
+                  eq(
+                    payments.id,
+                    mercadoPagoPayment.id
+                  )
+                );
+            }
+          } catch (
+            mercadoPagoError
+          ) {
+            console.error(
+              "Erro na conciliacao Mercado Pago:",
+              mercadoPagoError
+            );
+          }
+        }
+      }
+
+      /*
+       * O pagamento MP ja esta confirmado.
+       *
+       * Garante:
+       * - pedido pago;
+       * - liberacao para preparacao;
+       * - evento da parceira.
+       *
+       * confirmPartnerPaid e idempotente
+       * pelo eventId da venda.
+       */
+      if (mercadoPagoPaid) {
+        // BIO_MP_SHARED_PAID_FINALIZER_STATUS_V1
+        await finalizeMercadoPagoPaid({
+          orderId,
+          providerPaymentId:
+            mercadoPagoPayment.externalId,
+          paidAt:
+            new Date().toISOString(),
+        });
+
+        currentStatus = "paid";
+      }
+    }
+    /*
+     * LUNIUM / PIX
+     *
+     * Bloco preservado.
+     */
     if (
       currentStatus !== "paid" &&
       currentStatus !== "cancelled"
@@ -194,9 +315,12 @@ export async function GET(
                 {
                   provider: "lunium",
                   providerPaymentId:
-                    String(charge.cashin_id),
+                    String(
+                      charge.cashin_id
+                    ),
                   paidAt:
-                    new Date().toISOString(),
+                    new Date()
+                      .toISOString(),
                 }
               );
 
@@ -215,7 +339,8 @@ export async function GET(
                     charge.usdt_amount,
 
                   settlementTxHash:
-                    charge.settlement_tx_hash,
+                    charge
+                      .settlement_tx_hash,
                 }
               );
             }
@@ -273,4 +398,3 @@ export async function GET(
     );
   }
 }
-

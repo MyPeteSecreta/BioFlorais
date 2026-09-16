@@ -1,6 +1,6 @@
 import Link from "next/link";
 import OrderBatchSelection from "@/components/admin/OrderBatchSelection";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ne} from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import {
@@ -139,6 +139,15 @@ export default async function AdminOrdersPage() {
       eq(
         orders.shippingAddressId,
         addresses.id
+      )
+    )
+    // BIO_ADMIN_HIDE_CHECKOUT_PENDING_V1
+    // Tentativa tecnica de pagamento com cartao nao e pedido
+    // comercial e nao entra na operacao da Central.
+    .where(
+      ne(
+        orders.status,
+        "checkout_pending"
       )
     )
     .orderBy(
