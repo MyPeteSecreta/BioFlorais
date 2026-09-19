@@ -504,8 +504,7 @@ export async function POST(
           lengthCm: products.lengthCm,
           widthCm: products.widthCm,
           heightCm: products.heightCm,
-          sku: products.sku,
-          stockQty: products.stockQty,
+          category: products.category,
           active: products.active,
         })
         .from(products)
