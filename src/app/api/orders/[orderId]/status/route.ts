@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
+import { confirmPartnerPaid } from "@/lib/partners/confirm-paid";
 import {
   orders,
   payments,

@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
-import { db } from "@/lib/db/client";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
 import {
   couponRedemptions,
   coupons,
@@ -8,6 +9,18 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { confirmPartnerPaid } from "@/lib/partners/confirm-paid";
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL não configurada.");
+}
+
+const pool = new Pool({
+  connectionString: databaseUrl,
+});
+
+const transactionalDb = drizzle(pool);
 
 type FinalizeMercadoPagoPaidInput = {
   orderId: string;
@@ -36,7 +49,7 @@ export async function finalizeMercadoPagoPaid(
   const paidAt =
     input.paidAt ?? new Date().toISOString();
 
-  const result = await db.transaction(
+  const result = await transactionalDb.transaction(
     async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${input.orderId}))`
@@ -147,6 +160,7 @@ export async function finalizeMercadoPagoPaid(
             );
           }
 
+          if (!order.customerId) throw new Error(`Pedido ${order.id} sem cliente para registrar cupom.`);
           const [customer] =
             await tx
               .select({
@@ -230,3 +244,4 @@ export async function finalizeMercadoPagoPaid(
 
   return result;
 }
+

@@ -268,8 +268,11 @@ export default function CheckoutPage() {
     setPixRetryNonce,
   ] = useState(0);
 
-  // BIO_CHECKOUT_DRAFT_RESTORE_V3
+  // BIO_CHECKOUT_DRAFT_RESTORE_V4
   useEffect(() => {
+    let cancelled = false;
+    let retryTimer: number | null = null;
+
     try {
       const raw = window.sessionStorage.getItem(
         "bio-checkout-draft"
@@ -317,14 +320,39 @@ export default function CheckoutPage() {
         draft.appliedPartnerCoupon ?? null
       );
 
-      window.setTimeout(() => {
+      let attempts = 0;
+
+      const restoreFields = () => {
+        if (cancelled) {
+          return;
+        }
+
         const form = document.getElementById(
           "bio-checkout-form"
         ) as HTMLFormElement | null;
 
-        if (form && draft.fields) {
-          for (const [name, value] of Object.entries(draft.fields)) {
-            const element = form.elements.namedItem(name);
+        if (!form) {
+          attempts += 1;
+
+          if (attempts < 40) {
+            retryTimer = window.setTimeout(
+              restoreFields,
+              25
+            );
+            return;
+          }
+
+          setCheckoutDraftRestored(true);
+          return;
+        }
+
+        if (draft.fields) {
+          for (
+            const [name, value] of
+            Object.entries(draft.fields)
+          ) {
+            const element =
+              form.elements.namedItem(name);
 
             if (
               element instanceof HTMLInputElement ||
@@ -337,13 +365,23 @@ export default function CheckoutPage() {
         }
 
         setCheckoutDraftRestored(true);
-      }, 0);
+      };
+
+      restoreFields();
     } catch {
       window.sessionStorage.removeItem(
         "bio-checkout-draft"
       );
       setCheckoutDraftRestored(true);
     }
+
+    return () => {
+      cancelled = true;
+
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, []);
   // BIO_PENDING_CART_SNAPSHOT
   const [pendingCartRequestKey, setPendingCartRequestKey] =
@@ -416,8 +454,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Pending de cartÃ£o anterior ao snapshot do carrinho:
-    // nÃ£o reutilizar contra a compra atual.
+    // Pending de cartão anterior ao snapshot do carrinho:
+    // não reutilizar contra a compra atual.
     window.sessionStorage.removeItem(
       "bio-payment-pending"
     );
@@ -471,20 +509,19 @@ export default function CheckoutPage() {
         if (data.paid) {
           setPendingOrderStatus("paid");
 
-          // BIO_PAID_CHECKOUT_FINALIZATION
-          // Mantem a confirmacao visivel nesta tela,
-          // mas encerra a persistencia do pedido pago
-          // e libera a sacola para uma nova compra.
-          window.sessionStorage.removeItem(
-            "bio-payment-pending"
-          );
-
-          setPendingCartRequestKey(null);
+                    // BIO_PAID_CHECKOUT_RELEASE_V4
+          window.sessionStorage.removeItem("bio-payment-pending");
+          window.sessionStorage.removeItem("bio-checkout-draft");
           clearCart();
-          sessionStorage.removeItem("bio-checkout-draft");
+          setPendingCartRequestKey(null);
+          setCardOrderTotalCents(null);
+          setCardPayerEmail("");
+          setPixPayment(null);
+          setOrderError("");
+          
         }
       } catch {
-        // Falha temporÃ¡ria de consulta nÃ£o altera o pedido.
+        // Falha temporária de consulta não altera o pedido.
       }
     }
 
@@ -539,7 +576,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             data?.error ??
-              "NÃ£o foi possÃ­vel gerar o Pix."
+              "Não foi possível gerar o Pix."
           );
         }
 
@@ -548,7 +585,7 @@ export default function CheckoutPage() {
           !data?.pix?.qrCode
         ) {
           throw new Error(
-            "A cobranÃ§a Pix foi criada sem os dados necessÃ¡rios."
+            "A cobrança Pix foi criada sem os dados necessários."
           );
         }
 
@@ -583,7 +620,7 @@ export default function CheckoutPage() {
         setPixError(
           error instanceof Error
             ? error.message
-            : "NÃ£o foi possÃ­vel carregar o Pix."
+            : "Não foi possível carregar o Pix."
         );
       } finally {
         if (!cancelled) {
@@ -689,7 +726,7 @@ export default function CheckoutPage() {
     setPendingOrderId(null);
     setPendingOrderStatus(null);
     setCardOrderTotalCents(null);
-    setCardPayerEmail(null);
+    setCardPayerEmail("");
 
     saveCheckoutDraft();
 
@@ -756,7 +793,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Carrinho alterado: nÃ£o reutilizar pedido antigo.
+    // Carrinho alterado: não reutilizar pedido antigo.
     window.sessionStorage.removeItem("bio-payment-pending");
     setPendingOrderId(null);
     setPendingOrderStatus(null);
@@ -805,7 +842,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             data.error ??
-              "NÃ£o foi possÃ­vel calcular o pedido."
+              "Não foi possível calcular o pedido."
           );
         }
 
@@ -819,7 +856,7 @@ export default function CheckoutPage() {
           setError(
             err instanceof Error
               ? err.message
-              : "NÃ£o foi possÃ­vel calcular o pedido."
+              : "Não foi possível calcular o pedido."
           );
         }
       } finally {
@@ -849,7 +886,7 @@ export default function CheckoutPage() {
             </p>
 
             <h1 className="mt-3 text-3xl font-medium">
-              Sua sacola estÃ¡ vazia
+              Sua sacola está vazia
             </h1>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#26352c]/65">
@@ -871,6 +908,7 @@ export default function CheckoutPage() {
   async function loadShipping(
     cep: string
   ) {
+    resetPendingCardAttempt();
     setLoadingShipping(true);
     setShippingError("");
     setShippingOptions([]);
@@ -904,7 +942,7 @@ export default function CheckoutPage() {
       if (!response.ok) {
         throw new Error(
           data.error ??
-            "NÃ£o foi possÃ­vel calcular o frete."
+            "Não foi possível calcular o frete."
         );
       }
 
@@ -925,8 +963,8 @@ export default function CheckoutPage() {
                     " \u2014 "
                   )
                   .replace(
-                    /\s*â€”\s*/g,
-                    " â€” "
+                    /\s*—\s*/g,
+                    " — "
                   )
                   .trim(),
             })
@@ -942,7 +980,7 @@ export default function CheckoutPage() {
 
       if (options.length === 0) {
         throw new Error(
-          "Nenhuma opÃ§Ã£o de entrega disponÃ­vel para este CEP."
+          "Nenhuma opção de entrega disponível para este CEP."
         );
       }
 
@@ -954,7 +992,7 @@ export default function CheckoutPage() {
       setShippingError(
         err instanceof Error
           ? err.message
-          : "NÃ£o foi possÃ­vel calcular o frete."
+          : "Não foi possível calcular o frete."
       );
     } finally {
       setLoadingShipping(false);
@@ -980,14 +1018,14 @@ export default function CheckoutPage() {
 
     if (cep.length !== 8) {
       setCepError(
-        "Digite um CEP com 8 nÃºmeros."
+        "Digite um CEP com 8 números."
       );
       return;
     }
 
     if (!form) {
       setCepError(
-        "NÃ£o foi possÃ­vel localizar o formulÃ¡rio."
+        "Não foi possível localizar o formulário."
       );
       return;
     }
@@ -1015,7 +1053,7 @@ export default function CheckoutPage() {
 
       if (data.erro) {
         setCepError(
-          "CEP nÃ£o encontrado."
+          "CEP não encontrado."
         );
         return;
       }
@@ -1078,7 +1116,7 @@ export default function CheckoutPage() {
       await loadShipping(cep);
     } catch {
       setCepError(
-        "NÃ£o foi possÃ­vel consultar o CEP. VocÃª pode preencher o endereÃ§o manualmente."
+        "Não foi possível consultar o CEP. Você pode preencher o endereço manualmente."
       );
     } finally {
       setSearchingCep(false);
@@ -1162,6 +1200,26 @@ export default function CheckoutPage() {
     };
   }
 
+  // BIO_RESET_PENDING_CARD_COMMERCIAL_V1
+  function resetPendingCardAttempt() {
+    if (
+      !pendingOrderId ||
+      paymentMethod !== "card" ||
+      pendingOrderStatus === "paid"
+    ) {
+      return;
+    }
+
+    window.sessionStorage.removeItem(
+      "bio-payment-pending"
+    );
+    setPendingOrderId(null);
+    setPendingOrderStatus(null);
+    setPendingCartRequestKey(null);
+    setCardOrderTotalCents(null);
+    setCardPayerEmail("");
+    setOrderError("");
+  }
   async function handleApplyCommercialCoupon() {
     const code =
       couponCode.trim().toUpperCase();
@@ -1185,6 +1243,7 @@ export default function CheckoutPage() {
           quote.totalCents
         );
 
+      resetPendingCardAttempt();
       setAppliedCoupon(validation);
 
       if (appliedPartnerCoupon) {
@@ -1248,6 +1307,7 @@ export default function CheckoutPage() {
           partnerBaseCents
         );
 
+      resetPendingCardAttempt();
       setAppliedPartnerCoupon(validation);
       setPartnerCouponCode("");
     } catch (err) {
@@ -1262,11 +1322,13 @@ export default function CheckoutPage() {
   }
 
   function removeCommercialCoupon() {
+    resetPendingCardAttempt();
     setAppliedCoupon(null);
     setCouponError("");
   }
 
   function removePartnerCoupon() {
+    resetPendingCardAttempt();
     setAppliedPartnerCoupon(null);
     setPartnerCouponError("");
   }
@@ -1743,11 +1805,11 @@ export default function CheckoutPage() {
                 </label>
 
                 <label className="text-sm font-medium">
-                  RG ou InscriÃ§Ã£o Estadual
+                  RG ou Inscrição Estadual
                   <input
                     name="secondaryDocument"
                     className={inputClass}
-                    placeholder="RG ou InscriÃ§Ã£o Estadual"
+                    placeholder="RG ou Inscrição Estadual"
                   />
                 </label>
               </div>
@@ -1759,7 +1821,7 @@ export default function CheckoutPage() {
               </p>
 
               <h2 className="mt-1 text-xl font-medium">
-                EndereÃ§o de entrega
+                Endereço de entrega
               </h2>
 
               <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -1777,7 +1839,7 @@ export default function CheckoutPage() {
 
                   {searchingCep ? (
                     <span className="mt-2 block text-xs text-[#26352c]/50">
-                      Buscando endereÃ§o...
+                      Buscando endereço...
                     </span>
                   ) : null}
 
@@ -1791,7 +1853,7 @@ export default function CheckoutPage() {
                 <div className="hidden md:block" />
 
                 <label className="text-sm font-medium md:col-span-2">
-                  EndereÃ§o
+                  Endereço
                   <input
                     name="street"
                     autoComplete="address-line1"
@@ -1802,7 +1864,7 @@ export default function CheckoutPage() {
                 </label>
 
                 <label className="text-sm font-medium">
-                  NÃºmero
+                  Número
                   <input
                     name="number"
                     onBlur={() => {
@@ -1873,7 +1935,7 @@ export default function CheckoutPage() {
               </p>
 
               <h2 className="mt-1 text-xl font-medium">
-                Entrega e benefÃ­cios
+                Entrega e benefícios
               </h2>
 
               <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -1896,7 +1958,7 @@ export default function CheckoutPage() {
 
                     {hasFreeShipping ? (
                       <span className="rounded-full bg-[#46644f]/10 px-3 py-1 text-[11px] font-semibold text-[#46644f]">
-                        Frete grÃ¡tis
+                        Frete grátis
                       </span>
                     ) : null}
                   </div>
@@ -1904,14 +1966,14 @@ export default function CheckoutPage() {
                   {hasFreeShipping ? (
                     <div className="mt-3 rounded-2xl border border-[#46644f]/15 bg-[#f3f6f1] p-4">
                       <p className="text-xs font-medium text-[#46644f]">
-                        VocÃª ganhou frete grÃ¡tis{" "}
+                        Você ganhou frete grátis{" "}
                         <span aria-hidden="true">
-                          âœ“
+                          ✓
                         </span>
                       </p>
 
                       <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
-                        Na modalidade econÃ´mica.
+                        Na modalidade econômica.
                       </p>
 
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#46644f]/10">
@@ -1927,7 +1989,7 @@ export default function CheckoutPage() {
                             freeShippingRemainingCents
                           )}
                         </strong>{" "}
-                        para vocÃª ganhar frete grÃ¡tis.
+                        para você ganhar frete grátis.
                       </p>
 
                       <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
@@ -1947,7 +2009,7 @@ export default function CheckoutPage() {
 
                   {loadingShipping ? (
                     <p className="mt-4 text-xs text-[#26352c]/55">
-                      Consultando opÃ§Ãµes de entrega...
+                      Consultando opções de entrega...
                     </p>
                   ) : null}
 
@@ -1961,7 +2023,7 @@ export default function CheckoutPage() {
                   !shippingError &&
                   shippingOptions.length === 0 ? (
                     <p className="mt-4 text-xs leading-5 text-[#26352c]/55">
-                      Informe seu CEP para calcular as opÃ§Ãµes de entrega.
+                      Informe seu CEP para calcular as opções de entrega.
                     </p>
                   ) : null}
 
@@ -1980,7 +2042,12 @@ export default function CheckoutPage() {
                               key={`${option.serviceName}-${option.priceCents}`}
                               type="button"
                               onClick={() =>
-                                setSelectedShipping(option)
+                                {
+                                  if (!selected) {
+                                    resetPendingCardAttempt();
+                                  }
+                                  setSelectedShipping(option);
+                                }
                               }
                               className={`w-full rounded-2xl border p-3 text-left transition ${
                                 selected
@@ -1998,8 +2065,8 @@ export default function CheckoutPage() {
                                     Prazo estimado:{" "}
                                     {option.etaDays}{" "}
                                     {option.etaDays === 1
-                                      ? "dia Ãºtil"
-                                      : "dias Ãºteis"}
+                                      ? "dia útil"
+                                      : "dias úteis"}
                                   </p>
                                 </div>
 
@@ -2029,7 +2096,7 @@ export default function CheckoutPage() {
                                     return (
                                       <>
                                         <p className="text-[10px] text-[#26352c]/45">
-                                          PreÃ§o cheio{" "}
+                                          Preço cheio{" "}
                                           <span className="font-medium text-[#26352c]/65">
                                             {formatMoney(
                                               option.priceCents
@@ -2038,9 +2105,9 @@ export default function CheckoutPage() {
                                         </p>
 
                                         <p className="mt-0.5 text-[10px] text-[#46644f]">
-                                          BenefÃ­cio Bio{" "}
+                                          Benefício Bio{" "}
                                           <span className="font-medium">
-                                            âˆ’{" "}
+                                            −{" "}
                                             {formatMoney(
                                               optionBenefitCents
                                             )}
@@ -2048,11 +2115,11 @@ export default function CheckoutPage() {
                                         </p>
 
                                         <p className="mt-1 text-xs font-semibold text-[#26352c]">
-                                          VocÃª paga{" "}
+                                          Você paga{" "}
                                           {optionCustomerCents ===
                                           0 ? (
                                             <span className="text-[#46644f]">
-                                              GrÃ¡tis
+                                              Grátis
                                             </span>
                                           ) : (
                                             formatMoney(
@@ -2131,7 +2198,7 @@ export default function CheckoutPage() {
                           {appliedCoupon.code}
                         </strong>
                         <span className="text-[#26352c]/55">
-                          Cupom comercial Â· âˆ’{" "}
+                          Cupom comercial · −{" "}
                           {formatMoney(
                             appliedCoupon.discountCents
                           )}
@@ -2154,7 +2221,7 @@ export default function CheckoutPage() {
                     </label>
 
                     <p className="mt-1 text-[11px] leading-5 text-[#26352c]/45">
-                      Recebeu um c\u00f3digo de uma parceira? Digite aqui.
+                      Recebeu um código de uma parceira? Digite aqui.
                     </p>
 
                     <div className="mt-2 flex gap-2">
@@ -2209,7 +2276,7 @@ export default function CheckoutPage() {
                           {appliedPartnerCoupon.code}
                         </strong>
                         <span className="text-[#26352c]/55">
-                          Cupom UGC/parceira Â· âˆ’{" "}
+                          Cupom UGC/parceira · −{" "}
                           {formatMoney(
                             appliedPartnerCoupon.discountCents
                           )}
@@ -2227,7 +2294,7 @@ export default function CheckoutPage() {
                   ) : null}
 
                   <p className="mt-3 text-[11px] leading-5 text-[#26352c]/45">
-                    VocÃª pode usar 1 cupom comercial e 1 cupom de parceira/UGC no mesmo pedido.
+                    Você pode usar 1 cupom comercial e 1 cupom de parceira/UGC no mesmo pedido.
                   </p>
                 </div>
               </div>
@@ -2274,14 +2341,14 @@ export default function CheckoutPage() {
                     </span>
                   ) : null}
 
-                  <div className="text-2xl">âš¡</div>
+                  <div className="text-2xl">⚡</div>
 
                   <p className="mt-4 font-medium">
                     Pix
                   </p>
 
                   <p className="mt-1 max-w-xs text-sm leading-5 text-[#26352c]/55">
-                    Pagamento Ã  vista com QR Code e Pix Copia e Cola.
+                    Pagamento à vista com QR Code e Pix Copia e Cola.
                   </p>
                 </button>
 
@@ -2301,14 +2368,14 @@ export default function CheckoutPage() {
                     </span>
                   ) : null}
 
-                  <div className="text-2xl">ðŸ’³</div>
+                  <div className="text-2xl">💳</div>
 
                   <p className="mt-4 font-medium">
-                    CartÃ£o de crÃ©dito
+                    Cartão de crédito
                   </p>
 
                   <p className="mt-1 max-w-xs text-sm leading-5 text-[#26352c]/55">
-                    Pagamento com cartÃ£o de crÃ©dito. Consulte as opÃ§Ãµes de parcelamento na prÃ³xima etapa.
+                    Pagamento com cartão de crédito. Consulte as opções de parcelamento na próxima etapa.
                   </p>
                 </button>
               </div>
@@ -2340,7 +2407,7 @@ export default function CheckoutPage() {
                     className="flex justify-between gap-5 text-sm"
                   >
                     <span className="text-[#26352c]/70">
-                      {item.qty}Ã—{" "}
+                      {item.qty}×{" "}
                       {item.name}
                     </span>
 
@@ -2359,7 +2426,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom comercial</span>
                 <strong className="font-medium">
-                  âˆ’ {formatMoney(couponDiscountCents)}
+                  − {formatMoney(couponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2368,7 +2435,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom UGC/parceira</span>
                 <strong className="font-medium">
-                  âˆ’ {formatMoney(partnerCouponDiscountCents)}
+                  − {formatMoney(partnerCouponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2387,7 +2454,7 @@ export default function CheckoutPage() {
                       )
                     : loading
                       ? "Calculando..."
-                      : "â€”"}
+                      : "—"}
                 </strong>
               </div>
 
@@ -2406,7 +2473,7 @@ export default function CheckoutPage() {
                     </span>
 
                     <strong className="font-medium">
-                      âˆ’{" "}
+                      −{" "}
                       {formatMoney(
                         offer.discountCents
                       )}
@@ -2438,7 +2505,7 @@ export default function CheckoutPage() {
                     ? "Calculando..."
                     : selectedShipping
                       ? customerShippingCents === 0
-                        ? "GrÃ¡tis"
+                        ? "Grátis"
                         : formatMoney(
                             customerShippingCents
                           )
@@ -2451,7 +2518,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom comercial</span>
                 <strong className="font-medium">
-                  âˆ’ {formatMoney(couponDiscountCents)}
+                  − {formatMoney(couponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2460,7 +2527,7 @@ export default function CheckoutPage() {
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">
                 <span>Cupom UGC/parceira</span>
                 <strong className="font-medium">
-                  âˆ’ {formatMoney(partnerCouponDiscountCents)}
+                  − {formatMoney(partnerCouponDiscountCents)}
                 </strong>
               </div>
             ) : null}
@@ -2474,13 +2541,13 @@ export default function CheckoutPage() {
               <div className="mt-2 flex items-center justify-between gap-4 text-sm">
                 <strong className="font-medium">
                   {paymentMethod === "pix"
-                    ? "âš¡ Pix"
-                    : "ðŸ’³ CartÃ£o de crÃ©dito"}
+                    ? "⚡ Pix"
+                    : "💳 Cartão de crédito"}
                 </strong>
 
                 <span className="text-right text-[#26352c]/55">
                   {paymentMethod === "pix"
-                    ? "Ã€ vista"
+                    ? "À vista"
                     : "Parcelamento conforme adquirente"}
                 </span>
               </div>
@@ -2497,7 +2564,7 @@ export default function CheckoutPage() {
                       )
                   : loading
                     ? "..."
-                    : "â€”"}
+                    : "—"}
               </strong>
             </div>
 
@@ -2508,7 +2575,7 @@ export default function CheckoutPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#46644f] text-sm text-white">
-                    âœ“
+                    ✓
                   </div>
 
                   <div>
@@ -2524,7 +2591,7 @@ export default function CheckoutPage() {
                         ? "Pagamento confirmado."
                         : paymentMethod === "pix"
                           ? "Aguardando pagamento via Pix."
-                          : "Preencha os dados do cartÃ£o abaixo para concluir sua compra."}
+                          : "Preencha os dados do cartão abaixo para concluir sua compra."}
                     </p>
 
                     <p className="mt-2 text-xs text-[#26352c]/45">
@@ -2541,7 +2608,7 @@ export default function CheckoutPage() {
                     (!cardOrderTotalCents || !cardPayerEmail) ? (
                       <div className="mt-5 border-t border-[#26352c]/10 pt-5">
                         <p className="text-sm leading-5 text-[#26352c]/65">
-                          Esta tentativa de pagamento nÃ£o pode ser retomada.
+                          Esta tentativa de pagamento não pode ser retomada.
                         </p>
 
                         <button
@@ -2575,7 +2642,7 @@ export default function CheckoutPage() {
                         {pixError ? (
                           <div className="rounded-xl border border-red-900/10 bg-white p-4">
                             <p className="text-sm font-medium text-[#26352c]">
-                              NÃ£o foi possÃ­vel carregar o Pix.
+                              Não foi possível carregar o Pix.
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-[#26352c]/55">
@@ -2649,13 +2716,13 @@ export default function CheckoutPage() {
                               className="w-full rounded-full bg-[#46644f] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
                             >
                               {pixCopied
-                                ? "CÃ³digo Pix copiado"
-                                : "Copiar cÃ³digo Pix"}
+                                ? "Código Pix copiado"
+                                : "Copiar código Pix"}
                             </button>
 
                             {pixPayment.expiresAt ? (
                               <p className="text-center text-xs text-[#26352c]/45">
-                                Esta cobranÃ§a possui prazo de expiraÃ§Ã£o definido pelo provedor.
+                                Esta cobrança possui prazo de expiração definido pelo provedor.
                               </p>
                             ) : null}
                           </div>
@@ -2688,15 +2755,15 @@ export default function CheckoutPage() {
                   ? paymentMethod === "card" && pendingOrderStatus !== "paid" ? "Pagamento pendente" : "Pedido criado"
                   : paymentMethod === "pix"
                     ? "Continuar com Pix"
-                    : "Continuar com cartÃ£o"}
+                    : "Continuar com cartão"}
             </button>
 
             <p className="mt-3 text-center text-xs leading-5 text-[#26352c]/45">
               {pendingOrderId
                 ? pendingOrderStatus === "paid"
                   ? "Pagamento confirmado."
-                  : "Sua compra ainda nÃ£o foi confirmada. Conclua o pagamento abaixo ou continue comprando."
-                : "O pedido serÃ¡ criado com os valores, descontos e entrega confirmados acima."}
+                  : "Sua compra ainda não foi confirmada. Conclua o pagamento abaixo ou continue comprando."
+                : "O pedido será criado com os valores, descontos e entrega confirmados acima."}
             </p>
           </aside>
         </div>
@@ -2719,18 +2786,18 @@ export default function CheckoutPage() {
               </p>
 
               <h2 className="mt-2 text-2xl font-medium text-[#26352c]">
-                CartÃ£o de crÃ©dito
+                Cartão de crédito
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#26352c]/60">
-                Escolha o parcelamento e preencha os dados do cartÃ£o em ambiente seguro.
+                Escolha o parcelamento e preencha os dados do cartão em ambiente seguro.
               </p>
             </div>
 
           {/* BIO_CONTINUE_SHOPPING_CARD_BUTTON_V1 */}
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[#756674]">
-              Ainda nÃ£o quer finalizar? Seu carrinho continuarÃ¡ disponÃ­vel.
+              Ainda não quer finalizar? Seu carrinho continuará disponível.
             </p>
 
             <button
@@ -2738,7 +2805,7 @@ export default function CheckoutPage() {
               onClick={continueShoppingFromCard}
               className="rounded-full border border-[#422347] bg-white px-5 py-2.5 text-sm font-extrabold text-[#422347] transition hover:bg-[#f7f1f5]"
             >
-              â† Continuar comprando
+              ← Continuar comprando
             </button>
           </div>
             <MercadoPagoCardPayment

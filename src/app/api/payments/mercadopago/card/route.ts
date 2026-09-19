@@ -5,7 +5,7 @@ import { createMercadoPagoCardAdapter } from "@angelblancdigital/payments";
 
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
-import { orders, payments } from "@/lib/db/schema";
+import { customers, orders, payments } from "@/lib/db/schema";
 
 export const runtime = "nodejs";
 
@@ -58,19 +58,6 @@ export async function POST(request: Request) {
         id: orders.id,
         status: orders.status,
         totalCents: orders.totalCents,
-        // BIO_CARD_PAID_DEFERRED_EFFECTS_V1
-        couponCode: orders.couponCode,
-        couponDiscountCents: orders.couponDiscountCents,
-        partnerCouponCode: orders.partnerCouponCode,
-        partnerCouponId: orders.partnerCouponId,
-        partnerId: orders.partnerId,
-        partnerCampaignId: orders.partnerCampaignId,
-        partnerCampaignName: orders.partnerCampaignName,
-        partnerCommissionCents: orders.partnerCommissionCents,
-        partnerCommissionPercent: orders.partnerCommissionPercent,
-        subtotalCents: orders.subtotalCents,
-        shippingCents: orders.shippingCents,
-        commercialAdjustmentsJson: orders.commercialAdjustmentsJson,
         customerId: orders.customerId,
       })
       .from(orders)
