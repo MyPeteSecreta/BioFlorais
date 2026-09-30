@@ -1,11 +1,85 @@
 # Entrega — Bio Florais B2B (candidata limpa)
 
 - **Pasta:** `C:\Users\User\bio-b2b-limpa` (worktree de `C:\Users\User\BioFlorais`)
-- **Branch:** `b2b/bio-limpa-v1` (local, **sem push**)
+- **Branches:** `b2b/bio-limpa-v1` (já em produção, `main` = `10c0f3a`) e **`b2b/bio-admin-v1`** (rodada Admin B2B, local, **sem push**)
 - **Base:** `origin/main` = `e043f6a` (merge feito em 30/09; antes era `c15c0c8`)
 - **Data:** 30/09/2026
 
 Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou descartado lá, a main não foi tocada e o Neon não foi acessado. Não houve seed, deploy, push nem pagamento real. As outras marcas também não foram alteradas.
+
+---
+
+## ★ Rodada Admin B2B — entrega da aba 1 (branch `b2b/bio-admin-v1`)
+
+- **Branch nova** `b2b/bio-admin-v1`, criada a partir de `origin/main` = `10c0f3a` (produção). Só local: sem push, deploy, acesso ao Neon ou seed.
+- **Commit:** `0701df5 feat(b2b/bio): admin B2B aba 1 (vendedores/RCAs) + convite, cadastro e aprovacao; PF sem boleto; texto de frete especial`
+- **Verificações:**
+  - `tsc` exit 0.
+  - `npm.cmd run build` exit 0 (43/43; gera `/admin/b2b`, `/b2b/convite/[token]`, `/api/admin/b2b/*` e `/api/b2b/invites/accept`).
+  - `node --test scripts/b2b-pricing.test.mjs scripts/b2b-invites.test.mjs`: **12/12**.
+  - `git diff --check` vazio.
+  - eslint: 0 erros nos arquivos novos e alterados; os 3 avisos restantes são das páginas de pedidos, que já existiam.
+- **Não testado ponta a ponta contra banco:** sem autorização de acesso ao Neon e sem Postgres local. O roteiro abaixo é para o Luis rodar depois de aplicar o SQL da seção A.3.
+
+### A.1 O que entrou
+
+**Aba 1: Vendedores / RCAs** (`/admin/b2b`, link "B2B" no menu do admin)
+- **Lista:** nome, e-mail, tipo (RCA / Vendedor), status (convite pendente, convite expirado, aguardando aprovação, ativo, inativo), data do convite, último acesso, nº de clientes, nº de ofertas e nº de pedidos pagos (`orders.b2b_responsible_id` com status `paid`).
+- **Gerar convite** (nome, e-mail, tipo, WhatsApp opcional):
+  - Token opaco de 256 bits; o banco guarda só o SHA-256; validade de 7 dias.
+  - O link completo `/b2b/convite/<token>` aparece **uma única vez**, com **Copiar** e **Enviar pelo WhatsApp** (`wa.me` com o texto pronto; DDI 55 é colocado automaticamente).
+  - Um e-mail que já tem cadastro é recusado, com orientação para usar "Redefinir acesso".
+- **Ações:**
+  - Nos convites: revogar e gerar novo link (o anterior é revogado).
+  - Nos vendedores: aprovar (`company_approved_at` + status `active`), desativar e reativar, redefinir acesso.
+  - Quem é reativado sem nunca ter sido aprovado volta para "aguardando aprovação".
+  - Redefinir acesso gera um link para definir nova senha, com a mesma mecânica do convite; o link de redefinição anterior é revogado.
+- Todas as rotas `/api/admin/b2b/*` **exigem a sessão do admin** que já existe (cookie `mypeteme_admin_session`, comparação em tempo constante).
+
+**Fluxo do vendedor (não existia na Bio)**
+1. **Convite** `/b2b/convite/<token>`: o token é validado no servidor e mensagens distintas explicam link inexistente, expirado, substituído ou já usado.
+2. **Cadastro:** dados PF (CPF+RG) ou PJ (CNPJ+IE), celular, endereço (CEP preenche o resto), chave Pix e banco para as comissões, **login e senha**, e **termo RCA** (obrigatório para o tipo RCA).
+   - A senha é gravada em `scrypt$<salt b64url>$<hash b64url>`, o formato atual da Bio; um teste confirma que hashes do login antigo continuam válidos.
+   - O login e o e-mail são únicos, sem diferenciar maiúsculas.
+   - O convite é reservado com um UPDATE condicional antes de gravar, então dois envios simultâneos não criam dois cadastros.
+3. **Aprovação:** o cadastro nasce com status `pending` e o login responde "cadastro em análise" até o admin aprovar.
+4. **Login** `/b2b/login` grava `last_login_at`. Os motivos de bloqueio (em análise / desativado) só aparecem **depois** da senha correta.
+5. **Painel** `/b2b/painel` (já existia): criar cliente, criar oferta, gerar o link. A oferta aberta pelo cliente é `/b2b/oferta/<token>`.
+   - Ao desativar o vendedor, o acesso dele e os links de oferta dele param na hora, porque a oferta exige responsável ativo.
+
+**Regra nova: PF sem boleto.** No checkout B2B, pessoa física vê só Pix e cartão; se o boleto estava selecionado, volta para Pix. O servidor também recusa: `/api/b2b/orders/create` responde 400 e `/api/b2b/payments/boleto` responde 409 para PF.
+
+**Texto do frete.** Nenhuma tela B2B dizia "frete grátis". O único texto assim é da página de produto **B2C** e não foi tocado. Incluí "Frete especial B2B a partir de R$ 450" na barra do catálogo da oferta e no carrinho B2B.
+
+### A.2 Pontos de atenção
+
+- ⚠️ **Termo RCA provisório:** o texto em `src/app/b2b/convite/[token]/InviteForm.tsx` (`RCA_TERMS`) é um **resumo que eu escrevi**. Precisa ser substituído pelo termo oficial revisado pelo jurídico antes de publicar.
+- ⚠️ **Segurança, já existia e fica fora deste escopo:** as rotas de admin que já existiam (`/api/admin/orders/[id]/fulfillment` e `/shipment`) **não verificam a sessão do admin**. Recomendo aplicar o mesmo `isAdminRequest` (`src/lib/admin/session.ts`) numa rodada própria.
+- **Tipos gravados:** `rca` (RCA) e `clt` (Vendedor), iguais aos da Secreta. O preflight A4 mostra se já existem outros valores no banco.
+
+### A.3 Banco (obrigatório antes do deploy desta branch)
+
+1. `sql/b2b/03a_admin_preflight_one_shot.sql`: um único SELECT, uma linha em json, somente leitura. Mostra colunas novas (ok/FALTANDO), colunas/índices/constraints, tipos e status já gravados, e duplicidade de login ou e-mail sem diferenciar maiúsculas (esperado: vazio).
+2. `sql/b2b/03b_admin_candidate_if_not_exists.sql`: numa transação única e só aditivo, cria `b2b_responsibles.last_login_at`, `b2b_responsible_invites.purpose` (default `onboarding`) e `b2b_responsible_invites.responsible_id` (FK `NOT VALID`), mais CHECK e índice. Só mexe em tabelas `b2b_*`; nenhuma rota B2C lê essas tabelas.
+
+### A.4 Roteiro de teste da aba 1 (Luis)
+
+1. Entrar em `/admin/login` e clicar em **B2B** no menu.
+2. Clicar em **Gerar convite** (tipo RCA, com WhatsApp): o link aparece com Copiar e WhatsApp, e a lista mostra "Convite pendente". Fechar o aviso e confirmar que o link não aparece de novo.
+3. **Gerar novo link** na mesma linha, e abrir o link **antigo**: deve aparecer "substituído ou revogado".
+4. Abrir o link novo numa aba anônima e fazer o **cadastro** (login `teste.rca`, senha com 8+ caracteres, aceitar o termo). Deve aparecer "Cadastro enviado". Abrir o mesmo link de novo mostra "já foi usado".
+5. Em `/b2b/login` com `teste.rca`: aparece "cadastro em análise". Senha errada dá só "Login ou senha inválidos".
+6. No admin, a linha vira **Aguardando aprovação**; clicar em **Aprovar** e ela passa a **Ativo**.
+7. Em `/b2b/login`, entra no `/b2b/painel`. No admin, a coluna "Último acesso" fica preenchida.
+8. No painel: **cadastrar cliente**, **criar oferta** com 1+ linhas e **gerar link**. No admin, as colunas Clientes e Ofertas passam a 1.
+9. Abrir o link da oferta numa aba anônima (como cliente): catálogo com preços B2B e a faixa "Frete especial B2B a partir de R$ 450".
+10. No checkout como **pessoa física**, o boleto não aparece. Trocar para **pessoa jurídica** e o boleto aparece.
+11. No admin, clicar em **Desativar**: o login do vendedor passa a dizer "acesso desativado" e o link da oferta dele mostra "Link indisponível". Depois **Reativar**.
+12. **Redefinir acesso**: abrir o link novo e trocar a senha. A senha antiga para de funcionar e a nova entra.
+
+### A.5 Próxima entrega
+
+Abas 2 (Linhas comerciais), 3 (Promoções) e 4 (Acompanhamento, com o registro de "cliente visualizou a linha X fora da oferta"). Hoje elas aparecem na tela como "chega na próxima entrega".
 
 ---
 
