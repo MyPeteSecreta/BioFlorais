@@ -553,8 +553,19 @@ export default function CheckoutPage() {
       setPixError("");
 
       try {
+        /*
+         * TEMPORÁRIO (30/09): conta Lunium bloqueada. Enquanto
+         * NEXT_PUBLIC_PIX_PROVIDER não for "lunium", o Pix sai pelo
+         * Mercado Pago (mesma conta/token do cartão). Para voltar à
+         * Lunium: NEXT_PUBLIC_PIX_PROVIDER=lunium na Vercel + Redeploy.
+         */
+        const useMercadoPago =
+          process.env.NEXT_PUBLIC_PIX_PROVIDER !== "lunium";
+
         const response = await fetch(
-          "/api/payments/lunium/pix",
+          useMercadoPago
+            ? "/api/payments/mercadopago/pix"
+            : "/api/payments/lunium/pix",
           {
             method: "POST",
 
@@ -570,15 +581,37 @@ export default function CheckoutPage() {
           }
         );
 
-        const data =
+        const rawData =
           await response.json();
 
         if (!response.ok) {
           throw new Error(
-            data?.error ??
+            rawData?.error ??
               "Não foi possível gerar o Pix."
           );
         }
+
+        // Normaliza a resposta do Mercado Pago para o formato da Lunium.
+        const data = useMercadoPago
+          ? {
+              paymentId:
+                rawData?.mercadoPagoOrderId,
+              status:
+                rawData?.status,
+              // A rota cria o Pix com validade de 30 minutos.
+              expiresAt: new Date(
+                Date.now() + 30 * 60 * 1000
+              ).toISOString(),
+              pix: {
+                qrCode:
+                  rawData?.pix?.qrCode,
+                qrImageUrl: rawData?.pix
+                  ?.qrCodeBase64
+                  ? `data:image/png;base64,${rawData.pix.qrCodeBase64}`
+                  : null,
+              },
+            }
+          : rawData;
 
         if (
           !data?.paymentId ||
