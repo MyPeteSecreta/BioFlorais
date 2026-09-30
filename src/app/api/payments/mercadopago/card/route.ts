@@ -170,6 +170,10 @@ const adapter = createMercadoPagoCardAdapter({
       externalId: result.externalId,
       method: "card",
       status: result.status,
+      rawPayload: {
+        installments,
+        paymentMethodId,
+      },
     });
 
     if (result.status === "paid") {
