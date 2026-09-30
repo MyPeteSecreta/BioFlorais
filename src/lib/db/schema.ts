@@ -789,6 +789,13 @@ export const b2bResponsibleInvites = pgTable(
     acceptedAt: timestamp("accepted_at"),
     revokedAt: timestamp("revoked_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /*
+     * Admin B2B (sql/b2b/03_admin_b2b_candidate.sql):
+     * "onboarding" = convite de cadastro; "password_reset" = redefinição
+     * de acesso de um responsável já existente (responsible_id).
+     */
+    purpose: text("purpose").notNull().default("onboarding"),
+    responsibleId: uuid("responsible_id"),
   }
 );
 
@@ -827,6 +834,8 @@ export const b2bResponsibles = pgTable(
     neighborhood: text("neighborhood"),
     city: text("city"),
     state: text("state"),
+    // Admin B2B: último login do responsável na área B2B.
+    lastLoginAt: timestamp("last_login_at"),
   }
 );
 

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bResponsibles } from "@/lib/db/schema";
@@ -44,12 +44,31 @@ export async function POST(request: NextRequest) {
 
     if (
       !responsible ||
-      responsible.status !== "active" ||
       !responsible.passwordHash ||
       !verifyPassword(password, responsible.passwordHash)
     ) {
       return NextResponse.json({ error: "Login ou senha inválidos." }, { status: 401 });
     }
+
+    // Só depois da senha correta revelamos o motivo do bloqueio.
+    if (responsible.status === "pending") {
+      return NextResponse.json(
+        { error: "Seu cadastro está em análise. Você poderá entrar assim que for aprovado." },
+        { status: 403 }
+      );
+    }
+
+    if (responsible.status !== "active") {
+      return NextResponse.json(
+        { error: "Seu acesso está desativado. Fale com o administrador." },
+        { status: 403 }
+      );
+    }
+
+    await db
+      .update(b2bResponsibles)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(b2bResponsibles.id, responsible.id));
 
     const response = NextResponse.json({ ok: true });
 

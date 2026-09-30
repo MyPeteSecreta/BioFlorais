@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
-import { b2bBoletoRequests, orders, payments } from "@/lib/db/schema";
+import { b2bBoletoRequests, customers, orders, payments } from "@/lib/db/schema";
 import { verifyB2BOrderOfferToken } from "@/lib/b2b/public-offer-context";
 import {
   isB2BInstallmentCountValid,
@@ -46,8 +46,10 @@ export async function POST(request: NextRequest) {
         totalCents: orders.totalCents,
         b2bOfferId: orders.b2bOfferId,
         paymentMethod: orders.paymentMethod,
+        personType: customers.personType,
       })
       .from(orders)
+      .leftJoin(customers, eq(customers.id, orders.customerId))
       .where(eq(orders.id, orderId))
       .limit(1);
 
@@ -74,6 +76,14 @@ export async function POST(request: NextRequest) {
           error:
             "Este pedido foi precificado para outra forma de pagamento e não pode ser pago por boleto.",
         },
+        { status: 409 }
+      );
+    }
+
+    // Regra B2B: pessoa física paga só com Pix ou cartão.
+    if (order.personType !== "pj") {
+      return NextResponse.json(
+        { error: "Boleto disponível apenas para pessoa jurídica." },
         { status: 409 }
       );
     }

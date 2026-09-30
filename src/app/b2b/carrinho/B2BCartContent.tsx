@@ -81,7 +81,8 @@ export default function B2BCartContent() {
                 <span>{formatB2BCents(cart.subtotalCents)}</span>
               </div>
               <p className="mt-1 text-xs text-[#8a7886]">
-                Frete, cupom e o valor final de cada forma de pagamento aparecem no checkout.
+                Frete especial B2B a partir de R$ 450. Frete, cupom e o valor final de cada
+                forma de pagamento aparecem no checkout.
               </p>
 
               {missingCents > 0 ? (

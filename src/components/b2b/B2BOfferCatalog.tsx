@@ -151,7 +151,9 @@ export default function B2BOfferCatalog({
               {cart.itemCount} {cart.itemCount === 1 ? "item" : "itens"} ·{" "}
               {formatB2BCents(cart.subtotalCents)}
             </p>
-            <p className="text-xs text-[#8a7886]">Pedido mínimo: R$ 250,00 em produtos</p>
+            <p className="text-xs text-[#8a7886]">
+              Pedido mínimo: R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
+            </p>
           </div>
           <Link
             href={`/b2b/carrinho?b2b=${encodeURIComponent(token)}`}

@@ -198,6 +198,9 @@ export default function B2BCheckoutContent() {
     ? quote?.options.find((option) => option.serviceName === serviceName) ?? null
     : null;
   const totals = chosen?.totalsByPaymentMethod ?? null;
+  // Pessoa física: só Pix e cartão (o servidor também recusa boleto para PF).
+  const availableMethods: readonly B2BPaymentMethod[] =
+    personType === "pf" ? ["pix", "card"] : ["pix", "card", "boleto"];
   const allowedBoletoInstallments = resolveB2BAllowedInstallments(totals?.boleto ?? 0);
   const effectiveBoletoInstallments = Math.min(boletoInstallments, allowedBoletoInstallments);
 
@@ -491,7 +494,11 @@ export default function B2BCheckoutContent() {
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setPersonType(type)}
+                  onClick={() => {
+                    setPersonType(type);
+                    // Pessoa física paga só com Pix ou cartão.
+                    if (type === "pf" && paymentMethod === "boleto") setPaymentMethod("pix");
+                  }}
                   className={`rounded-full border px-4 py-2 text-sm font-bold ${
                     personType === type
                       ? "border-[#55245f] bg-[#55245f] text-white"
@@ -582,7 +589,7 @@ export default function B2BCheckoutContent() {
 
           <section className="space-y-3">
             <h2 className="font-bold">Forma de pagamento</h2>
-            {(["pix", "card", "boleto"] as const).map((method) => (
+            {availableMethods.map((method) => (
               <label
                 key={method}
                 className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 text-sm ${
@@ -601,6 +608,10 @@ export default function B2BCheckoutContent() {
                 <strong>{totals ? formatB2BCents(totals[method]) : "—"}</strong>
               </label>
             ))}
+
+            {personType === "pf" && (
+              <p className="text-xs text-[#8a7886]">Boleto disponível apenas para pessoa jurídica.</p>
+            )}
 
             {paymentMethod === "boleto" && totals && (
               <div className="rounded-xl border border-[#d9c7dc] bg-white p-3 text-sm">

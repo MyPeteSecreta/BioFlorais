@@ -120,6 +120,11 @@ export async function POST(request: NextRequest) {
 
     const paymentMethod = body.paymentMethod;
 
+    // Regra B2B: pessoa física paga só com Pix ou cartão.
+    if (personType === "pf" && paymentMethod === "boleto") {
+      return badRequest("Boleto disponível apenas para pessoa jurídica. Escolha Pix ou cartão.");
+    }
+
     const chosenServiceName = text(body.shipping?.serviceName);
 
     if (!chosenServiceName) {

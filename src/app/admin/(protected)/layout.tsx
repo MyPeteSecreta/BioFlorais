@@ -78,6 +78,13 @@ export default async function ProtectedAdminLayout({
               Pedidos
             </Link>
 
+            <Link
+              href="/admin/b2b"
+              className="rounded-full border border-[#eadfd9] bg-white px-5 py-2.5 text-sm font-extrabold text-[#342737]"
+            >
+              B2B
+            </Link>
+
             {centralOmieUrl ? (
               <a
                 href={
