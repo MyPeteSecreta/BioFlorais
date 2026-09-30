@@ -222,7 +222,17 @@ export default function B2BCheckoutContent() {
   }, [order, pix, finalMessage]);
 
   async function startPix(orderId: string) {
-    const response = await fetch("/api/b2b/payments/lunium/pix", {
+    /*
+     * Mesma chave do checkout B2C: enquanto NEXT_PUBLIC_PIX_PROVIDER não
+     * for "lunium", o Pix sai pelo Mercado Pago. As duas rotas B2B
+     * devolvem o mesmo formato ({ pix: { qrCode, qrImageUrl } }).
+     */
+    const pixRoute =
+      process.env.NEXT_PUBLIC_PIX_PROVIDER === "lunium"
+        ? "/api/b2b/payments/lunium/pix"
+        : "/api/b2b/payments/mercadopago/pix";
+
+    const response = await fetch(pixRoute, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId, b2bToken: token }),

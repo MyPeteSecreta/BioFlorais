@@ -83,17 +83,32 @@ export async function GET(
         )
       );
 
+    /*
+     * Cartao e Pix Mercado Pago (Order API; B2C e B2B).
+     * Prioriza um pagamento ja pago e, depois, o mais recente
+     * (um Pix pode ter sido gerado de novo apos expirar).
+     */
     const mercadoPagoPayment =
-      orderPayments.find(
-        (payment) =>
-          payment.provider ===
-            "mercadopago" &&
-          payment.method ===
-            "card" &&
-          Boolean(
-            payment.externalId
-          )
-      );
+      orderPayments
+        .filter(
+          (payment) =>
+            payment.provider ===
+              "mercadopago" &&
+            (payment.method ===
+              "card" ||
+              payment.method ===
+                "pix") &&
+            Boolean(
+              payment.externalId
+            )
+        )
+        .sort(
+          (a, b) =>
+            Number(b.status === "paid") -
+              Number(a.status === "paid") ||
+            (b.createdAt?.getTime() ?? 0) -
+              (a.createdAt?.getTime() ?? 0)
+        )[0];
 
     if (
       mercadoPagoPayment?.externalId

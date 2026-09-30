@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reconcile-mp-pix",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}
