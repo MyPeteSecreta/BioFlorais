@@ -27,7 +27,10 @@ export const B2B_FLORAL_CATEGORIES = [
 
 export const B2B_FLORAL_FIXED_PRICE_CENTS = 1990; // R$ 19,90
 
-/** Demais categorias: 55% do preço B2C vigente (products.price_cents). */
+/**
+ * Demais categorias: 55% do preço B2C vigente (products.price_cents),
+ * arredondado por roundB2BUnitPriceCents.
+ */
 export const B2B_DEFAULT_PRICE_PERCENT = 0.55;
 
 function normalizeCategory(value: string) {
@@ -46,6 +49,17 @@ export function isB2BFloralCategory(category: string | null | undefined) {
   return Boolean(category) && FLORAL_CATEGORY_KEYS.has(normalizeCategory(category!));
 }
 
+/**
+ * Arredondamento de PREÇO UNITÁRIO calculado (regra de todos os sites):
+ * parte inteira em reais + R$ 0,90. Ex.: 27,00 -> 27,90; 27,50 -> 27,90;
+ * 27,95 -> 27,90. Aceita centavos fracionários (resultado do percentual).
+ * Nunca usar em totais nem nos descontos Pix/cartão.
+ */
+export function roundB2BUnitPriceCents(rawCents: number): number {
+  const wholeReais = Math.floor(Math.max(0, rawCents) / 100);
+  return wholeReais * 100 + 90;
+}
+
 export function resolveB2BUnitPriceCents(
   b2cPriceCents: number,
   category: string | null | undefined
@@ -54,7 +68,8 @@ export function resolveB2BUnitPriceCents(
     return B2B_FLORAL_FIXED_PRICE_CENTS;
   }
 
-  return Math.round(b2cPriceCents * B2B_DEFAULT_PRICE_PERCENT);
+  // 55% em aritmética inteira (x * 11 / 20) para evitar erro de float.
+  return roundB2BUnitPriceCents((b2cPriceCents * 11) / 20);
 }
 
 // ---------------------------------------------------------------------------

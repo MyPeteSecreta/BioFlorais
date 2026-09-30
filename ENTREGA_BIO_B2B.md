@@ -9,24 +9,29 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
-## 0. Atenção: base diferente do que o prompt chama de "produção"
+## 0. Base
 
-O prompt diz que `main` = `e9954b3` é a produção, mas a `origin/main` está em `c15c0c8`. As duas divergiram:
-
-- `origin/main` tem commits que a `main` local não tem: `47964fd`, `3ec393b`, `bc130d9` (merge da PR #1) e `c15c0c8`.
-- A `main` local tem um commit que não está na `origin/main`: `e9954b3 fix: persistir parcelas e corrigir build do checkout`.
-
-A candidata segue o comando do prompt (`worktree add ... origin/main`), então **`e9954b3` não está incluído**. Antes de publicar, confirmar qual das duas é a produção de fato. Se for `e9954b3`, basta fazer rebase ou cherry-pick desta branch: os arquivos B2B são novos e o diff nos arquivos B2C é pequeno (seção 3).
+A base `origin/main` = `c15c0c8` **foi confirmada como produção pelo Luis** (revisão da janela mestre) e fica mantida. O commit local `e9954b3`, que só existe na `main` local de `C:\Users\User\BioFlorais`, fica de fora de propósito.
 
 ## 1. Commits
 
 ```
+<rev2>  fix(b2b/bio): revisao mestre — arredondamento ,90, checagem de valor Lunium para todos os pedidos, preflight em consulta unica
+d3e761c docs(b2b/bio): ENTREGA_BIO_B2B.md (verificacoes, SQLs, roteiro de teste)
 e15b51e feat(b2b/bio): telas B2B (oferta, carrinho, checkout, login e painel)
 097b29b feat(b2b/bio): regras comerciais, cotacao autoritativa e rotas B2B
 d5ae52e feat(b2b/bio): schema B2B (so adicoes) + preflight somente leitura e SQL candidato
 ```
 
-(Este arquivo `ENTREGA_BIO_B2B.md` vai num 4º commit, só de documentação.)
+O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git log -1`).
+
+### Mudanças da revisão da janela mestre
+
+1. **Base:** `c15c0c8` confirmada e mantida.
+2. **Webhook e polling Lunium:** a checagem de valor agora vale para **todos** os pedidos, B2C e B2B, igual ao hotfix da Secreta e da My Pet. Só marca pago se `amount_cents == orders.total_cents`; valor ausente também bloqueia.
+3. **Arredondamento:** o preço unitário calculado passa a ser a parte inteira em reais + R$ 0,90 (27,00 → 27,90; 27,50 → 27,90; 27,95 → 27,90). É uma função única, `roundB2BUnitPriceCents`, com teste. O floral continua fixo em R$ 19,90, e a regra não se aplica a totais nem aos descontos Pix/cartão.
+4. **Preflight em consulta única:** novo `sql/b2b/01b_preflight_one_shot.sql`, um único SELECT que devolve uma linha com uma coluna json (`json_build_object`) com os blocos [1] a [12]. É somente leitura.
+5. `tsc` e build rodados de novo: verdes (seção 2).
 
 ## 2. Verificações (execução real nesta pasta)
 
@@ -39,7 +44,8 @@ d5ae52e feat(b2b/bio): schema B2B (so adicoes) + preflight somente leitura e SQL
 | `eslint` | 0 problemas nos arquivos B2B novos. `eslint src` inteiro: 12 erros, todos em código B2C que já existia; nenhum foi introduzido por esta branch (o `any` em `orders/[orderId]/status/route.ts` é de uma linha original) |
 | Encoding | todos os arquivos novos ou alterados são UTF-8 válido; busca por mojibake (`Ã§`, `Ã£`, `â€`, `Â·`...) nos arquivos B2B: nenhum |
 | `schema.ts` | **só adições** (+351 / −0). BOM e CRLF originais preservados byte a byte |
-| Regras puras (`pricing.ts`) | script com asserts via `node --experimental-strip-types`: ok |
+| Regras puras (`pricing.ts`) | `node --test scripts/b2b-pricing.test.mjs`: **5/5 passam** (arredondamento ,90, floral, 55%, descontos só sobre produtos, mínimo, parcelas, frete regional). Exige Node ≥ 23.6; não usa dependência nova |
+| Revisão mestre | `tsc` exit 0 e `npm.cmd run build` exit 0 rodados de novo depois das mudanças (compilou, TypeScript ok, 42/42 páginas) |
 
 **Sobre o build:** o build sem variáveis de ambiente falha numa rota B2C que já existia antes desta branch (`/api/admin/orders/[id]/fulfillment`). O motivo é que `src/lib/db/client.ts` lança erro na importação quando `DATABASE_URL` não existe. O build verde acima rodou com `DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build_placeholder`. Esse endereço é fictício e local: o driver HTTP do Neon não conecta no build, e o Neon não foi acessado. Na Vercel a variável real já existe.
 
@@ -98,8 +104,8 @@ d5ae52e feat(b2b/bio): schema B2B (so adicoes) + preflight somente leitura e SQL
 |---|---|---|
 | `api/coupons/validate` | filtro `scope = 'b2c'` | cupom B2B deixa de valer no B2C (todo cupom existente fica `b2c` pelo DEFAULT) |
 | `api/orders/create` | mesmo filtro no cupom comercial | idem |
-| `api/webhooks/lunium` | pedido **B2B** só vira `paid` se `amount_cents == orders.total_cents` | nenhum: o bloco só roda quando `b2b_offer_id` está preenchido |
-| `api/orders/[orderId]/status` | mesma regra no polling Lunium | nenhum: pedido B2C passa direto |
+| `api/webhooks/lunium` | **qualquer** pedido (B2C e B2B) só vira `paid` se `amount_cents == orders.total_cents`; valor ausente também bloqueia | **muda o B2C de propósito** (revisão mestre, igual ao hotfix da Secreta e da My Pet): um Pix B2C com valor divergente deixa de ser baixado automaticamente e fica no log "valor divergente" |
+| `api/orders/[orderId]/status` | mesma regra no polling Lunium, para todos os pedidos | idem |
 
 ## 4. Inventário do B2B antigo em `C:\Users\User\BioFlorais` (só leitura)
 
@@ -120,7 +126,8 @@ Referência de implementação: Secreta B2B em `C:\Users\User\secreta-b2b-valida
 ## 5. Banco
 
 - **Nada de journal Drizzle, `drizzle-kit migrate` ou `push`.** Os SQLs ficam em `sql/b2b/`.
-- `sql/b2b/01_preflight_readonly.sql`: `BEGIN TRANSACTION READ ONLY ... ROLLBACK`. Traz tabelas, colunas (tipo, nulabilidade, default), índices, constraints das tabelas `b2b_*` e de `orders`/`coupons`/`payments`, além de checagens de dados: formato de hash, ofertas sem `activated_at`, produtos sem dimensão, categorias ativas e boletos duplicados.
+- `sql/b2b/01b_preflight_one_shot.sql` (**preferido**): um único SELECT que devolve **uma linha com uma coluna json** (`preflight`) com os blocos `b1_*` a `b12_*`. Não escreve nada. O bloco [12] usa `to_jsonb(o)->>'b2b_offer_id'` e por isso não falha se a coluna ainda não existir.
+- `sql/b2b/01_preflight_readonly.sql`: os mesmos blocos em SELECTs separados, `BEGIN TRANSACTION READ ONLY ... ROLLBACK`. Traz tabelas, colunas (tipo, nulabilidade, default), índices, constraints das tabelas `b2b_*` e de `orders`/`coupons`/`payments`, além de checagens de dados: formato de hash, ofertas sem `activated_at`, produtos sem dimensão, categorias ativas e boletos duplicados.
 - `sql/b2b/02_candidate_if_not_exists.sql`: só `ADD COLUMN IF NOT EXISTS`, `CREATE ... IF NOT EXISTS` e `CHECK ... NOT VALID` condicionado a `pg_constraint`. Não tem DROP, ALTER TYPE nem UPDATE. O conteúdo:
   - `orders`: `b2b_client_id`, `b2b_offer_id`, `b2b_responsible_id/type/name`, `payment_method`, `payment_method_discount_cents` (sem FK, igual ao banco real) e um índice parcial em `b2b_offer_id`.
   - `coupons`: `scope` (default `b2c`) e `discounts_shipping` (default `false`), mais CHECKs para `scope ∈ {b2c,b2b}` e para "desconta frete ⇒ cupom percentual".
@@ -135,7 +142,7 @@ Referência de implementação: Secreta B2B em `C:\Users\User\secreta-b2b-valida
 | Regra | Implementação |
 |---|---|
 | Floral R$ 19,90 | `products.category` ∈ {Floral em gotas, Floral dose única, Floral de Ambiente, Snack Floral, Virtudes Divinas}, comparação sem acento e sem diferenciar maiúsculas |
-| Demais 55% do B2C | `Math.round(price_cents × 0,55)`, igual à Secreta. **Diferença:** o candidato antigo da Bio usava "piso em reais + ,90". Confirmar se a regra fechada deve substituir aquele arredondamento |
+| Demais 55% do B2C | `roundB2BUnitPriceCents(price_cents × 11 / 20)` = parte inteira em reais + R$ 0,90 (regra de todos os sites). Ex.: 59,90 → 32,945 → **32,90**; 50,00 → 27,50 → **27,90**. Só no preço unitário; nunca em totais nem nos descontos Pix/cartão |
 | Mínimo R$ 250 | sobre os produtos, antes do cupom; checado na cotação e na criação do pedido |
 | Cartão/boleto até 3x, parcela mínima R$ 500 | `resolveB2BAllowedInstallments`, conferido na criação, na rota de cartão e na rota de boleto |
 | Pix só Lunium | `/api/b2b/payments/lunium/pix`; não existe rota Pix Mercado Pago no B2B |
@@ -147,7 +154,7 @@ Referência de implementação: Secreta B2B em `C:\Users\User\secreta-b2b-valida
 | Token da oferta nos pagamentos | `verifyB2BOrderOfferToken`: a oferta do token precisa ser igual a `orders.b2b_offer_id` |
 | Trava por método | `orders.payment_method`; cada rota de pagamento exige igualdade |
 | Boleto | idempotente pelo banco (upsert com `xmax = 0`), composição exata `(n−1)·parcela + última = total`, registro em `payments` (`provider = boleto-manual`). **Não emite boleto real** |
-| Webhook/polling Lunium | pedido B2B só vira pago com `amount_cents == total_cents` (valor ausente também bloqueia) |
+| Webhook/polling Lunium | **todo** pedido (B2C e B2B) só vira pago com `amount_cents == total_cents` (valor ausente também bloqueia) |
 
 Outras decisões:
 - **Representante ativo** = `b2b_responsibles.status = 'active'` (convenção do login antigo da Bio; a Secreta usa `company_approved_at`).
@@ -173,7 +180,7 @@ Outras decisões:
 
 1. **Login:** `/b2b/login` → senha errada dá 401; senha certa leva a `/b2b/painel`.
 2. **Painel:** cadastrar um cliente, criar uma oferta com 1+ linhas e clicar em "Gerar link". Gerar de novo e confirmar que **o link anterior para de funcionar** ("Link indisponível").
-3. **Oferta** (aba anônima): floral a R$ 19,90; outros produtos a 55% do preço B2C.
+3. **Oferta** (aba anônima): floral a R$ 19,90; outros produtos a 55% do preço B2C, **sempre terminando em ,90** (ex.: B2C R$ 59,90 → R$ 32,90).
 4. **Mínimo:** com menos de R$ 250 em produtos, o carrinho mostra "Faltam R$ X" e não libera o checkout.
 5. **Frete < R$ 450:** CEP de SP e todas as modalidades com preço real.
 6. **Frete ≥ R$ 450:**
@@ -183,7 +190,7 @@ Outras decisões:
 7. **CEP × UF:** CEP de SP com UF "RS" → erro "estado não corresponde ao CEP".
 8. **Cupom com frete:** um cupom que derruba a base para menos de R$ 450 volta o frete ao preço real. O cupom B2B no checkout **B2C** dá "não encontrado", e um cupom B2C no B2B dá "não é válido para pedidos B2B".
 9. **Valores por método:** a lista mostra Pix < cartão < boleto, sem nenhum "%", e a diferença incide só nos produtos (o frete é igual nos três).
-10. **Pix** (ambiente de teste/sandbox): gerar o QR e confirmar em `orders` que `payment_method = 'pix'` e que `total_cents` é o valor mostrado. Webhook com `amount_cents` diferente → pedido **continua** `pending` (log "valor divergente").
+10. **Pix** (ambiente de teste/sandbox): gerar o QR e confirmar em `orders` que `payment_method = 'pix'` e que `total_cents` é o valor mostrado. Webhook com `amount_cents` diferente → pedido **continua** `pending` (log "valor divergente"). Repetir o teste com um pedido **B2C**: o comportamento tem que ser o mesmo.
 11. **Trava:** com o `orderId` de um pedido Pix, chamar `POST /api/b2b/payments/boleto` → 409. Sem `b2bToken` → 401. Com o token de outra oferta → 403.
 12. **Cartão** (credenciais de teste do Mercado Pago): em pedidos abaixo de R$ 1.000 só aparece 1x; em pedidos de R$ 1.500 ou mais aparecem até 3x. Parcelas acima do permitido via API dão 400.
 13. **Boleto:** escolher 2x num total ímpar, conferir `b2b_boleto_requests` (parcela + última = total) e 1 linha em `payments` (`method = 'boleto'`). Repetir a chamada dá `repeated: true`, sem nenhuma linha nova.

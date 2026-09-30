@@ -42,7 +42,6 @@ export async function GET(
         id: orders.id,
         status: orders.status,
         totalCents: orders.totalCents,
-        b2bOfferId: orders.b2bOfferId,
       })
       .from(orders)
       .where(
@@ -232,20 +231,19 @@ export async function GET(
               );
 
             /*
-             * B2B: so marca pago se o valor recebido for exatamente
-             * orders.total_cents. Pedido B2C nao e afetado.
+             * B2C e B2B: so marca pago se o valor recebido for
+             * exatamente orders.total_cents.
              */
-            const b2bAmountMatches =
-              !order.b2bOfferId ||
+            const amountMatches =
               charge?.amount_cents ===
-                order.totalCents;
+              order.totalCents;
 
             if (
               charge?.status ===
                 "paid" &&
               charge?.settlement_status ===
                 "sent" &&
-              b2bAmountMatches
+              amountMatches
             ) {
               const existingPayments =
                 await db
