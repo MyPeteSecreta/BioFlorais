@@ -252,6 +252,41 @@ export async function POST(
       });
     }
 
+    /*
+     * B2B: so marca pago se o valor recebido for exatamente
+     * orders.total_cents. Pedidos B2C (b2b_offer_id nulo) nao
+     * passam por este bloco.
+     */
+    const matchedOrder =
+      existingOrders[0];
+
+    if (
+      matchedOrder.b2bOfferId &&
+      charge.amount_cents !==
+        matchedOrder.totalCents
+    ) {
+      console.error(
+        "Lunium webhook B2B: valor divergente, pedido NAO marcado como pago.",
+        {
+          orderId,
+          cashinId:
+            charge.cashin_id,
+          expectedCents:
+            matchedOrder.totalCents,
+          receivedCents:
+            charge.amount_cents ??
+            null,
+        }
+      );
+
+      return NextResponse.json({
+        received: true,
+        ignored: true,
+        reason:
+          "amount_mismatch",
+      });
+    }
+
     const existingPayments =
       await db
         .select()

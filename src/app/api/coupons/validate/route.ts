@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { coupons } from "@/lib/db/schema";
@@ -40,7 +40,8 @@ export async function POST(request: Request) {
     const result = await db
       .select()
       .from(coupons)
-      .where(eq(coupons.code, code))
+      // B2B: cupom scope='b2b' nunca vale no B2C.
+      .where(and(eq(coupons.code, code), eq(coupons.scope, "b2c")))
       .limit(1);
 
     const coupon = result[0];

@@ -106,7 +106,11 @@ async function resolveCoupon(
       .select()
       .from(coupons)
       .where(
-        eq(coupons.code, code)
+        // B2B: cupom scope='b2b' nunca vale no B2C.
+        and(
+          eq(coupons.code, code),
+          eq(coupons.scope, "b2c")
+        )
       )
       .limit(1);
 
