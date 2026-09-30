@@ -16,14 +16,14 @@ A base `origin/main` = `c15c0c8` **foi confirmada como produção pelo Luis** (r
 ## 1. Commits
 
 ```
-<rev2>  fix(b2b/bio): revisao mestre — arredondamento ,90, checagem de valor Lunium para todos os pedidos, preflight em consulta unica
+e40e090 fix(b2b/bio): revisao mestre — arredondamento ,90, checagem de valor Lunium para todos os pedidos, preflight em consulta unica
 d3e761c docs(b2b/bio): ENTREGA_BIO_B2B.md (verificacoes, SQLs, roteiro de teste)
 e15b51e feat(b2b/bio): telas B2B (oferta, carrinho, checkout, login e painel)
 097b29b feat(b2b/bio): regras comerciais, cotacao autoritativa e rotas B2B
 d5ae52e feat(b2b/bio): schema B2B (so adicoes) + preflight somente leitura e SQL candidato
 ```
 
-O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git log -1`).
+Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --stat acima.
 
 ### Mudanças da revisão da janela mestre
 
@@ -49,10 +49,13 @@ O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git 
 
 **Sobre o build:** o build sem variáveis de ambiente falha numa rota B2C que já existia antes desta branch (`/api/admin/orders/[id]/fulfillment`). O motivo é que `src/lib/db/client.ts` lança erro na importação quando `DATABASE_URL` não existe. O build verde acima rodou com `DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build_placeholder`. Esse endereço é fictício e local: o driver HTTP do Neon não conecta no build, e o Neon não foi acessado. Na Vercel a variável real já existe.
 
-### `git diff --stat origin/main..HEAD`
+### `git diff --stat origin/main..HEAD` (até e40e090)
 
 ```
+ ENTREGA_BIO_B2B.md                                 | 198 ++++++
+ scripts/b2b-pricing.test.mjs                       |  61 ++
  sql/b2b/01_preflight_readonly.sql                  | 176 ++++++
+ sql/b2b/01b_preflight_one_shot.sql                 | 217 +++++++
  sql/b2b/02_candidate_if_not_exists.sql             | 123 ++++
  src/app/api/b2b/auth/login/route.ts                |  69 +++
  src/app/api/b2b/auth/logout/route.ts               |  11 +
@@ -68,9 +71,9 @@ O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git 
  src/app/api/b2b/promotions/route.ts                |  41 ++
  src/app/api/b2b/shipping/quote/route.ts            |  74 +++
  src/app/api/coupons/validate/route.ts              |   5 +-
- src/app/api/orders/[orderId]/status/route.ts       |  14 +-
+ src/app/api/orders/[orderId]/status/route.ts       |  12 +-
  src/app/api/orders/create/route.ts                 |   6 +-
- src/app/api/webhooks/lunium/route.ts               |  35 ++
+ src/app/api/webhooks/lunium/route.ts               |  33 +
  src/app/b2b/carrinho/B2BCartContent.tsx            | 106 ++++
  src/app/b2b/carrinho/page.tsx                      |  11 +
  src/app/b2b/checkout/B2BCheckoutContent.tsx        | 681 +++++++++++++++++++++
@@ -85,7 +88,7 @@ O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git 
  src/lib/b2b/coupon-resolver.ts                     | 127 ++++
  src/lib/b2b/format.ts                              |   6 +
  src/lib/b2b/password.ts                            |  39 ++
- src/lib/b2b/pricing.ts                             | 279 +++++++++
+ src/lib/b2b/pricing.ts                             | 294 +++++++++
  src/lib/b2b/promotion-engine.ts                    |  23 +
  src/lib/b2b/promotion-resolver.ts                  | 183 ++++++
  src/lib/b2b/public-offer-context.ts                | 249 ++++++++
@@ -95,7 +98,7 @@ O hash `<rev2>` é o do commit que contém esta versão deste arquivo (ver `git 
  src/lib/b2b/token.ts                               |  14 +
  src/lib/db/schema.ts                               | 351 +++++++++++
  src/lib/shipping/cep-lookup.ts                     |  41 ++
- 43 files changed, 5403 insertions(+), 4 deletions(-)
+ 46 files changed, 5890 insertions(+), 4 deletions(-)
 ```
 
 ## 3. Arquivos B2C tocados (diff mínimo)
