@@ -2,7 +2,7 @@
 
 - **Pasta:** `C:\Users\User\bio-b2b-limpa` (worktree de `C:\Users\User\BioFlorais`)
 - **Branch:** `b2b/bio-limpa-v1` (local, **sem push**)
-- **Base:** `origin/main` = `c15c0c8`
+- **Base:** `origin/main` = `e043f6a` (merge feito em 30/09; antes era `c15c0c8`)
 - **Data:** 30/09/2026
 
 Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou descartado lá, a main não foi tocada e o Neon não foi acessado. Não houve seed, deploy, push nem pagamento real. As outras marcas também não foram alteradas.
@@ -11,11 +11,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ## 0. Base
 
-A base `origin/main` = `c15c0c8` **foi confirmada como produção pelo Luis** (revisão da janela mestre) e fica mantida. O commit local `e9954b3`, que só existe na `main` local de `C:\Users\User\BioFlorais`, fica de fora de propósito.
+A base `origin/main` = `c15c0c8` foi confirmada como produção pelo Luis. Ainda em 30/09 a produção avançou para **`e043f6a`** ("Pix temporário pelo Mercado Pago enquanto a conta Lunium está bloqueada"), e a branch recebeu `git fetch` + `git merge origin/main` (merge `7f1384d`, **sem conflitos**). Tudo que veio da main foi preservado: `src/app/api/payments/mercadopago/pix/route.ts` e `src/app/checkout/page.tsx` estão **idênticos** a `origin/main` (`git diff origin/main -- <arquivos>` vazio). O commit local `e9954b3`, que só existe na `main` local de `C:\Users\User\BioFlorais`, continua de fora de propósito.
 
 ## 1. Commits
 
 ```
+c09315b feat(b2b/bio): Pix B2B pelo Mercado Pago (NEXT_PUBLIC_PIX_PROVIDER) + cron de conciliacao MP Pix
+7f1384d Merge remote-tracking branch 'origin/main' into b2b/bio-limpa-v1   (traz e043f6a)
+19a3ffa docs(b2b/bio): ENTREGA com hash e diff --stat da revisao mestre
 e40e090 fix(b2b/bio): revisao mestre — arredondamento ,90, checagem de valor Lunium para todos os pedidos, preflight em consulta unica
 d3e761c docs(b2b/bio): ENTREGA_BIO_B2B.md (verificacoes, SQLs, roteiro de teste)
 e15b51e feat(b2b/bio): telas B2B (oferta, carrinho, checkout, login e painel)
@@ -23,7 +26,7 @@ e15b51e feat(b2b/bio): telas B2B (oferta, carrinho, checkout, login e painel)
 d5ae52e feat(b2b/bio): schema B2B (so adicoes) + preflight somente leitura e SQL candidato
 ```
 
-Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --stat acima.
+Um último commit `docs(...)` só atualiza este arquivo.
 
 ### Mudanças da revisão da janela mestre
 
@@ -32,6 +35,16 @@ Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --st
 3. **Arredondamento:** o preço unitário calculado passa a ser a parte inteira em reais + R$ 0,90 (27,00 → 27,90; 27,50 → 27,90; 27,95 → 27,90). É uma função única, `roundB2BUnitPriceCents`, com teste. O floral continua fixo em R$ 19,90, e a regra não se aplica a totais nem aos descontos Pix/cartão.
 4. **Preflight em consulta única:** novo `sql/b2b/01b_preflight_one_shot.sql`, um único SELECT que devolve uma linha com uma coluna json (`json_build_object`) com os blocos [1] a [12]. É somente leitura.
 5. `tsc` e build rodados de novo: verdes (seção 2).
+
+### Atualização da janela mestre: Pix pelo Mercado Pago (produção `e043f6a`)
+
+1. **Pix B2B segue a mesma chave do B2C.** Enquanto `NEXT_PUBLIC_PIX_PROVIDER` não for `"lunium"`, o checkout B2B chama a nova rota **`/api/b2b/payments/mercadopago/pix`**. Ela exige o token da oferta, a trava `payment_method === "pix"` e o status `"pending"`, e lê o total do banco (`orders.total_cents`, que já tem o desconto Pix de 7%). A rota reaproveita um Pix Mercado Pago ainda válido do mesmo valor (até 25 dos 30 minutos), para não gerar QR duplicado. Com `NEXT_PUBLIC_PIX_PROVIDER=lunium`, volta para `/api/b2b/payments/lunium/pix`.
+2. **Confirmação do Pix B2B: o que já cobria e o que precisou mudar.**
+   - **Webhook** `/api/webhooks/mercadopago`: **já cobria.** Ele busca o pagamento por `externalId` sem filtrar o método e confirma pela Order API autenticada antes de chamar `finalizeMercadoPagoPaid`.
+   - **Rota de status** `/api/orders/[orderId]/status`: **não cobria.** Só conciliava `method === "card"`, então o Pix Mercado Pago (B2C e B2B) ficava só com o webhook. Estendi para `card` **ou** `pix`, priorizando um pagamento já pago e depois o mais recente (o Pix pode ter sido gerado de novo). O polling do checkout B2B (a cada 5s) usa essa rota.
+3. **Rede de segurança:** `/api/cron/reconcile-mp-pix` (GET, exige `Authorization: Bearer ${CRON_SECRET}`, comparação em tempo constante; sem `CRON_SECRET` configurado responde sempre 401). Ele busca os `payments` `mercadopago`/`pix` das últimas 48h com pedido `pending` (no máximo 100 por execução), consulta a Order no Mercado Pago, atualiza o status do payment e, se estiver pago, chama `finalizeMercadoPagoPaid` (o mesmo finalizador idempotente do webhook). Vale para B2C e B2B e nunca cria cobrança. O `vercel.json` agenda a rota a cada 10 minutos (`*/10 * * * *`).
+   - ⚠️ **Plano Vercel:** crons com frequência maior que diária exigem plano Pro. No Hobby, o deploy com `*/10` é recusado.
+   - ⚠️ **`CRON_SECRET`** é variável **nova**: precisa ser criada na Vercel antes do deploy, senão o cron responde 401 e não concilia nada.
 
 ## 2. Verificações (execução real nesta pasta)
 
@@ -46,18 +59,19 @@ Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --st
 | `schema.ts` | **só adições** (+351 / −0). BOM e CRLF originais preservados byte a byte |
 | Regras puras (`pricing.ts`) | `node --test scripts/b2b-pricing.test.mjs`: **5/5 passam** (arredondamento ,90, floral, 55%, descontos só sobre produtos, mínimo, parcelas, frete regional). Exige Node ≥ 23.6; não usa dependência nova |
 | Revisão mestre | `tsc` exit 0 e `npm.cmd run build` exit 0 rodados de novo depois das mudanças (compilou, TypeScript ok, 42/42 páginas) |
+| Merge `e043f6a` + Pix B2B Mercado Pago + cron | `tsc` exit 0; `npm.cmd run build` exit 0 (compilou, TypeScript ok, **43/43** páginas, com `/api/b2b/payments/mercadopago/pix`, `/api/cron/reconcile-mp-pix` e `/api/payments/mercadopago/pix` da main); `node --test` 5/5; `git diff --check` vazio; eslint limpo nos arquivos novos |
 
 **Sobre o build:** o build sem variáveis de ambiente falha numa rota B2C que já existia antes desta branch (`/api/admin/orders/[id]/fulfillment`). O motivo é que `src/lib/db/client.ts` lança erro na importação quando `DATABASE_URL` não existe. O build verde acima rodou com `DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build_placeholder`. Esse endereço é fictício e local: o driver HTTP do Neon não conecta no build, e o Neon não foi acessado. Na Vercel a variável real já existe.
 
-### `git diff --stat origin/main..HEAD` (até e40e090)
+### `git diff --stat origin/main..HEAD` (origin/main = e043f6a, até c09315b)
 
 ```
- ENTREGA_BIO_B2B.md                                 | 198 ++++++
+ ENTREGA_BIO_B2B.md                                 | 201 ++++++
  scripts/b2b-pricing.test.mjs                       |  61 ++
  sql/b2b/01_preflight_readonly.sql                  | 176 ++++++
  sql/b2b/01b_preflight_one_shot.sql                 | 217 +++++++
  sql/b2b/02_candidate_if_not_exists.sql             | 123 ++++
- src/app/api/b2b/auth/login/route.ts                |  69 +++
+ src/app/api/b2b/auth/login/route.ts                |  69 ++
  src/app/api/b2b/auth/logout/route.ts               |  11 +
  src/app/api/b2b/clients/route.ts                   |  84 +++
  src/app/api/b2b/commercial-groups/route.ts         |  29 +
@@ -68,15 +82,17 @@ Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --st
  src/app/api/b2b/payments/boleto/route.ts           | 191 ++++++
  src/app/api/b2b/payments/lunium/pix/route.ts       | 260 ++++++++
  src/app/api/b2b/payments/mercadopago/card/route.ts | 193 ++++++
+ src/app/api/b2b/payments/mercadopago/pix/route.ts  | 275 ++++++++
  src/app/api/b2b/promotions/route.ts                |  41 ++
  src/app/api/b2b/shipping/quote/route.ts            |  74 +++
  src/app/api/coupons/validate/route.ts              |   5 +-
- src/app/api/orders/[orderId]/status/route.ts       |  12 +-
+ src/app/api/cron/reconcile-mp-pix/route.ts         | 131 ++++
+ src/app/api/orders/[orderId]/status/route.ts       |  47 +-
  src/app/api/orders/create/route.ts                 |   6 +-
  src/app/api/webhooks/lunium/route.ts               |  33 +
  src/app/b2b/carrinho/B2BCartContent.tsx            | 106 ++++
  src/app/b2b/carrinho/page.tsx                      |  11 +
- src/app/b2b/checkout/B2BCheckoutContent.tsx        | 681 +++++++++++++++++++++
+ src/app/b2b/checkout/B2BCheckoutContent.tsx        | 691 +++++++++++++++++++++
  src/app/b2b/checkout/page.tsx                      |  11 +
  src/app/b2b/layout.tsx                             |  13 +
  src/app/b2b/login/page.tsx                         |  71 +++
@@ -98,7 +114,8 @@ Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --st
  src/lib/b2b/token.ts                               |  14 +
  src/lib/db/schema.ts                               | 351 +++++++++++
  src/lib/shipping/cep-lookup.ts                     |  41 ++
- 46 files changed, 5890 insertions(+), 4 deletions(-)
+ vercel.json                                        |   8 +
+ 49 files changed, 6342 insertions(+), 14 deletions(-)
 ```
 
 ## 3. Arquivos B2C tocados (diff mínimo)
@@ -108,7 +125,9 @@ Um último commit `docs(...)` só atualiza este arquivo com o hash e o diff --st
 | `api/coupons/validate` | filtro `scope = 'b2c'` | cupom B2B deixa de valer no B2C (todo cupom existente fica `b2c` pelo DEFAULT) |
 | `api/orders/create` | mesmo filtro no cupom comercial | idem |
 | `api/webhooks/lunium` | **qualquer** pedido (B2C e B2B) só vira `paid` se `amount_cents == orders.total_cents`; valor ausente também bloqueia | **muda o B2C de propósito** (revisão mestre, igual ao hotfix da Secreta e da My Pet): um Pix B2C com valor divergente deixa de ser baixado automaticamente e fica no log "valor divergente" |
-| `api/orders/[orderId]/status` | mesma regra no polling Lunium, para todos os pedidos | idem |
+| `api/orders/[orderId]/status` | mesma regra no polling Lunium, para todos os pedidos; a conciliação Mercado Pago passa a cobrir **Pix** além de cartão | idem; o Pix Mercado Pago do B2C também passa a ser confirmado pelo polling, não só pelo webhook |
+| `api/cron/reconcile-mp-pix` (novo) + `vercel.json` (novo) | concilia Pix Mercado Pago pendente das últimas 48h a cada 10 min | rede de segurança para o Pix B2C e B2B |
+| `api/payments/mercadopago/pix` e `checkout/page.tsx` | **não tocados** (vieram da main em `e043f6a`) | — |
 
 ## 4. Inventário do B2B antigo em `C:\Users\User\BioFlorais` (só leitura)
 
@@ -148,7 +167,7 @@ Referência de implementação: Secreta B2B em `C:\Users\User\secreta-b2b-valida
 | Demais 55% do B2C | `roundB2BUnitPriceCents(price_cents × 11 / 20)` = parte inteira em reais + R$ 0,90 (regra de todos os sites). Ex.: 59,90 → 32,945 → **32,90**; 50,00 → 27,50 → **27,90**. Só no preço unitário; nunca em totais nem nos descontos Pix/cartão |
 | Mínimo R$ 250 | sobre os produtos, antes do cupom; checado na cotação e na criação do pedido |
 | Cartão/boleto até 3x, parcela mínima R$ 500 | `resolveB2BAllowedInstallments`, conferido na criação, na rota de cartão e na rota de boleto |
-| Pix só Lunium | `/api/b2b/payments/lunium/pix`; não existe rota Pix Mercado Pago no B2B |
+| Pix: provedor | mesma chave do B2C, `NEXT_PUBLIC_PIX_PROVIDER`: diferente de `"lunium"` usa `/api/b2b/payments/mercadopago/pix`; igual a `"lunium"` usa `/api/b2b/payments/lunium/pix`. As duas rotas têm as mesmas travas (token, `payment_method = pix`, `pending`, total do banco) |
 | Pix 7% / cartão 3% / boleto cheio, **só sobre produtos** | `resolveB2BOrderTotalCents` = produtos pós-cupom − desconto + frete. O checkout mostra só o valor final de cada método, nunca o %. **Diferença:** a Secreta aplica o % sobre produtos **+ frete**. Alinhar lá se a regra fechada vale para os 3 |
 | Frete ≥ R$ 450 (base pós-cupom) | a modalidade mais barata passa a custar `Math.min(tarifa regional, real)` (S/SE R$ 9,90; CO/NE exceto CE R$ 35,90; Norte + CE R$ 169,90); as demais ficam com preço cheio e nenhuma é ocultada; UF conferida pelo CEP (ViaCEP) no servidor; sem conferência, não há tarifa regional |
 | Cupom B2B × B2C | `scope`; cupom de parceira nunca vale no B2B |
@@ -173,9 +192,11 @@ Outras decisões:
 4. O layout raiz ainda mostra os elementos do B2C (rodapé, botão do carrinho B2C quando ele tem itens) nas páginas `/b2b`.
 5. Sem push nem PR: aguardando autorização do Luis.
 
-## 8. Variáveis de ambiente usadas (todas já existem no B2C)
+## 8. Variáveis de ambiente
 
-`DATABASE_URL`, `ADMIN_SESSION_SECRET`, `LUNIUM_API_KEY`, `LUNIUM_SETTLEMENT_ADDRESS`, `LUNIUM_WEBHOOK_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`, `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`, `MELHORENVIO_CEP_ORIGEM` e as credenciais do Melhor Envio (`integration_credentials`). Nenhuma variável nova.
+`DATABASE_URL`, `ADMIN_SESSION_SECRET`, `LUNIUM_API_KEY`, `LUNIUM_SETTLEMENT_ADDRESS`, `LUNIUM_WEBHOOK_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`, `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`, `NEXT_PUBLIC_PIX_PROVIDER` (já usada pela main), `MELHORENVIO_CEP_ORIGEM` e as credenciais do Melhor Envio (`integration_credentials`).
+
+**Variável nova:** `CRON_SECRET`, exigida por `/api/cron/reconcile-mp-pix`.
 
 ## 9. Roteiro de teste manual (depois do preflight e, se preciso, do candidato)
 
@@ -193,7 +214,9 @@ Outras decisões:
 7. **CEP × UF:** CEP de SP com UF "RS" → erro "estado não corresponde ao CEP".
 8. **Cupom com frete:** um cupom que derruba a base para menos de R$ 450 volta o frete ao preço real. O cupom B2B no checkout **B2C** dá "não encontrado", e um cupom B2C no B2B dá "não é válido para pedidos B2B".
 9. **Valores por método:** a lista mostra Pix < cartão < boleto, sem nenhum "%", e a diferença incide só nos produtos (o frete é igual nos três).
-10. **Pix** (ambiente de teste/sandbox): gerar o QR e confirmar em `orders` que `payment_method = 'pix'` e que `total_cents` é o valor mostrado. Webhook com `amount_cents` diferente → pedido **continua** `pending` (log "valor divergente"). Repetir o teste com um pedido **B2C**: o comportamento tem que ser o mesmo.
+10. **Pix** (ambiente de teste/sandbox): gerar o QR e confirmar em `orders` que `payment_method = 'pix'` e que `total_cents` é o valor mostrado. Webhook com `amount_cents` diferente → pedido **continua** `pending` (log "valor divergente"). Repetir o teste com um pedido **B2C**: o comportamento tem que ser o mesmo. *(Vale quando `NEXT_PUBLIC_PIX_PROVIDER=lunium`.)*
+10b. **Pix Mercado Pago** (padrão enquanto a Lunium estiver bloqueada): o checkout B2B mostra o QR do Mercado Pago com o valor Pix (7% de desconto nos produtos). Em `payments` aparece a linha `provider = mercadopago`, `method = pix`, com `externalId` = id da Order. Recarregar ou tentar de novo em até 25 min **reaproveita** o mesmo QR. Ao pagar, a tela confirma sozinha (polling) e o pedido vira `paid` / `paid_to_prepare`. Chamar a rota com o `orderId` de um pedido boleto dá 409; sem token dá 401.
+10c. **Cron:** `GET /api/cron/reconcile-mp-pix` sem header ou com secret errado dá 401. Com `Authorization: Bearer <CRON_SECRET>` devolve `{ ok, candidates, checked, ordersPaid }`. Um Pix pago cujo webhook não chegou é baixado na próxima execução.
 11. **Trava:** com o `orderId` de um pedido Pix, chamar `POST /api/b2b/payments/boleto` → 409. Sem `b2bToken` → 401. Com o token de outra oferta → 403.
 12. **Cartão** (credenciais de teste do Mercado Pago): em pedidos abaixo de R$ 1.000 só aparece 1x; em pedidos de R$ 1.500 ou mais aparecem até 3x. Parcelas acima do permitido via API dão 400.
 13. **Boleto:** escolher 2x num total ímpar, conferir `b2b_boleto_requests` (parcela + última = total) e 1 linha em `payments` (`method = 'boleto'`). Repetir a chamada dá `repeated: true`, sem nenhuma linha nova.
