@@ -1,11 +1,14 @@
 ﻿import {
   boolean,
+  index,
   integer,
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -343,6 +346,43 @@ export const orders = pgTable(
     createdAt:
       timestamp("created_at")
         .defaultNow(),
+
+    /*
+     * B2B (candidata b2b/bio-limpa-v1). Colunas usadas somente por
+     * pedidos B2B; pedidos B2C continuam com NULL / 0.
+     * Ver sql/b2b/bio_b2b_candidate.sql (ADD COLUMN IF NOT EXISTS).
+     */
+    b2bClientId:
+      uuid("b2b_client_id"),
+
+    b2bOfferId:
+      uuid("b2b_offer_id"),
+
+    b2bResponsibleId:
+      uuid("b2b_responsible_id"),
+
+    b2bResponsibleType:
+      text("b2b_responsible_type"),
+
+    b2bResponsibleName:
+      text("b2b_responsible_name"),
+
+    /*
+     * Forma de pagamento com que o pedido B2B foi precificado
+     * (pix | card | boleto). Toda rota de pagamento B2B exige
+     * igualdade antes de cobrar (trava por metodo).
+     */
+    paymentMethod:
+      text("payment_method"),
+
+    /*
+     * Desconto por forma de pagamento ja embutido em total_cents
+     * (conciliacao interna; nunca exibido ao comprador).
+     */
+    paymentMethodDiscountCents:
+      integer("payment_method_discount_cents")
+        .notNull()
+        .default(0),
   }
 );
 
@@ -551,6 +591,18 @@ export const coupons = pgTable("coupons", {
 
   partnerId: text("partner_id"),
 
+  // B2B: "b2c" (default de todo cupom existente) | "b2b".
+  // Cupom B2B nunca vale no B2C e vice-versa.
+  scope: text("scope")
+    .notNull()
+    .default("b2c"),
+
+  // Uso exclusivo de teste interno: cupom percentual que tambem
+  // desconta o frete no B2B.
+  discountsShipping: boolean("discounts_shipping")
+    .notNull()
+    .default(false),
+
   commissionPercent: integer("commission_percent")
     .notNull()
     .default(0),
@@ -678,4 +730,303 @@ export const partnerEventOutbox = pgTable(
         .defaultNow()
         .notNull(),
   }
+);
+
+/*
+ * ============================================================================
+ * B2B (candidata b2b/bio-limpa-v1)
+ * ============================================================================
+ *
+ * Declaracao TypeScript das tabelas B2B que ja existem no Neon da Bio
+ * (estrutura conferida por introspeccao em 29/09 e pela coleta de 25/09).
+ * Nada aqui deve ser aplicado via drizzle-kit push/migrate: o SQL
+ * candidato (IF NOT EXISTS) e o preflight somente leitura ficam em
+ * sql/b2b/. Nomes de indice/constraint servem apenas para o TypeScript.
+ * ============================================================================
+ */
+
+export const b2bCommercialGroups = pgTable(
+  "b2b_commercial_groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    b2cVisible: boolean("b2c_visible").notNull().default(true),
+    b2bVisible: boolean("b2b_visible").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  }
+);
+
+export const b2bCommercialGroupProducts = pgTable(
+  "b2b_commercial_group_products",
+  {
+    commercialGroupId: uuid("commercial_group_id")
+      .references(() => b2bCommercialGroups.id)
+      .notNull(),
+    productId: uuid("product_id")
+      .references(() => products.id)
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.commercialGroupId, t.productId] }),
+  ]
+);
+
+export const b2bResponsibleInvites = pgTable(
+  "b2b_responsible_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    responsibleType: text("responsible_type").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    status: text("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at").notNull(),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  }
+);
+
+export const b2bResponsibles = pgTable(
+  "b2b_responsibles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    inviteId: uuid("invite_id")
+      .references(() => b2bResponsibleInvites.id)
+      .unique(),
+    type: text("type").notNull(),
+    status: text("status").notNull().default("pending"),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    phone: text("phone"),
+    rcaTermsAcceptedAt: timestamp("rca_terms_accepted_at"),
+    companyApprovedAt: timestamp("company_approved_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    onboardingCompletedAt: timestamp("onboarding_completed_at"),
+    login: text("login"),
+    passwordHash: text("password_hash"),
+    personType: text("person_type").notNull().default("pf"),
+    cpf: text("cpf"),
+    rg: text("rg"),
+    cnpj: text("cnpj"),
+    stateRegistration: text("state_registration"),
+    pixKey: text("pix_key"),
+    bankName: text("bank_name"),
+    bankAgency: text("bank_agency"),
+    bankAccount: text("bank_account"),
+    postalCode: text("postal_code"),
+    street: text("street"),
+    addressNumber: text("address_number"),
+    addressComplement: text("address_complement"),
+    neighborhood: text("neighborhood"),
+    city: text("city"),
+    state: text("state"),
+  }
+);
+
+export const b2bClients = pgTable(
+  "b2b_clients",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    displayName: text("display_name").notNull(),
+    contactName: text("contact_name"),
+    email: text("email"),
+    phone: text("phone"),
+    customerId: uuid("customer_id").references(() => customers.id),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  }
+);
+
+export const b2bClientRelationships = pgTable(
+  "b2b_client_relationships",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clientId: uuid("client_id")
+      .references(() => b2bClients.id)
+      .notNull(),
+    responsibleId: uuid("responsible_id")
+      .references(() => b2bResponsibles.id)
+      .notNull(),
+    active: boolean("active").notNull().default(true),
+    linkedAt: timestamp("linked_at").defaultNow().notNull(),
+    unlinkedAt: timestamp("unlinked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("b2b_relationship_responsible_idx").on(t.responsibleId),
+  ]
+);
+
+export const b2bPromotions = pgTable(
+  "b2b_promotions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    scope: text("scope").notNull(),
+    type: text("type").notNull(),
+    commercialPurpose: text("commercial_purpose").notNull().default("general"),
+    eligibilityScope: text("eligibility_scope").notNull().default("none"),
+    eligibilityHistoryKey: text("eligibility_history_key"),
+    percentage: numeric("percentage"),
+    fixedDiscountCents: integer("fixed_discount_cents"),
+    fixedPriceCents: integer("fixed_price_cents"),
+    buyQuantity: integer("buy_quantity"),
+    freeQuantity: integer("free_quantity"),
+    sellerSelectable: boolean("seller_selectable").notNull().default(true),
+    startsAt: timestamp("starts_at"),
+    endsAt: timestamp("ends_at"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  }
+);
+
+export const b2bPromotionTerms = pgTable(
+  "b2b_promotion_terms",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    promotionId: uuid("promotion_id")
+      .references(() => b2bPromotions.id)
+      .notNull(),
+    termType: text("term_type").notNull(),
+    maxUses: integer("max_uses"),
+    durationDays: integer("duration_days"),
+    validUntil: timestamp("valid_until"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  }
+);
+
+export const b2bPromotionCommercialGroups = pgTable(
+  "b2b_promotion_commercial_groups",
+  {
+    promotionId: uuid("promotion_id")
+      .references(() => b2bPromotions.id)
+      .notNull(),
+    commercialGroupId: uuid("commercial_group_id")
+      .references(() => b2bCommercialGroups.id)
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.promotionId, t.commercialGroupId] }),
+  ]
+);
+
+export const b2bPromotionProducts = pgTable(
+  "b2b_promotion_products",
+  {
+    promotionId: uuid("promotion_id")
+      .references(() => b2bPromotions.id)
+      .notNull(),
+    productId: uuid("product_id")
+      .references(() => products.id)
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.promotionId, t.productId] }),
+  ]
+);
+
+export const b2bOffers = pgTable(
+  "b2b_offers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clientId: uuid("client_id")
+      .references(() => b2bClients.id)
+      .notNull(),
+    responsibleId: uuid("responsible_id")
+      .references(() => b2bResponsibles.id)
+      .notNull(),
+    status: text("status").notNull().default("draft"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    activatedAt: timestamp("activated_at"),
+    revokedAt: timestamp("revoked_at"),
+  }
+);
+
+export const b2bOfferCommercialGroups = pgTable(
+  "b2b_offer_commercial_groups",
+  {
+    offerId: uuid("offer_id")
+      .references(() => b2bOffers.id)
+      .notNull(),
+    commercialGroupId: uuid("commercial_group_id")
+      .references(() => b2bCommercialGroups.id)
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.offerId, t.commercialGroupId] }),
+  ]
+);
+
+export const b2bOfferPromotions = pgTable(
+  "b2b_offer_promotions",
+  {
+    offerId: uuid("offer_id")
+      .references(() => b2bOffers.id)
+      .notNull(),
+    promotionId: uuid("promotion_id")
+      .references(() => b2bPromotions.id)
+      .notNull(),
+    promotionTermId: uuid("promotion_term_id")
+      .references(() => b2bPromotionTerms.id),
+    maxUses: integer("max_uses"),
+    usesCount: integer("uses_count").notNull().default(0),
+    validFrom: timestamp("valid_from"),
+    validUntil: timestamp("valid_until"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.offerId, t.promotionId] }),
+  ]
+);
+
+export const b2bOfferLinks = pgTable(
+  "b2b_offer_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    offerId: uuid("offer_id")
+      .references(() => b2bOffers.id)
+      .notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  }
+);
+
+/*
+ * Solicitacao de boleto B2B: NAO emite boleto real. Uma linha por
+ * pedido (indice unico em order_id = idempotencia garantida pelo banco).
+ * Composicao exata em centavos: (installments - 1) parcelas de
+ * installment_amount_cents + 1 parcela de last_installment_amount_cents
+ * = amount_cents = orders.total_cents.
+ */
+export const b2bBoletoRequests = pgTable(
+  "b2b_boleto_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id")
+      .references(() => orders.id)
+      .notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    installments: integer("installments").notNull().default(1),
+    installmentAmountCents: integer("installment_amount_cents").notNull(),
+    lastInstallmentAmountCents: integer("last_installment_amount_cents").notNull(),
+    status: text("status").notNull().default("pending_request"),
+    notes: text("notes"),
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("b2b_boleto_requests_order_unique_idx").on(t.orderId),
+  ]
 );
