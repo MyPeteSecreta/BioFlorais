@@ -9,6 +9,149 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★ Terceira rodada, parte 2: itens 3, 5, 6 e 7 (sobre `c2151c9`)
+
+Mesma branch `b2b/bio-admin-v1`, commits novos **depois de `c2151c9` (produção)**. Só local: sem push, deploy nem acesso ao Neon.
+
+```
+15f7ff5 fix(security): OAuth do Melhor Envio exige sessao do admin e state aleatorio em cookie httpOnly
+0b48997 feat(b2b/bio): outras linhas compraveis pelo preco B2B normal, sem promocao
+2450a57 fix(b2b/bio): esconde os elementos flutuantes do B2C nas rotas /b2b
+80a6b1b feat(b2b/bio): Offer Builder no padrao My Pet (cards da Home, modal de promocoes, comissao, revisao obrigatoria) + isolamento entre vendedores
+333d8a8 test(b2b/bio): npm test com alias @/ e PGlite (Postgres em memoria) como devDependency
+```
+
+**Verificações (em `15f7ff5`):**
+- `npm.cmd test`: **47/47**.
+- `tsc` exit 0.
+- `npm.cmd run build` exit 0 (42/42).
+- `git diff --check c2151c9..HEAD` vazio.
+- eslint: nenhum erro ou aviso nos arquivos desta rodada; os 12 erros restantes são dos arquivos B2C que já existiam.
+- Validação visual no navegador (desktop 1280px e celular 375px), com uma página temporária de pré-visualização que renderiza o **mesmo** componente com dados iguais ao seed. A página foi apagada e **não está em nenhum commit**.
+
+**Ordem de publicação:**
+- `15f7ff5` (segurança do Melhor Envio) é independente e pode subir sozinho e antes.
+- Os demais dependem do SQL abaixo.
+
+### D.1 Item 3: Offer Builder no padrão da My Pet (`80a6b1b`, `2450a57`)
+
+Replica `/area-interna/b2b` da My Pet conforme a Especificação B2B V1.26–V1.29 (§44–§48). Fluxo: **vendedor logado → só os clientes dele → cliente → Offer Builder → revisão obrigatória → link**.
+
+| Tela | O que faz |
+|---|---|
+| `/b2b/painel` | **Só os clientes do vendedor** em cards; "+ Novo cliente" (**só o nome é obrigatório**, e depois de cadastrar já abre o Offer Builder); "Interesses dos clientes" com "Montar nova oferta". **O painel antigo de checkboxes ("BIO-B2B TEST GROUP") foi removido.** |
+| `/b2b/painel/cliente/[id]` | Ofertas do cliente: rascunho ("Revisar e gerar link" / "Editar rascunho") ou ativa ("Gerar novo link" / "Revogar link"). |
+| `/b2b/painel/cliente/[id]/oferta` | **Offer Builder.** Detalhado logo abaixo. |
+| `/b2b/painel/cliente/[id]/oferta/revisao` | **Revisão obrigatória:** cada linha com a condição, a elegibilidade e a comissão "base + extra = total"; "← Voltar e editar" ou **"Gerar link para o cliente"**, que ativa a oferta e mostra o link uma vez, com Copiar e WhatsApp. |
+
+**Offer Builder em detalhe:**
+- **Cards reais das linhas da Home B2C** (`/assets/home/linhas/*.png`, mapeados por slug em `src/lib/b2b/line-images.ts`), em grade de 2 colunas no desktop e 1 no celular.
+- **Check circular no canto superior esquerdo**; linha não selecionada fica **esmaecida** (opacidade 40% e escala de cinza).
+- **"Ver promoções"** no canto superior direito, só nas linhas com promoção vigente e selecionável. Abre um **modal** com:
+  - **Preço B2B normal** e as promoções da linha;
+  - ao escolher uma promoção, o modal expande **somente as elegibilidades configuradas** no banco (1x/2x/3x compras; 30/60/90/180 dias), sem campo livre e sem a opção "compras + prazo";
+  - em **toda alternativa**, "**comissão-base + extra = total**" lida de `b2b_commission_rules`, sem nada fixo no código.
+- **"Salvar esta condição"**: com promoção, o card ganha **moldura azul** e o selo "Condição promocional: 3 por 2 · 60 dias"; com preço normal, o card fica selecionado sem moldura.
+- **Promoção pontual por produto** (Baby Sono) aparece indicada no card fechado e no modal ("Somente Baby Floral em Gotas Sono").
+- **"Salvar e revisar oferta →"** grava o **rascunho** (status `draft`) e abre a revisão. **Nenhuma rota cria oferta já ativa sem revisão:** a rota antiga `POST /api/b2b/offers` foi **removida**, e um teste garante isso.
+- O **cliente nunca vê comissão**. Os dados de comissão só existem nas páginas e rotas do vendedor logado.
+
+**Validado no navegador:**
+- cards com as 4 artes reais;
+- Adulto normal sem moldura; Pet e Infantil esmaecidas; Baby com moldura azul;
+- modal com "10% + 15% = 25%" no preço normal;
+- "3 por 2" expande compras 20/18/16% e prazos 20/18/16/13%;
+- "Salvar esta condição" fecha o modal e aplica a moldura;
+- no Baby, "Somente ... Sono", com a condição salva voltando pré-selecionada;
+- no celular, uma coluna.
+
+**Correção encontrada nessa validação (`2450a57`):** o botão B2C flutuante "Seja uma criadora" **cobria "Salvar e revisar oferta"**, e a barra de linhas B2C ocupava o rodapé. O componente `HideOnB2B` (no layout raiz) esconde nas rotas `/b2b` só o carrinho B2C, esse botão e a barra de linhas. O rodapé institucional continua, e o B2C não muda fora de `/b2b`.
+
+**Ativação** (`POST /api/b2b/offers/[id]/activate`):
+- revalida cada condição contra as promoções vigentes e a matriz;
+- elegibilidade por prazo vira `valid_from` = agora e `valid_until` = agora + N dias; por compras, `max_uses` = N e `uses_count` = 0;
+- a ativação é condicional (`WHERE status='draft'`), então dois cliques não geram dois links.
+
+Ofertas antigas, criadas já ativas pelo painel anterior, continuam funcionando.
+
+**Comissão congelada no pedido.** `orders/create` grava em cada `order_items`:
+- `commission_base/extra/total_percent`;
+- o snapshot da promoção: `paid_qty`, `bonus_qty`, `physical_qty`, `promotion_id`, `promotion_name`, X e Y.
+
+A regra:
+- **item que recebeu a bonificação de uma promoção da oferta** → extra da promoção na elegibilidade da oferta;
+- **demais itens**, inclusive de linha com promoção que não chegou a bonificar → extra do preço normal.
+
+Mudar a matriz depois não altera pedidos já feitos. Sem a matriz configurada, os campos ficam vazios: o sistema nunca inventa percentual.
+
+Decisão a confirmar: a My Pet não chegou a implementar esse snapshot (o `commission-resolver` dela não existe). Se a comissão de um item de linha promocional que **não** bonificou deve ser a da promoção, e não a do preço normal, é só ajustar `src/lib/b2b/order-commission.ts`.
+
+### D.2 Item 5: isolamento entre vendedores (`80a6b1b`, `333d8a8`)
+
+- `src/lib/b2b/ownership.ts` é a **única fonte** das consultas de posse: clientes com vínculo ativo, ofertas do próprio vendedor de cliente ainda vinculado, e **vendedor desativado não vê nada**.
+- Todas as páginas `/b2b/painel/**` e as rotas `clients`, `offers/draft`, `offers/link` e `offers/[id]/activate` passam por ela. Id de outro vendedor na URL resulta em 404.
+- **Teste automático com dois vendedores** contra Postgres real em memória (`@electric-sql/pglite`, devDependency autorizada), em `scripts/b2b-vendor-isolation.test.mjs`:
+  - cada vendedor lista só os próprios clientes;
+  - não abre cliente nem oferta do outro, nem trocando ids na URL;
+  - cliente transferido: o vendedor antigo perde acesso, inclusive à oferta antiga;
+  - vendedor desativado não vê nada;
+  - id inválido nem chega ao banco.
+- **O mesmo teste executa de verdade os SQLs** que o Luis roda no Neon:
+  - `06a` (preflight) antes do seed;
+  - **`06b` duas vezes** (idempotente: exatamente 8 promoções com 7 regras cada, a Baby restrita ao Sono e o grupo de teste inativo);
+  - a matriz lida do banco com os valores do Luis e o override por vendedor e por cliente;
+  - `07b` duas vezes e `07a` confirmando as colunas.
+- `scripts/b2b-offer-builder.test.mjs` varre as rotas e páginas do vendedor (sessão obrigatória e uso de `ownership.ts`) e confere que nenhuma rota além da ativação cria oferta ativa.
+- `npm test` roda tudo: o script novo no `package.json` usa um carregador só de teste para o alias `@/` (mesmo padrão da My Pet).
+
+### D.3 Item 6: outras linhas com preço B2B normal (`0b48997`)
+
+- `/b2b/oferta/<token>/linha/<slug>` agora mostra os produtos **com preço B2B normal e "Adicionar"**: mesmo carrinho e checkout da oferta, com o aviso "sem promoção".
+- A página continua **gravando o evento** e mostrando o botão de WhatsApp para o vendedor.
+- A cotação aceita os produtos da oferta e das outras linhas, mas o **motor de promoção recebe só os produtos da oferta**, então promoção nunca se aplica fora dela. Um teste trava essa regra. A comissão desses itens é a do preço normal.
+
+### D.4 Item 7: segurança do Melhor Envio (`15f7ff5`, commit separado)
+
+- `/api/shipping/melhorenvio/authorize` e `/callback` exigem a **sessão do admin** (401 sem ela).
+- O authorize gera um **state aleatório** de 256 bits, enviado na URL e num **cookie httpOnly** (`SameSite=Lax`, válido só no caminho do callback, por 10 min).
+- O callback só aceita se o state devolvido for **igual ao do cookie** (comparação em tempo constante). O cookie é de **uso único** e é apagado em qualquer resposta.
+- `scripts/melhorenvio-oauth.test.mjs` chama as **rotas reais**, sem rede: **6/6**. Com a versão anterior das rotas, **5 falham**.
+- **Uso:** com o admin logado, abrir `/api/shipping/melhorenvio/authorize` no mesmo navegador, como antes.
+
+### D.5 SQL (o Luis roda no Neon, nesta ordem, antes do deploy desta parte)
+
+1. `06a` → `06b` (seed da parte 1). Cria `b2b_commission_rules`. Sem ele, o Offer Builder funciona só com o preço normal e mostra o aviso "comissão não configurada".
+2. `07a_offer_builder_preflight_one_shot.sql` (uma consulta, só leitura) → `07b_offer_builder_candidate_if_not_exists.sql`:
+   - `b2b_offer_promotions` recebe `commercial_group_id`, `eligibility_mode` e `duration_days`;
+   - `order_items` recebe as colunas de snapshot. Pela introspecção de 29/09 elas já existem; o `IF NOT EXISTS` só garante.
+   - As telas B2C e do admin leem `order_items` com colunas explícitas, então **não dependem** delas. Só o pedido B2B grava nelas.
+
+Os dois scripts SQL desta parte e o seed **foram executados de verdade** num Postgres em memória, com as tabelas da Bio reproduzidas (`npm test`).
+
+### D.6 Roteiro de teste (Luis)
+
+1. Aplicar `06a`/`06b` e `07a`/`07b`.
+2. Logar como vendedor A em `/b2b/login`: aparecem **só os clientes de A**. Cadastrar "Cliente Teste" só com o nome: já abre o Offer Builder.
+3. **Offer Builder:**
+   - aparecem os cards Adulto, Pet, Infantil e Baby com as artes da Home;
+   - marcar Adulto (sem moldura);
+   - em Baby, clicar "Ver promoções" → aparece "Somente ... Sono"; escolher **3 por 2 → 30 dias** (comissão 10% + 10% = 20%) e "Salvar esta condição" → **moldura azul**;
+   - "Salvar e revisar oferta →".
+4. **Revisão:** Adulto "Preço B2B normal 10% + 15% = 25%"; Baby "3 por 2 · 30 dias · 20%". Clicar "Gerar link para o cliente" e copiar o link.
+5. **Como cliente** (aba anônima):
+   - comprar 4 Sono Baby → o checkout mostra "+2 grátis";
+   - abrir "Outras linhas" → Pet aparece **com preço normal** e dá para adicionar ao carrinho;
+   - a promoção **não** se aplica ao Pet.
+6. Fechar um pedido de teste: em `order_items`, o Sono fica com comissão 10/10/20 e a promoção "3 por 2 - Baby Sono"; os demais itens ficam com 10/15/25.
+7. **Isolamento:** logar como vendedor B. Os clientes de A não aparecem, e colar a URL `/b2b/painel/cliente/<id do cliente de A>` dá 404.
+8. **Interesses:** como vendedor A, o bloco "Interesses dos clientes" mostra "Cliente Teste visualizou a linha Pet"; "Montar nova oferta" já vem com Pet marcada.
+9. **Melhor Envio:**
+   - sem estar logado no admin, `/api/shipping/melhorenvio/authorize` dá 401;
+   - logado, autoriza normalmente;
+   - um callback com `state` alterado dá "State inválido".
+
+---
+
 ## ★★★ Terceira rodada (decisões do Luis em 01/10), parte 1: itens 1, 2 e 4
 
 Na mesma branch `b2b/bio-admin-v1`, **depois de `941e78f` (produção)**, em commits novos, sem reescrever nada publicado. Tudo só local: sem push, deploy nem acesso ao Neon.
@@ -62,7 +205,7 @@ Já era assim e foi conferido. `POST /api/b2b/clients` exige só `displayName`, 
 As regras de comissão passam a ser lidas pelo **Offer Builder** (parte 2, item 3), que mostra "comissão-base + extra = total" ao vendedor. Até lá, as promoções já aparecem na aba **Promoções** do admin e ficam selecionáveis no painel atual.
 
 ### C.4 Próximo (parte 2)
-Itens 3 (Offer Builder no padrão My Pet, com revisão obrigatória e comissão congelada no pedido), 5 (isolamento entre vendedores), 6 (outras linhas com compra pelo preço B2B normal) e 7 (segurança do Melhor Envio).
+Entregue na parte 2 (seção acima).
 
 ---
 
