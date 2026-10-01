@@ -1,18 +1,20 @@
 /**
  * BIO FLORAIS B2B — página pública da oferta. O token é validado no
- * servidor antes de mostrar qualquer produto/preço; sem cache, para que
+ * servidor antes de mostrar qualquer linha/preço; sem cache, para que
  * uma oferta revogada pare de funcionar na hora.
+ *
+ * Primeira tela = cards de linha (mesma arte da Home do B2C). As linhas
+ * escolhidas pelo vendedor vêm primeiro, com moldura azul e selo da
+ * promoção; abaixo, "Outras linhas" (preço B2B normal, sem promoção).
+ * Clicar numa linha abre os produtos em /b2b/oferta/<token>/linha/<slug>.
  */
 
-import Link from "next/link";
-
+import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
+import { homeLineImage } from "@/lib/b2b/line-images";
+import { lineBadge } from "@/lib/b2b/offer-notices";
+import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
-import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
-import { listOfferPromotionNotices, type B2BOfferPromotionNotice } from "@/lib/b2b/promotion-resolver";
-import { getProduct } from "@/lib/catalog/bio-products";
-import { getProductMainImage } from "@/lib/catalog/product-images.server";
-import B2BOfferCatalog, { type B2BCatalogGroup } from "@/components/b2b/B2BOfferCatalog";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,40 +52,25 @@ export default async function B2BOfferPage({
   }
 
   const { context } = resolution;
+  const [notices, otherLines] = await Promise.all([
+    listOfferPromotionNotices(context.offerId),
+    loadOtherB2BLines(context),
+  ]);
 
-  const notices = await listOfferPromotionNotices(context.offerId);
+  const productNameById = new Map(context.products.map((product) => [product.id, product.name]));
+  const lineHref = (slug: string) => `/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(slug)}`;
 
-  const groups: B2BCatalogGroup[] = context.commercialGroups
-    .map((group) => ({
-      id: group.id,
-      name: group.name,
-      promotionNote: promotionNote(notices, group.id),
-      products: context.products
-        .filter((product) => product.commercialGroupIds.includes(group.id))
-        .map((product) => {
-          const catalogProduct = getProduct(product.slug);
+  // Linha da oferta sem nenhum produto liberado não vira card.
+  const offerLines = context.commercialGroups.filter((group) =>
+    context.products.some((product) => product.commercialGroupIds.includes(group.id))
+  );
 
-          return {
-            id: product.id,
-            slug: product.slug,
-            name: product.name,
-            content: catalogProduct?.content ?? null,
-            image: catalogProduct ? getProductMainImage(catalogProduct) || null : null,
-            priceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
-            promotionText: promotionText(notices, group.id, product.id),
-          };
-        }),
-    }))
-    .filter((group) => group.products.length > 0);
-
-  if (groups.length === 0) {
+  if (offerLines.length === 0 && otherLines.length === 0) {
     return <Unavailable message="Esta oferta ainda não tem produtos liberados." />;
   }
 
-  const otherLines = await loadOtherB2BLines(context);
-
   return (
-    <main className="min-h-screen bg-[#fffaf6] pb-32 text-[#422347]">
+    <main className="min-h-screen bg-[#fffaf6] pb-16 text-[#422347]">
       <header className="border-b border-[#eadfd9] bg-white">
         <div className="mx-auto max-w-[1180px] px-5 py-6 lg:px-10">
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#9b6c24]">
@@ -93,54 +80,56 @@ export default async function B2BOfferPage({
             Oferta para {context.clientDisplayName}
           </h1>
           <p className="mt-2 text-sm font-semibold text-[#6c5b69]">
-            Atendimento: {context.responsibleName}
+            Atendido por {context.responsibleName}
+          </p>
+          <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
+            Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
           </p>
         </div>
       </header>
 
-      <B2BOfferCatalog token={token} groups={groups} />
+      <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
+        {offerLines.length > 0 && (
+          <section>
+            <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Sua oferta</h2>
+            <p className="mt-1 text-sm text-[#746471]">
+              Linhas escolhidas pelo seu representante. Toque numa linha para ver os produtos.
+            </p>
+            <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
+              {offerLines.map((line) => (
+                <B2BLineCard
+                  key={line.id}
+                  href={lineHref(line.slug)}
+                  name={line.name}
+                  image={homeLineImage(line.slug)}
+                  highlight
+                  badge={lineBadge(notices, line.id, productNameById) ?? "Preço B2B"}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
-      {otherLines.length > 0 && (
-        <section className="mx-auto max-w-[1180px] px-5 pb-10 lg:px-10">
-          <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas Bio Florais</h2>
-          <p className="mt-1 text-sm text-[#746471]">
-            Estas linhas não fazem parte desta oferta, mas você pode comprar pelo preço B2B
-            normal, sem promoção. Quer uma condição especial? Peça ao seu representante.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {otherLines.map((line) => (
-              <Link
-                key={line.id}
-                href={`/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(line.slug)}`}
-                prefetch={false}
-                className="rounded-full border border-[#d9c7dc] bg-white px-4 py-2 text-sm font-bold text-[#63326d] hover:border-[#63326d]"
-              >
-                {line.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+        {otherLines.length > 0 && (
+          <section className={offerLines.length > 0 ? "mt-12" : ""}>
+            <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas</h2>
+            <p className="mt-1 text-sm text-[#746471]">
+              Preço B2B normal, sem promoção. Quer uma condição especial? Peça ao seu representante.
+            </p>
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {otherLines.map((line) => (
+                <B2BLineCard
+                  key={line.id}
+                  href={lineHref(line.slug)}
+                  name={line.name}
+                  image={homeLineImage(line.slug)}
+                  caption="Preço B2B normal, sem promoção"
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </main>
   );
-}
-
-function bonusLabel(buy: number, free: number) {
-  return `Compre ${buy} e leve +${free} grátis do mesmo produto`;
-}
-
-/** Aviso da linha inteira (promoção sem produtos explícitos). */
-function promotionNote(notices: B2BOfferPromotionNotice[], groupId: string) {
-  const wide = notices.find((item) => item.commercialGroupId === groupId && item.productIds.length === 0);
-  return wide ? `Promoção nesta linha: ${bonusLabel(wide.buyQuantity, wide.freeQuantity)}.` : null;
-}
-
-/** Aviso por produto (linha inteira ou promoção pontual por SKU). */
-function promotionText(notices: B2BOfferPromotionNotice[], groupId: string, productId: string) {
-  const match = notices.find(
-    (item) =>
-      item.commercialGroupId === groupId &&
-      (item.productIds.length === 0 || item.productIds.includes(productId))
-  );
-  return match ? bonusLabel(match.buyQuantity, match.freeQuantity) : null;
 }

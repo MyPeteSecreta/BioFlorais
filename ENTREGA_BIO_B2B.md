@@ -9,6 +9,22 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★ Rodada 2 pós-teste: 08c, filtro em todas as listas e nova página do link (sobre `79cdf5b`)
+
+Só local: sem push, deploy nem acesso ao Neon. **B2C intacto**: Home, header, carrinho B2C e `bio-products.ts` não foram alterados.
+
+1. **`sql/b2b/08c_desativar_vendedor_e_cliente_de_teste.sql`** (Neon `bio-florais`): SELECT antes, `UPDATE` sem DELETE em BEGIN/COMMIT, SELECT depois, só pelos ids `dcb67a56-cadf-4cce-ab46-86fb1285f288` (vendedor → `status='inactive'`) e `1d403746-7519-454e-a9e6-32408d62d1ec` (cliente → `active=false`). Testado em Postgres em memória com ClienteTesteB2 e Bio-B2B-Test5 de isca: continuam intactos. **Vendedor inativo não loga**: o login responde 403 "acesso desativado" depois da senha, e `requireResponsible`/páginas exigem `status='active'` (teste confere os dois no código).
+2. **Filtro `isTestCommercialGroup` em toda lista de linhas**: Offer Builder, contexto público da oferta e agora também "Outras linhas" (`line-views.ts`).
+3. **Página do link do cliente refeita** (`/b2b/oferta/<token>`): topo com cliente, vendedor, pedido mínimo R$ 250 e frete especial B2B a partir de R$ 450; primeira tela = cards de linha com a mesma arte e proporção da Home (`B2BLineCard`, cópia do visual sem alterar a Home). "Sua oferta" primeiro, com moldura azul e selo ("3 por 2" ou "3 por 2 · promoção somente em Baby Floral em Gotas Sono"); "Outras linhas" logo abaixo com TODAS as demais linhas B2B publicadas (inclui as 7 do 09b), sem destaque, "Preço B2B normal, sem promoção". Clicar abre `/b2b/oferta/<token>/linha/<slug>` (agora serve linha da oferta e fora dela): produtos com foto, preço B2B, selo "Compre X e leve +Y grátis" só nos elegíveis, quantidade e Adicionar. Linha fora da oferta continua registrando o interesse e com o botão de WhatsApp. Celular: 1 coluna, sem rolagem horizontal (medido: largura 375 = 375).
+4. **Volume faltando (37 ml)**: o dado vazio está no catálogo compartilhado com o B2C (`bio-products.ts`, 14 produtos com `content: ""`: Baby Gravidez Conturbada, Mamãe Volta ao Trabalho e Pós-Vacina; 8 da Kids; 3 da Teen). Não alterei. Só no B2B (`b2bProductContent`) uso o padrão das demais gotas da linha: Baby 37 ml, Kids e Teen 31 ml. **Luis: confirme Kids e Teen** (inferido do padrão; Baby foi dado por você). Corrigir no catálogo mudaria o B2C: decisão sua.
+5. **As 7 linhas para o vendedor**: o Offer Builder lista todo grupo ativo e visível sem filtrar por promoção, então depois do 09b elas aparecem como cards marcáveis com preço B2B normal (as artes de Kids, Teen, Dose Única, Virtudes Divinas, Cosméticos, Cosméticos Pet e Home Care já estão mapeadas).
+
+**Validação visual** (página temporária, apagada, fora do commit) com o mesmo componente e dados fictícios: desktop e celular 375px. Não foi possível testar o link real porque o navegador não alcança o Neon.
+
+**Verificações:** `npm.cmd test` 51/51, `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio.
+
+---
+
 ## ★★★★ Rodada de correção pós-teste do Luis (vendedor Bio5), sobre `b170d3a`
 
 Só local: sem push, deploy nem acesso ao Neon. **Nada do B2C foi alterado** (só arquivos `src/**/b2b`, `src/lib/b2b`, `api/b2b`, SQL e testes; `products`, header, carrinho B2C e textos não foram tocados). Encoding do banco: não mexi.

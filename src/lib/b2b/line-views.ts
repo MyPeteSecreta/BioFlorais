@@ -17,6 +17,7 @@ import {
   b2bOfferLineViews,
   products,
 } from "@/lib/db/schema";
+import { isTestCommercialGroup } from "@/lib/b2b/offer-builder";
 import type { PublicB2BOfferContext, PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 
 const VIEW_DEDUP_MS = 30 * 60 * 1000;
@@ -25,7 +26,7 @@ const VIEW_DEDUP_MS = 30 * 60 * 1000;
 export async function loadOtherB2BLines(context: PublicB2BOfferContext) {
   const offerGroupIds = context.commercialGroups.map((group) => group.id);
 
-  return db
+  const rows = await db
     .select({
       id: b2bCommercialGroups.id,
       slug: b2bCommercialGroups.slug,
@@ -40,6 +41,9 @@ export async function loadOtherB2BLines(context: PublicB2BOfferContext) {
       )
     )
     .orderBy(asc(b2bCommercialGroups.sortOrder), asc(b2bCommercialGroups.name));
+
+  // Dado de teste nunca vira card (nem em "Outras linhas").
+  return rows.filter((row) => !isTestCommercialGroup(row));
 }
 
 export async function findOtherB2BLine(context: PublicB2BOfferContext, slug: string) {

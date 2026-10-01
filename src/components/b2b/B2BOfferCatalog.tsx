@@ -127,13 +127,13 @@ export default function B2BOfferCatalog({
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
         {groups.map((group) => (
           <section key={group.id} className="mb-10">
-            <h2 className="font-serif text-2xl font-semibold text-[#55245f]">{group.name}</h2>
+            <h2 className="sr-only">{group.name}</h2>
             {group.promotionNote && (
               <p className="mt-2 rounded-2xl border-2 border-blue-500 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-900">
                 {group.promotionNote}
               </p>
             )}
-            <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {group.products.map((product) => (
                 <ProductCard
                   key={product.id}

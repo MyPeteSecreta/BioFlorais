@@ -390,3 +390,38 @@ test("teste de linha: o filtro de grupos de teste do Offer Builder", async () =>
   assert.equal(isTestCommercialGroup({ slug: "adulto", name: "Adulto" }), false);
   assert.equal(isTestCommercialGroup({ slug: "cosmeticos", name: "Cosméticos" }), false);
 });
+
+test("08c desativa só o vendedor e o cliente de teste pelo id exato; vendedor inativo não loga nem acessa", async () => {
+  await pg.exec(`
+    ALTER TABLE b2b_responsibles ADD COLUMN IF NOT EXISTS updated_at timestamp NOT NULL DEFAULT now();
+    ALTER TABLE b2b_clients ADD COLUMN IF NOT EXISTS updated_at timestamp NOT NULL DEFAULT now();
+    INSERT INTO b2b_responsibles (id, name, status, email) VALUES
+      ('dcb67a56-cadf-4cce-ab46-86fb1285f288', 'BIO-B2B TEST 5519ea839c1d460b', 'active', 't@example.invalid'),
+      (gen_random_uuid(), 'Bio-B2B-Test5', 'active', 'manual@example.invalid');
+    INSERT INTO b2b_clients (id, display_name) VALUES
+      ('1d403746-7519-454e-a9e6-32408d62d1ec', 'BIO-B2B TEST CLIENT 5519ea839c1d460b'),
+      (gen_random_uuid(), 'ClienteTesteB2');
+  `);
+
+  await pg.exec(sqlFile("08c_desativar_vendedor_e_cliente_de_teste.sql"));
+  await pg.exec(sqlFile("08c_desativar_vendedor_e_cliente_de_teste.sql")); // idempotente
+
+  const responsibles = await run(`SELECT name, status FROM b2b_responsibles WHERE name LIKE '%Test%' OR name LIKE '%TEST%' ORDER BY name`);
+  assert.deepEqual(responsibles, [
+    { name: "BIO-B2B TEST 5519ea839c1d460b", status: "inactive" },
+    { name: "Bio-B2B-Test5", status: "active" }, // teste manual do Luis: intacto
+  ]);
+
+  const clients = await run(`SELECT display_name, active FROM b2b_clients WHERE display_name LIKE '%TEST%' OR display_name LIKE 'ClienteTeste%' ORDER BY display_name`);
+  assert.deepEqual(clients, [
+    { display_name: "BIO-B2B TEST CLIENT 5519ea839c1d460b", active: false },
+    { display_name: "ClienteTesteB2", active: true },
+  ]);
+
+  // Quem trava o vendedor inativo: login (403 depois da senha) e sessão/consultas (status = 'active').
+  const { readFileSync: read } = await import("node:fs");
+  const login = read(new URL("../src/app/api/b2b/auth/login/route.ts", import.meta.url), "utf8");
+  assert.match(login, /responsible\.status !== "active"[\s\S]{0,300}status: 403/);
+  const guard = read(new URL("../src/lib/b2b/require-responsible.ts", import.meta.url), "utf8");
+  assert.match(guard, /responsible\.status !== "active"/);
+});
