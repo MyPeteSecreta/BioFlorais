@@ -25,7 +25,7 @@ export type AdminResponsibleRow = {
   name: string;
   email: string;
   type: string;
-  status: "invite_pending" | "invite_expired" | "awaiting_approval" | "active" | "inactive" | string;
+  status: "invite_pending" | "invite_expired" | "active" | "inactive" | string;
   phone: string | null;
   invitedAt: string | null;
   inviteExpiresAt: string | null;
@@ -35,11 +35,10 @@ export type AdminResponsibleRow = {
   paidOrders: number;
 };
 
+// Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
+// inclusive cadastros antigos que ficaram "pending".
 function responsibleStatus(status: string) {
-  if (status === "active") return "active";
-  if (status === "inactive") return "inactive";
-  if (status === "pending") return "awaiting_approval";
-  return status;
+  return status === "active" ? "active" : "inactive";
 }
 
 export async function GET(request: NextRequest) {

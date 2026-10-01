@@ -75,7 +75,7 @@ export default async function B2BInvitePage({
         <p className="mt-2 text-sm text-[#746471]">
           {invite.purpose === "password_reset"
             ? `Olá, ${invite.name}. Crie uma nova senha para o login ${resetLogin ?? ""}.`
-            : `Olá, ${invite.name}. Complete seus dados e crie seu login. Depois do envio, o cadastro passa pela aprovação da Bio Florais.`}
+            : `Olá, ${invite.name}. Complete seus dados e crie seu login para acessar a área B2B.`}
         </p>
 
         <InviteForm

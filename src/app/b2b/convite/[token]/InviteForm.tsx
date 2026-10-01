@@ -150,10 +150,9 @@ export default function InviteForm({
           </>
         ) : (
           <>
-            <h2 className="text-lg font-bold">Cadastro enviado</h2>
+            <h2 className="text-lg font-bold">Cadastro concluído</h2>
             <p className="mt-2 text-sm">
-              Seu login é <strong>{done.login}</strong>. Assim que a Bio Florais aprovar o
-              cadastro, você já poderá entrar.
+              Seu login é <strong>{done.login}</strong>. Você já pode entrar na área B2B.
             </p>
           </>
         )}

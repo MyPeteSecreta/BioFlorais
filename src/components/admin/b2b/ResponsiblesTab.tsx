@@ -2,7 +2,8 @@
 
 /**
  * ADMIN B2B — aba "Vendedores / RCAs": lista, gerar convite, revogar,
- * gerar novo link, aprovar, desativar/reativar e redefinir acesso.
+ * gerar novo link, desativar/reativar e redefinir acesso. O cadastro
+ * pelo convite já nasce ativo (sem etapa de aprovação).
  */
 
 import { useRouter } from "next/navigation";
@@ -38,7 +39,6 @@ const TYPE_LABELS: Record<string, string> = { rca: "RCA", clt: "Vendedor" };
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   invite_pending: { label: "Convite pendente", className: "bg-[#fff4db] text-[#8a5a12]" },
   invite_expired: { label: "Convite expirado", className: "bg-[#f3eef2] text-[#7b6a77]" },
-  awaiting_approval: { label: "Aguardando aprovação", className: "bg-[#e8f0ff] text-[#274b8f]" },
   active: { label: "Ativo", className: "bg-[#e3f5e9] text-[#1f6b3a]" },
   inactive: { label: "Inativo", className: "bg-[#fbe7e7] text-[#8f2727]" },
 };
@@ -263,11 +263,6 @@ export default function ResponsiblesTab() {
                             Revogar
                           </button>
                         </>
-                      )}
-                      {row.kind === "responsible" && row.status === "awaiting_approval" && (
-                        <button type="button" disabled={busy} onClick={() => act(row, "approve", `Aprovar o cadastro de ${row.name}?`)} className={`${actionButton} border-[#1f6b3a] bg-[#1f6b3a] text-white`}>
-                          Aprovar
-                        </button>
                       )}
                       {row.kind === "responsible" && row.status !== "inactive" && (
                         <button type="button" disabled={busy} onClick={() => act(row, "deactivate", `Desativar ${row.name}? O acesso e os links de oferta dele param de funcionar.`)} className={`${actionButton} border-[#b33] text-[#b33]`}>

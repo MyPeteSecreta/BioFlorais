@@ -51,13 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Só depois da senha correta revelamos o motivo do bloqueio.
-    if (responsible.status === "pending") {
-      return NextResponse.json(
-        { error: "Seu cadastro está em análise. Você poderá entrar assim que for aprovado." },
-        { status: 403 }
-      );
-    }
-
+    // Não há mais etapa de aprovação: qualquer status diferente de
+    // "active" (inclusive "pending" de cadastros antigos) é acesso desativado.
     if (responsible.status !== "active") {
       return NextResponse.json(
         { error: "Seu acesso está desativado. Fale com o administrador." },

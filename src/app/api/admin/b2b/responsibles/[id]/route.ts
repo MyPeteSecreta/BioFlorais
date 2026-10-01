@@ -1,9 +1,9 @@
 /**
  * ADMIN B2B — ações sobre um vendedor/RCA:
- *   approve       aprova o cadastro (company_approved_at) e ativa
  *   deactivate    desativa (perde o acesso na hora; links de oferta dele
  *                 deixam de abrir porque a oferta exige responsável ativo)
- *   reactivate    reativa (só quem já foi aprovado)
+ *   reactivate    reativa (também ativa cadastros antigos que ficaram
+ *                 "pending" quando ainda existia aprovação)
  *   reset_access  gera link de definição de nova senha (mesma mecânica
  *                 do convite; revoga o link de redefinição anterior)
  */
@@ -61,29 +61,6 @@ export async function POST(
     const now = new Date();
 
     switch (body.action) {
-      case "approve": {
-        if (responsible.status !== "pending") {
-          return NextResponse.json(
-            { error: "Só cadastros aguardando aprovação podem ser aprovados." },
-            { status: 409 }
-          );
-        }
-
-        if (!responsible.passwordHash) {
-          return NextResponse.json(
-            { error: "O cadastro ainda não foi concluído (sem senha)." },
-            { status: 409 }
-          );
-        }
-
-        await db
-          .update(b2bResponsibles)
-          .set({ status: "active", companyApprovedAt: now, updatedAt: now })
-          .where(and(eq(b2bResponsibles.id, id), eq(b2bResponsibles.status, "pending")));
-
-        return NextResponse.json({ ok: true });
-      }
-
       case "deactivate": {
         await db
           .update(b2bResponsibles)
@@ -94,19 +71,28 @@ export async function POST(
       }
 
       case "reactivate": {
-        if (responsible.status !== "inactive") {
-          return NextResponse.json({ error: "Este vendedor não está inativo." }, { status: 409 });
+        if (responsible.status === "active") {
+          return NextResponse.json({ error: "Este vendedor já está ativo." }, { status: 409 });
         }
 
-        // Quem nunca foi aprovado volta para a fila de aprovação.
-        const nextStatus = responsible.companyApprovedAt ? "active" : "pending";
+        if (!responsible.passwordHash) {
+          return NextResponse.json(
+            { error: "Este vendedor ainda não concluiu o cadastro (sem senha)." },
+            { status: 409 }
+          );
+        }
 
+        // Sem etapa de aprovação: reativar já deixa ativo.
         await db
           .update(b2bResponsibles)
-          .set({ status: nextStatus, updatedAt: now })
+          .set({
+            status: "active",
+            companyApprovedAt: responsible.companyApprovedAt ?? now,
+            updatedAt: now,
+          })
           .where(eq(b2bResponsibles.id, id));
 
-        return NextResponse.json({ ok: true, status: nextStatus });
+        return NextResponse.json({ ok: true, status: "active" });
       }
 
       case "reset_access": {

@@ -3,8 +3,9 @@
  *
  * purpose = "onboarding": cria o responsável com os dados do cadastro,
  *   login e senha (hash scrypt no formato já usado pela Bio) e aceite do
- *   termo RCA (obrigatório para tipo "rca"). Nasce com status "pending":
- *   só entra depois da aprovação no admin.
+ *   termo RCA (obrigatório para tipo "rca"). Nasce ATIVO (decisão do
+ *   Luis, 01/10): company_approved_at = agora, sem etapa de aprovação.
+ *   O admin continua podendo desativar/reativar.
  * purpose = "password_reset": só define a nova senha do responsável.
  *
  * O convite é "reservado" com UPDATE condicional (status pending e não
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
       await db.insert(b2bResponsibles).values({
         inviteId: invite.id,
         type: invite.responsibleType,
-        status: "pending",
+        status: "active",
         name,
         email: invite.email.toLowerCase(),
         phone,
@@ -250,6 +251,7 @@ export async function POST(request: NextRequest) {
         state,
         rcaTermsAcceptedAt: invite.responsibleType === "rca" ? now : null,
         onboardingCompletedAt: now,
+        companyApprovedAt: now,
       });
     } catch (insertError) {
       // Ex.: login/e-mail gravado por outra requisição no meio do caminho.
@@ -258,7 +260,7 @@ export async function POST(request: NextRequest) {
       return fail("Não foi possível concluir o cadastro (login ou e-mail já em uso).", 409);
     }
 
-    return NextResponse.json({ ok: true, purpose: "onboarding", login, status: "pending" });
+    return NextResponse.json({ ok: true, purpose: "onboarding", login, status: "active" });
   } catch (error) {
     console.error("[b2b/invites/accept]", error);
     return fail("Erro ao concluir o cadastro.", 500);
