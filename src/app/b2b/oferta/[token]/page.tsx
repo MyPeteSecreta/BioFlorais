@@ -4,6 +4,9 @@
  * uma oferta revogada pare de funcionar na hora.
  */
 
+import Link from "next/link";
+
+import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { getProduct } from "@/lib/catalog/bio-products";
@@ -72,6 +75,8 @@ export default async function B2BOfferPage({
     return <Unavailable message="Esta oferta ainda não tem produtos liberados." />;
   }
 
+  const otherLines = await loadOtherB2BLines(context);
+
   return (
     <main className="min-h-screen bg-[#fffaf6] pb-32 text-[#422347]">
       <header className="border-b border-[#eadfd9] bg-white">
@@ -89,6 +94,28 @@ export default async function B2BOfferPage({
       </header>
 
       <B2BOfferCatalog token={token} groups={groups} />
+
+      {otherLines.length > 0 && (
+        <section className="mx-auto max-w-[1180px] px-5 pb-10 lg:px-10">
+          <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas Bio Florais</h2>
+          <p className="mt-1 text-sm text-[#746471]">
+            Estas linhas não fazem parte desta oferta. Abra para conhecer e peça ao seu
+            representante para incluí-las.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {otherLines.map((line) => (
+              <Link
+                key={line.id}
+                href={`/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(line.slug)}`}
+                prefetch={false}
+                className="rounded-full border border-[#d9c7dc] bg-white px-4 py-2 text-sm font-bold text-[#63326d] hover:border-[#63326d]"
+              >
+                {line.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

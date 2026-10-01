@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 
+import GroupsTab from "./GroupsTab";
+import PromotionsTab from "./PromotionsTab";
 import ResponsiblesTab from "./ResponsiblesTab";
+import TrackingTab from "./TrackingTab";
 
 const TABS = [
   { id: "responsibles", label: "Vendedores / RCAs" },
@@ -38,13 +41,10 @@ export default function AdminB2BTabs() {
       </div>
 
       <div className="mt-6">
-        {tab === "responsibles" ? (
-          <ResponsiblesTab />
-        ) : (
-          <p className="rounded-2xl border border-dashed border-[#eadfd9] bg-white p-6 text-sm text-[#7b6a77]">
-            Esta aba chega na próxima entrega.
-          </p>
-        )}
+        {tab === "responsibles" && <ResponsiblesTab />}
+        {tab === "groups" && <GroupsTab />}
+        {tab === "promotions" && <PromotionsTab />}
+        {tab === "tracking" && <TrackingTab />}
       </div>
     </div>
   );

@@ -11,6 +11,15 @@ import { useCallback, useEffect, useState } from "react";
 type Client = { id: string; displayName: string; contactName: string | null; email: string | null };
 type Group = { id: string; slug: string; name: string };
 type Promotion = { id: string; name: string; buyQuantity: number | null; freeQuantity: number | null };
+type Interest = {
+  clientId: string;
+  clientName: string;
+  lineId: string;
+  lineName: string;
+  views: number;
+  lastViewedAt: string;
+};
+
 type Offer = {
   id: string;
   clientName: string;
@@ -30,6 +39,7 @@ export default function B2BPanelPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [interests, setInterests] = useState<Interest[]>([]);
 
   const [clientName, setClientName] = useState("");
   const [clientContact, setClientContact] = useState("");
@@ -44,11 +54,12 @@ export default function B2BPanelPage() {
   const [message, setMessage] = useState("");
 
   const refresh = useCallback(async () => {
-    const [clientsRes, groupsRes, promotionsRes, offersRes] = await Promise.all([
+    const [clientsRes, groupsRes, promotionsRes, offersRes, interestsRes] = await Promise.all([
       fetch("/api/b2b/clients", { cache: "no-store" }),
       fetch("/api/b2b/commercial-groups", { cache: "no-store" }),
       fetch("/api/b2b/promotions", { cache: "no-store" }),
       fetch("/api/b2b/offers/mine", { cache: "no-store" }),
+      fetch("/api/b2b/line-views/mine", { cache: "no-store" }),
     ]);
 
     if (clientsRes.status === 401) {
@@ -60,6 +71,7 @@ export default function B2BPanelPage() {
     if (groupsRes.ok) setGroups((await groupsRes.json()).commercialGroups ?? []);
     if (promotionsRes.ok) setPromotions((await promotionsRes.json()).promotions ?? []);
     if (offersRes.ok) setOffers((await offersRes.json()).offers ?? []);
+    if (interestsRes.ok) setInterests((await interestsRes.json()).interests ?? []);
   }, [router]);
 
   useEffect(() => {
@@ -216,6 +228,45 @@ export default function B2BPanelPage() {
             Criar oferta
           </button>
         </section>
+
+        {interests.length > 0 && (
+          <section className={box}>
+            <h2 className="mb-1 font-bold">Interesses dos clientes</h2>
+            <p className="mb-3 text-xs text-[#8a7886]">
+              Linhas que o cliente abriu pelo link e que não estavam na oferta. Boa hora para mandar
+              uma nova oferta incluindo a linha.
+            </p>
+            <ul className="space-y-2 text-sm">
+              {interests.map((interest) => (
+                <li
+                  key={`${interest.clientId}-${interest.lineId}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#eadfd9] p-3"
+                >
+                  <span>
+                    <strong>{interest.clientName}</strong> visualizou a linha{" "}
+                    <strong>{interest.lineName}</strong> (fora da oferta)
+                    {interest.views > 1 ? ` · ${interest.views} vezes` : ""}
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-[#8a7886]">
+                    {new Date(interest.lastViewedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOfferClientId(interest.clientId);
+                        setOfferGroupIds((list) => (list.includes(interest.lineId) ? list : [...list, interest.lineId]));
+                        setMessage(`Nova oferta para ${interest.clientName} pré-preenchida com a linha ${interest.lineName}.`);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="rounded-full bg-[#55245f] px-3 py-1 text-xs font-extrabold text-white"
+                    >
+                      Montar nova oferta
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className={box}>
           <h2 className="mb-3 font-bold">Minhas ofertas</h2>

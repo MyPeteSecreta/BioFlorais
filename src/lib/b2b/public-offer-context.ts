@@ -40,6 +40,8 @@ export type PublicB2BOfferContext = {
   responsibleId: string;
   responsibleName: string;
   responsibleType: string;
+  /** Celular do vendedor (para o cliente pedir uma linha fora da oferta). */
+  responsiblePhone: string | null;
   commercialGroups: Array<{ id: string; slug: string; name: string }>;
   products: PublicB2BProduct[];
 };
@@ -103,6 +105,7 @@ export async function loadPublicB2BOfferContext(
       name: b2bResponsibles.name,
       type: b2bResponsibles.type,
       status: b2bResponsibles.status,
+      phone: b2bResponsibles.phone,
     })
     .from(b2bResponsibles)
     .where(eq(b2bResponsibles.id, offer.responsibleId))
@@ -206,6 +209,7 @@ export async function loadPublicB2BOfferContext(
       responsibleId: responsible.id,
       responsibleName: responsible.name,
       responsibleType: responsible.type,
+      responsiblePhone: responsible.phone,
       commercialGroups,
       products: offerProducts,
     },

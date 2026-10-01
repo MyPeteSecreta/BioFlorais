@@ -1047,3 +1047,29 @@ export const b2bBoletoRequests = pgTable(
     uniqueIndex("b2b_boleto_requests_order_unique_idx").on(t.orderId),
   ]
 );
+
+/*
+ * Admin B2B — "cliente visualizou a linha X fora da oferta"
+ * (sql/b2b/05b_...). Gravado quando o cliente, pelo link da oferta, abre
+ * uma linha B2B que NÃO faz parte da oferta. Aparece no admin
+ * (Acompanhamento) e no painel do vendedor para ele mandar nova oferta.
+ */
+export const b2bOfferLineViews = pgTable(
+  "b2b_offer_line_views",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    offerId: uuid("offer_id")
+      .references(() => b2bOffers.id)
+      .notNull(),
+    commercialGroupId: uuid("commercial_group_id")
+      .references(() => b2bCommercialGroups.id)
+      .notNull(),
+    clientId: uuid("client_id").notNull(),
+    responsibleId: uuid("responsible_id").notNull(),
+    viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("b2b_offer_line_views_offer_idx").on(t.offerId, t.commercialGroupId),
+    index("b2b_offer_line_views_responsible_idx").on(t.responsibleId, t.viewedAt),
+  ]
+);
