@@ -59,3 +59,26 @@ test("frete: Math.min(tarifa regional, real) só na mais barata", () => {
   assert.deepEqual(prices(45000, "AM", [{ serviceName: "X", priceCents: 20000, etaDays: 3 }]), [16990]);
   assert.deepEqual(prices(45000, ""), [2500, 4000]);
 });
+
+test("boleto: vencimentos 28/42/56 dias da data do pedido, soma exata", () => {
+  // 01/10/2026 12:00 em São Paulo.
+  const schedule = p.buildB2BBoletoSchedule(150001, 3, new Date("2026-10-01T15:00:00Z"));
+  assert.deepEqual(schedule.map((item) => item.dueDate), ["2026-10-29", "2026-11-12", "2026-11-26"]);
+  assert.deepEqual(schedule.map((item) => item.installment), [1, 2, 3]);
+  assert.equal(schedule.reduce((sum, item) => sum + item.amountCents, 0), 150001);
+  assert.deepEqual(schedule.map((item) => item.amountCents), [50000, 50000, 50001]);
+});
+
+test("boleto: data do pedido pelo calendário de São Paulo, não UTC", () => {
+  // 01/10/2026 01:30 UTC = 30/09/2026 22:30 em São Paulo -> base 30/09.
+  const schedule = p.buildB2BBoletoSchedule(60000, 1, new Date("2026-10-01T01:30:00Z"));
+  assert.deepEqual(schedule, [{ installment: 1, dueDate: "2026-10-28", amountCents: 60000 }]);
+});
+
+test("boleto: vira o ano e recusa parcelas inválidas", () => {
+  const schedule = p.buildB2BBoletoSchedule(100000, 2, new Date("2026-12-20T15:00:00Z"));
+  assert.deepEqual(schedule.map((item) => item.dueDate), ["2027-01-17", "2027-01-31"]);
+  assert.throws(() => p.buildB2BBoletoSchedule(100000, 4, new Date()));
+  assert.throws(() => p.buildB2BBoletoSchedule(100000, 0, new Date()));
+  assert.equal(p.formatB2BDueDate("2027-01-17"), "17/01/2027");
+});

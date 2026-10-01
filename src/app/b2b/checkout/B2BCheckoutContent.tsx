@@ -24,10 +24,28 @@ import { formatB2BCents } from "@/lib/b2b/format";
 import {
   B2B_MAX_INSTALLMENTS,
   B2B_MIN_INSTALLMENT_CENTS,
+  buildB2BBoletoSchedule,
+  formatB2BDueDate,
   resolveB2BAllowedInstallments,
   splitB2BInstallments,
+  type B2BBoletoInstallment,
   type B2BPaymentMethod,
 } from "@/lib/b2b/pricing";
+
+function BoletoScheduleList({ schedule }: { schedule: B2BBoletoInstallment[] }) {
+  return (
+    <ul className="mt-2 space-y-1 text-xs">
+      {schedule.map((item) => (
+        <li key={item.installment} className="flex justify-between gap-3">
+          <span>
+            {item.installment}ª parcela · vence {formatB2BDueDate(item.dueDate)}
+          </span>
+          <strong>{formatB2BCents(item.amountCents)}</strong>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 type ShippingOption = {
   serviceName: string;
@@ -108,6 +126,7 @@ export default function B2BCheckoutContent() {
   const [pix, setPix] = useState<PixData | null>(null);
   const [finalMessage, setFinalMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [boletoSchedule, setBoletoSchedule] = useState<B2BBoletoInstallment[] | null>(null);
 
   const lines = cart.state.offerToken === token ? cart.state.lines : [];
   const itemsPayload = lines.map((line) => ({ productId: line.productId, qty: line.qty }));
@@ -265,6 +284,7 @@ export default function B2BCheckoutContent() {
       return;
     }
 
+    setBoletoSchedule(Array.isArray(data?.boleto?.schedule) ? data.boleto.schedule : null);
     setFinalMessage({ ok: true, text: data.message });
   }
 
@@ -337,6 +357,12 @@ export default function B2BCheckoutContent() {
           {finalMessage.ok ? "Pedido recebido" : "Atenção"}
         </h1>
         <p className="mx-auto mt-3 max-w-md">{finalMessage.text}</p>
+        {boletoSchedule && boletoSchedule.length > 0 && (
+          <div className="mx-auto mt-4 max-w-sm rounded-xl border border-[#eadfd9] bg-white p-4 text-left text-sm">
+            <p className="mb-2 font-bold">Vencimentos do boleto</p>
+            <BoletoScheduleList schedule={boletoSchedule} />
+          </div>
+        )}
         {order && (
           <p className="mt-2 text-sm text-[#8a7886]">
             Pedido {order.id.slice(0, 8).toUpperCase()} · {formatB2BCents(order.totalCents)}
@@ -638,8 +664,12 @@ export default function B2BCheckoutContent() {
                     );
                   })}
                 </div>
+                <BoletoScheduleList
+                  schedule={buildB2BBoletoSchedule(totals.boleto, effectiveBoletoInstallments, new Date())}
+                />
                 <p className="mt-2 text-xs text-[#8a7886]">
-                  O boleto é emitido pela nossa equipe e enviado para o e-mail informado.
+                  Vencimentos em 28, 42 e 56 dias contados da data do pedido. O boleto é
+                  emitido pela nossa equipe e enviado para o e-mail informado.
                 </p>
               </div>
             )}

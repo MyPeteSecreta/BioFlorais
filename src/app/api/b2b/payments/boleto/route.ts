@@ -6,6 +6,8 @@
  * - exige o token da oferta (orderId sozinho não autoriza);
  * - só pedidos "pending" precificados para boleto (trava por método);
  * - até 3x, parcela mínima R$ 500, composição exata em centavos;
+ * - vencimentos 28/42/56 dias da data do pedido (São Paulo), gravados
+ *   em b2b_boleto_requests.schedule com data e valor de cada parcela;
  * - idempotente pelo banco: índice único em b2b_boleto_requests.order_id
  *   e índice único parcial em payments(order_id) WHERE method='boleto'.
  */
@@ -17,6 +19,7 @@ import { db } from "@/lib/db/client";
 import { b2bBoletoRequests, customers, orders, payments } from "@/lib/db/schema";
 import { verifyB2BOrderOfferToken } from "@/lib/b2b/public-offer-context";
 import {
+  buildB2BBoletoSchedule,
   isB2BInstallmentCountValid,
   splitB2BInstallments,
 } from "@/lib/b2b/pricing";
@@ -46,6 +49,7 @@ export async function POST(request: NextRequest) {
         totalCents: orders.totalCents,
         b2bOfferId: orders.b2bOfferId,
         paymentMethod: orders.paymentMethod,
+        createdAt: orders.createdAt,
         personType: customers.personType,
       })
       .from(orders)
@@ -103,6 +107,13 @@ export async function POST(request: NextRequest) {
     const { installmentAmountCents, lastInstallmentAmountCents } =
       splitB2BInstallments(order.totalCents, installments);
 
+    // Vencimentos 28/42/56 dias da DATA DO PEDIDO (calendário de São Paulo).
+    const schedule = buildB2BBoletoSchedule(
+      order.totalCents,
+      installments,
+      order.createdAt ?? new Date()
+    );
+
     // Uma instrução por tabela; xmax = 0 indica linha recém-inserida.
     const [boleto] = await db
       .insert(b2bBoletoRequests)
@@ -112,6 +123,7 @@ export async function POST(request: NextRequest) {
         installments,
         installmentAmountCents,
         lastInstallmentAmountCents,
+        schedule,
         status: "pending_request",
       })
       .onConflictDoUpdate({
@@ -121,6 +133,7 @@ export async function POST(request: NextRequest) {
           installments,
           installmentAmountCents,
           lastInstallmentAmountCents,
+          schedule,
         },
         setWhere: sql`${b2bBoletoRequests.status} = 'pending_request'`,
       })
@@ -129,6 +142,7 @@ export async function POST(request: NextRequest) {
         installments: b2bBoletoRequests.installments,
         installmentAmountCents: b2bBoletoRequests.installmentAmountCents,
         lastInstallmentAmountCents: b2bBoletoRequests.lastInstallmentAmountCents,
+        schedule: b2bBoletoRequests.schedule,
         wasInserted: sql<boolean>`(xmax = 0)`,
       });
 
@@ -151,6 +165,7 @@ export async function POST(request: NextRequest) {
             installmentAmountCents,
             lastInstallmentAmountCents,
             amountCents: order.totalCents,
+            schedule,
           },
         })
         .onConflictDoNothing();
@@ -167,6 +182,7 @@ export async function POST(request: NextRequest) {
             installments: b2bBoletoRequests.installments,
             installmentAmountCents: b2bBoletoRequests.installmentAmountCents,
             lastInstallmentAmountCents: b2bBoletoRequests.lastInstallmentAmountCents,
+            schedule: b2bBoletoRequests.schedule,
           })
           .from(b2bBoletoRequests)
           .where(eq(b2bBoletoRequests.orderId, order.id))
@@ -184,6 +200,7 @@ export async function POST(request: NextRequest) {
             installmentAmountCents: current.installmentAmountCents,
             lastInstallmentAmountCents: current.lastInstallmentAmountCents,
             totalCents: order.totalCents,
+            schedule: current.schedule ?? [],
           }
         : null,
       message: repeated

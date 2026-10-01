@@ -124,6 +124,75 @@ export function splitB2BInstallments(totalCents: number, installments: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Vencimentos do boleto (igual à My Pet): 28 / 42 / 56 dias da DATA DO
+// PEDIDO, no calendário de São Paulo.
+// ---------------------------------------------------------------------------
+
+export const B2B_BOLETO_DUE_DAYS = [28, 42, 56] as const;
+
+export type B2BBoletoInstallment = {
+  installment: number;
+  /** AAAA-MM-DD */
+  dueDate: string;
+  amountCents: number;
+};
+
+function saoPauloCalendarDate(date: Date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)])
+  ) as { year: number; month: number; day: number };
+
+  return parts;
+}
+
+/**
+ * Cronograma do boleto: data e valor de cada parcela. A soma dos valores
+ * é exatamente totalCents (a última parcela absorve o arredondamento,
+ * igual a splitB2BInstallments).
+ */
+export function buildB2BBoletoSchedule(
+  totalCents: number,
+  installments: number,
+  orderDate: Date
+): B2BBoletoInstallment[] {
+  if (
+    !Number.isInteger(installments) ||
+    installments < 1 ||
+    installments > B2B_BOLETO_DUE_DAYS.length
+  ) {
+    throw new Error(`Parcelas de boleto inválidas: ${installments}`);
+  }
+
+  const { year, month, day } = saoPauloCalendarDate(orderDate);
+  const { installmentAmountCents, lastInstallmentAmountCents } = splitB2BInstallments(
+    totalCents,
+    installments
+  );
+
+  return Array.from({ length: installments }, (_, index) => ({
+    installment: index + 1,
+    dueDate: new Date(Date.UTC(year, month - 1, day + B2B_BOLETO_DUE_DAYS[index]))
+      .toISOString()
+      .slice(0, 10),
+    amountCents: index === installments - 1 ? lastInstallmentAmountCents : installmentAmountCents,
+  }));
+}
+
+/** "2026-10-29" -> "29/10/2026" (sem passar por fuso). */
+export function formatB2BDueDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+// ---------------------------------------------------------------------------
 // Desconto por forma de pagamento — SÓ sobre produtos
 // ---------------------------------------------------------------------------
 

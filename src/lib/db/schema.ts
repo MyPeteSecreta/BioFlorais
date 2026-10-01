@@ -1034,6 +1034,14 @@ export const b2bBoletoRequests = pgTable(
     status: text("status").notNull().default("pending_request"),
     notes: text("notes"),
     requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    /*
+     * Cronograma (sql/b2b/04b_...): [{ installment, dueDate: "AAAA-MM-DD",
+     * amountCents }], vencimentos 28/42/56 dias da data do pedido
+     * (calendário de São Paulo). Soma dos valores = amount_cents.
+     */
+    schedule: jsonb("schedule").$type<
+      Array<{ installment: number; dueDate: string; amountCents: number }>
+    >(),
   },
   (t) => [
     uniqueIndex("b2b_boleto_requests_order_unique_idx").on(t.orderId),
