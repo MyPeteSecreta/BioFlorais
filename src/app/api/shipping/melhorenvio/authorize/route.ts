@@ -1,4 +1,11 @@
-﻿import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+
+import { isAdminRequest } from "@/lib/admin/session";
+import {
+  MELHORENVIO_STATE_COOKIE,
+  createMelhorEnvioOAuthState,
+  melhorEnvioStateCookieOptions,
+} from "@/lib/shipping/melhorenvio-oauth-state";
 
 const MELHOR_ENVIO_BASE_URL =
   process.env.MELHORENVIO_SANDBOX === "true"
@@ -21,7 +28,17 @@ function getRedirectUri() {
   return `${siteUrl}/api/shipping/melhorenvio/callback`;
 }
 
-export async function GET() {
+export async function GET(
+  request: NextRequest
+) {
+  // Só o admin logado autoriza a conta do Melhor Envio da loja.
+  if (!isAdminRequest(request)) {
+    return NextResponse.json(
+      { error: "Não autorizado." },
+      { status: 401 }
+    );
+  }
+
   try {
     const clientId =
       process.env.MELHORENVIO_CLIENT_ID;
@@ -36,21 +53,34 @@ export async function GET() {
       );
     }
 
+    const state =
+      createMelhorEnvioOAuthState();
+
     const params =
       new URLSearchParams({
         client_id: clientId,
         redirect_uri: getRedirectUri(),
         response_type: "code",
-        state: "bioflorais-shipping",
+        // State aleatório, conferido no callback contra o cookie.
+        state,
         scope: "shipping-calculate",
       });
 
     const authorizationUrl =
       `${MELHOR_ENVIO_BASE_URL}/oauth/authorize?${params.toString()}`;
 
-    return NextResponse.redirect(
-      authorizationUrl
+    const response =
+      NextResponse.redirect(
+        authorizationUrl
+      );
+
+    response.cookies.set(
+      MELHORENVIO_STATE_COOKIE,
+      state,
+      melhorEnvioStateCookieOptions()
     );
+
+    return response;
   } catch (error) {
     console.error(error);
 

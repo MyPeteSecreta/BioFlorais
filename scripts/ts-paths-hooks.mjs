@@ -28,5 +28,16 @@ export async function resolve(specifier, context, nextResolve) {
     return nextResolve(target.href, context);
   }
 
+  // "next/server", "next/headers"...: o pacote next não tem mapa de
+  // exports, então em ESM puro precisa da extensão (o bundler do Next
+  // resolve isso sozinho no build).
+  if (/^next\/[\w/-]+$/.test(specifier)) {
+    try {
+      return await nextResolve(specifier, context);
+    } catch {
+      return nextResolve(`${specifier}.js`, context);
+    }
+  }
+
   return nextResolve(specifier, context);
 }

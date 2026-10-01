@@ -5,6 +5,12 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { isAdminRequest } from "@/lib/admin/session";
+import {
+  MELHORENVIO_CALLBACK_PATH,
+  MELHORENVIO_STATE_COOKIE,
+  isValidMelhorEnvioOAuthState,
+} from "@/lib/shipping/melhorenvio-oauth-state";
 import {
   integrationCredentials,
 } from "@/lib/db/schema";
@@ -43,6 +49,30 @@ type MelhorEnvioTokenResponse = {
 export async function GET(
   request: NextRequest
 ) {
+  // Só o admin logado conclui a autorização (e grava credenciais da loja).
+  if (!isAdminRequest(request)) {
+    return NextResponse.json(
+      { error: "Não autorizado." },
+      { status: 401 }
+    );
+  }
+
+  const response =
+    await handleCallback(request);
+
+  // State de uso único: o cookie some em qualquer resultado.
+  response.cookies.set(
+    MELHORENVIO_STATE_COOKIE,
+    "",
+    { path: MELHORENVIO_CALLBACK_PATH, maxAge: 0 }
+  );
+
+  return response;
+}
+
+async function handleCallback(
+  request: NextRequest
+): Promise<NextResponse> {
   try {
     const code =
       request.nextUrl.searchParams.get(
@@ -65,8 +95,12 @@ export async function GET(
     }
 
     if (
-      returnedState !==
-      "bioflorais-shipping"
+      !isValidMelhorEnvioOAuthState(
+        request.cookies.get(
+          MELHORENVIO_STATE_COOKIE
+        )?.value,
+        returnedState
+      )
     ) {
       return NextResponse.json(
         {
