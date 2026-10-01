@@ -9,6 +9,95 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★ Segunda publicação: segurança, vencimentos do boleto e abas 2–4 (sobre `bdead29`)
+
+A primeira publicação é o `bdead29` (aba 1). Tudo abaixo vem **depois** dele, na mesma branch `b2b/bio-admin-v1`, só local: sem push, deploy nem acesso ao Neon.
+
+```
+7324298 feat(b2b/bio): admin B2B abas 2, 3 e 4 (linhas, promocoes, acompanhamento) + registro de linha aberta fora da oferta
+d2f5fc9 feat(b2b/bio): vencimentos do boleto 28/42/56 dias da data do pedido (Sao Paulo), gravados e mostrados no checkout
+c2cf328 fix(admin/security): rotas /api/admin/orders/[id]/fulfillment e /shipment exigem a sessao do admin
+```
+
+**Verificações (depois de `7324298`):**
+- `tsc` exit 0.
+- `npm.cmd run build` exit 0 (43/43, com todas as rotas novas).
+- `node --test` nos 4 arquivos de `scripts/`: **23/23**.
+- `git diff --check` vazio.
+- eslint: 0 erros e 0 avisos nos arquivos B2B e admin.
+
+**Ordem sugerida de publicação:**
+- `c2cf328` é **só segurança**: não depende de SQL e pode subir sozinho e antes.
+- `d2f5fc9` exige o SQL `04b` aplicado antes.
+- `7324298` exige o SQL `05b` aplicado antes.
+
+### B.1 Segurança (produção): `c2cf328`
+
+- **Problema:** `PATCH /api/admin/orders/[id]/fulfillment` e `PATCH /api/admin/orders/[id]/shipment` não conferiam a sessão. Qualquer pessoa podia mudar a etapa de separação, a transportadora, o rastreio e marcar como enviado qualquer pedido.
+- **Correção:** os dois handlers agora começam com `if (!isAdminRequest(request)) return 401`, usando o mesmo cookie e HMAC do login do admin, com comparação em tempo constante. O `isAdminRequest` passou a aceitar qualquer `Request` (lê o header `cookie`). As telas do admin chamam essas rotas do mesmo domínio, então o cookie segue junto e nada muda para quem está logado.
+- **Revisão das demais rotas `/api/admin/*`:** o `login` é público por definição. As rotas `/api/admin/b2b/*` (4 da aba 1 e 7 novas) já exigiam a sessão.
+- **Teste** `scripts/admin-session.test.mjs`:
+  - aceita o cookie certo e recusa a falta de cookie, cookie errado, truncado ou de outro nome, e a ausência de `ADMIN_SESSION_SECRET`;
+  - **varre `src/app/api/admin/**`** e falha se algum handler (exceto o login) não começar com a checagem;
+  - confirmei que o teste **falha** com a versão anterior de `fulfillment` e passa com a correção.
+- ⚠️ **Achado fora de `/api/admin`, não corrigido (precisa de decisão):** `/api/shipping/melhorenvio/authorize` e `/callback` usam um `state` **fixo** (`"bioflorais-shipping"`) e não exigem sessão. Qualquer pessoa pode iniciar o OAuth com a própria conta do Melhor Envio, e o callback **sobrescreve** as credenciais da loja em `integration_credentials`. A correção sugerida é exigir a sessão do admin nas duas rotas e usar um `state` aleatório guardado em cookie. Não mexi porque mudar o OAuth sem testar pode derrubar a autorização do frete em produção.
+
+### B.2 Vencimentos do boleto B2B: `d2f5fc9`
+
+- Mesma regra e formato da My Pet (`mypeteme-b2b-final…`, commit `d4155e9`): a 1ª parcela vence em **28 dias**, a 2ª em **42** e a 3ª em **56**, contados da **data do pedido** (`orders.created_at`) no calendário de **America/Sao_Paulo**.
+- O cronograma é gravado em `b2b_boleto_requests.schedule` como `[{ installment, dueDate: "AAAA-MM-DD", amountCents }]`. Também vai no `rawPayload` do registro em `payments` e volta na resposta da rota.
+- A soma das parcelas é **exatamente** o total, com a última absorvendo o arredondamento (mesma divisão já usada nas colunas de parcela).
+- **Checkout:**
+  - ao escolher as parcelas, mostra a prévia de data e valor de cada uma (base: hoje);
+  - depois da solicitação, mostra o cronograma definitivo gravado pelo servidor;
+  - o texto da tela explica a regra 28/42/56.
+- **Testes:**
+  - pedido em 01/10 vence em 29/10, 12/11 e 26/11;
+  - pedido às 22:30 de 30/09 em São Paulo (01/10 UTC) conta a partir de 30/09;
+  - a virada de ano funciona;
+  - parcelas fora de 1 a 3 são recusadas.
+- `orders.created_at` é `timestamp` sem fuso e é lido como UTC (padrão do Neon). O preflight `04a` mostra o fuso da sessão do banco para conferir.
+- **SQL:** `04a_boleto_schedule_preflight_one_shot.sql` (uma consulta, só leitura) e `04b_boleto_schedule_candidate_if_not_exists.sql` (`ADD COLUMN IF NOT EXISTS schedule jsonb`).
+- Solicitações de boleto anteriores ficam sem cronograma; o admin mostra "(sem cronograma gravado)".
+
+### B.3 Abas 2, 3 e 4: `7324298`
+
+**Aba 2: Linhas comerciais**
+- Lista com ordem, nome, slug, situação, nº de produtos e nº de ofertas.
+- Criar e editar nome, slug (gerado pelo nome se vazio, único), ativa, visível no B2B, ordem e **produtos**, num seletor com filtro **por categoria**, **busca** e "marcar/desmarcar filtrados".
+- Não há exclusão: para tirar uma linha de circulação, basta desativá-la ou ocultá-la.
+
+**Aba 3: Promoções**
+- Cria e edita só **"compre X, leve Y grátis"**, o **único tipo com efeito real no servidor da Bio** (`promotion-resolver.ts`).
+- Campos: vínculo com linhas e/ou produtos (sem vínculo, vale para todos os produtos da oferta), ativa, **selecionável pelo vendedor**, início e fim (datas no calendário de São Paulo, com o fim incluindo o dia todo).
+- Promoções de outros tipos já existentes no banco aparecem só para consulta, como "sem efeito na Bio".
+- ⚠️ **Percentual e preço fixo não foram criados**, porque não têm efeito no motor de preço da Bio (regra: não criar tipo sem efeito). Implementar exige decidir como interagem com o arredondamento ,90 e com os descontos Pix/cartão.
+
+**Aba 4: Acompanhamento**
+- **Ofertas geradas:** vendedor, cliente, linhas, promoções, data e status do link (ativo, revogado, sem link, oferta revogada).
+- **Pedidos B2B:** data, pedido (com link para o detalhe no admin), cliente e PF/PJ, vendedor, forma de pagamento, total e status.
+- **Solicitações de boleto:** parcelas com **vencimento e valor** de cada uma.
+- **Linhas abertas fora da oferta:** cliente, linha, vendedor, quantas vezes e última vez.
+
+**Registro "cliente visualizou a linha X fora da oferta"** (a Bio não registrava; foi criado):
+- A página da oferta ganhou a seção **"Outras linhas Bio Florais"**, com as linhas B2B ativas e visíveis que não estão na oferta.
+- Ao abrir uma delas, `/b2b/oferta/<token>/linha/<slug>` mostra os produtos **sem preço** e o botão **"Pedir esta linha ao representante"** (WhatsApp para o celular do vendedor, com o texto pronto).
+- Ao montar a página, é gravado o evento em `b2b_offer_line_views` (oferta, linha, cliente, vendedor, data). É um POST depois de montar, então prefetch não conta como visita, e há no máximo 1 registro a cada 30 min por oferta e linha.
+- **Painel do vendedor:** novo bloco **"Interesses dos clientes"** ("Cliente X visualizou a linha Y (fora da oferta)"), com o botão **"Montar nova oferta"**, que preenche cliente e linha no formulário.
+
+**SQL:** `05a_admin_tabs_preflight_one_shot.sql` (uma consulta, só leitura: slugs duplicados, promoções por tipo e escopo, colunas obrigatórias sem default) e `05b_admin_tabs_candidate_if_not_exists.sql` (`CREATE TABLE IF NOT EXISTS b2b_offer_line_views` + índices).
+
+### B.4 Roteiro de teste da segunda publicação
+
+1. **Segurança:** sem estar logado, `PATCH /api/admin/orders/<id>/fulfillment` e `/shipment` dão 401. Logado no admin, mudar a etapa e o envio de um pedido continua funcionando.
+2. **Boleto (PJ):** pedido de R$ 1.500+ em 3x mostra a prévia com 3 datas (hoje + 28/42/56). Depois de confirmar, a tela final mostra o cronograma. Em `b2b_boleto_requests.schedule`, as 3 parcelas somam o total.
+3. **Linhas:** criar a linha "Teste B2B" com produtos filtrados por categoria. Ela aparece no painel do vendedor ao montar oferta. Desativá-la faz sumir.
+4. **Promoções:** criar "Leve 4 pague 3" (a cada 3, +1) vinculada a uma linha e marcada como selecionável. O vendedor a vê ao montar a oferta, e no checkout, ao comprar 3 unidades, aparece "+1 grátis".
+5. **Fora da oferta:** abrir o link de uma oferta que tem só a linha A e clicar em "Outras linhas" → B. A página mostra os produtos sem preço e o botão do WhatsApp. No admin, a aba Acompanhamento lista "cliente / B". No painel do vendedor aparece "Interesses dos clientes", e "Montar nova oferta" já preenche cliente e linha B.
+6. **Acompanhamento:** ofertas, pedidos B2B e boletos (com vencimentos) aparecem com os dados certos.
+
+---
+
 ## ★ Rodada Admin B2B — entrega da aba 1 (branch `b2b/bio-admin-v1`)
 
 - **Branch nova** `b2b/bio-admin-v1`, criada a partir de `origin/main` = `10c0f3a` (produção). Só local: sem push, deploy, acesso ao Neon ou seed.
@@ -54,7 +143,7 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 ### A.2 Pontos de atenção
 
 - ⚠️ **Termo RCA provisório:** o texto em `src/app/b2b/convite/[token]/InviteForm.tsx` (`RCA_TERMS`) é um **resumo que eu escrevi**. Precisa ser substituído pelo termo oficial revisado pelo jurídico antes de publicar.
-- ⚠️ **Segurança, já existia e fica fora deste escopo:** as rotas de admin que já existiam (`/api/admin/orders/[id]/fulfillment` e `/shipment`) **não verificam a sessão do admin**. Recomendo aplicar o mesmo `isAdminRequest` (`src/lib/admin/session.ts`) numa rodada própria.
+- ~~Segurança: `/api/admin/orders/[id]/fulfillment` e `/shipment` sem sessão~~ → **corrigido em `c2cf328`** (seção B.1).
 - **Tipos gravados:** `rca` (RCA) e `clt` (Vendedor), iguais aos da Secreta. O preflight A4 mostra se já existem outros valores no banco.
 
 ### A.3 Banco (obrigatório antes do deploy desta branch)
@@ -79,7 +168,7 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ### A.5 Próxima entrega
 
-Abas 2 (Linhas comerciais), 3 (Promoções) e 4 (Acompanhamento, com o registro de "cliente visualizou a linha X fora da oferta"). Hoje elas aparecem na tela como "chega na próxima entrega".
+Entregue na segunda publicação (seção ★★ acima).
 
 ---
 
