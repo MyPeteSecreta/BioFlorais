@@ -9,6 +9,63 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★ Terceira rodada (decisões do Luis em 01/10), parte 1: itens 1, 2 e 4
+
+Na mesma branch `b2b/bio-admin-v1`, **depois de `941e78f` (produção)**, em commits novos, sem reescrever nada publicado. Tudo só local: sem push, deploy nem acesso ao Neon.
+
+```
+1d3e3ee feat(b2b/bio): seed SQL das promocoes de teste (3 por 2 e 4 por 2) + matriz de comissao
+974f7c5 chore(b2b/bio): remove import sem uso apos tirar a aprovacao
+4011db8 feat(b2b/bio): cadastro pelo convite ja nasce ativo (sem aprovacao)
+```
+
+**Verificações (em `1d3e3ee`):** `tsc` exit 0; `npm.cmd run build` exit 0 (43/43); `node --test` 23/23; `git diff --check 941e78f..HEAD` vazio.
+
+### C.1 Aprovação removida: `4011db8`
+- O cadastro pelo convite nasce **ativo**: `status = "active"` e `company_approved_at` = agora. A tela final diz "Cadastro concluído. Você já pode entrar na área B2B".
+- No admin, saem o status "Aguardando aprovação" e a ação "Aprovar". Ficam "Desativar" e "Reativar".
+- Cadastros antigos que tenham ficado `pending` aparecem como **Inativo**. "Reativar" os ativa e preenche `company_approved_at` se estiver vazio.
+- No login, qualquer status diferente de `active` resulta em "acesso desativado".
+- Não precisa de SQL.
+
+### C.2 Novo cliente: só o nome
+Já era assim e foi conferido. `POST /api/b2b/clients` exige só `displayName`, e o painel só pede o nome. Contato, e-mail e telefone são opcionais, e gerar o link não exige nenhum outro dado do cliente. O Offer Builder novo (parte 2) mantém isso.
+
+### C.3 Seed das promoções de teste: `1d3e3ee` (o Luis roda no Neon)
+1. `sql/b2b/06a_seed_promocoes_teste_preflight_one_shot.sql` (um SELECT, uma linha em json, só leitura). Conferir:
+   - `products_by_line`: Adulto, Pet, Infantil e Baby com produtos ativos;
+   - `baby_sono_candidates`: **exatamente 1**;
+   - `commission_rules_table_exists`: se a tabela já existe (se não existir, o 06b cria);
+   - `promotions_scope_values` e `promotions_not_null_without_default`.
+2. `sql/b2b/06b_seed_promocoes_teste.sql`, numa **transação única e idempotente** (rodar de novo não duplica nada):
+   - `b2b_commission_rules`, com `CREATE TABLE IF NOT EXISTS` (estrutura da My Pet) e as colunas `eligibility_mode`, `max_uses` e `duration_days`;
+   - **grupos reais** `adulto`, `pet`, `infantil` e `baby` (nomes e ordem das linhas da Home B2C), com os produtos ativos de cada linha por `products.line_slug`;
+   - **"BIO-B2B TEST GROUP" fica inativo**, sem ser apagado;
+   - **promoções**, todas do tipo com efeito no servidor (`buy_x_get_y_auto_same_sku`), na mesma mecânica da My Pet:
+     - "3 por 2 - Adulto/Pet/Infantil": compra 2, leva +1 grátis, mesmo SKU;
+     - "4 por 2 - Adulto/Pet/Infantil": compra 2, leva +2 grátis, mesmo SKU;
+     - "3 por 2 - Baby Sono" e "4 por 2 - Baby Sono": vinculadas à linha Baby, mas **restritas ao produto `baby-floral-em-gotas-sono`** (o produto explícito tem prioridade no motor);
+   - **comissão** (regras gerais, sem vendedor ou cliente específico):
+
+     | Regra | Valor |
+     |---|---|
+     | base | 10% |
+     | preço B2B normal | +15% |
+     | 3 por 2, por compras 1/2/3 | +10 / +8 / +6% |
+     | 3 por 2, por prazo 30/60/90/180 dias | +10 / +8 / +6 / +3% |
+     | 4 por 2, por compras 1/2/3 | +6 / +4 / +2% |
+     | 4 por 2, por prazo 30/60/90/180 dias | +6 / +4 / +2 / +1% |
+   - **trava:** aborta tudo se não houver exatamente 1 produto `baby-floral-em-gotas-sono`.
+   - Ao final do arquivo há uma consulta de conferência, em comentário. O esperado é 8 promoções, cada uma com 7 regras de comissão.
+3. **Não executei** o SQL: não tenho acesso ao Neon nem Postgres local. Revisei a sintaxe manualmente.
+
+As regras de comissão passam a ser lidas pelo **Offer Builder** (parte 2, item 3), que mostra "comissão-base + extra = total" ao vendedor. Até lá, as promoções já aparecem na aba **Promoções** do admin e ficam selecionáveis no painel atual.
+
+### C.4 Próximo (parte 2)
+Itens 3 (Offer Builder no padrão My Pet, com revisão obrigatória e comissão congelada no pedido), 5 (isolamento entre vendedores), 6 (outras linhas com compra pelo preço B2B normal) e 7 (segurança do Melhor Envio).
+
+---
+
 ## ★★ Segunda publicação: segurança, vencimentos do boleto e abas 2–4 (sobre `bdead29`)
 
 A primeira publicação é o `bdead29` (aba 1). Tudo abaixo vem **depois** dele, na mesma branch `b2b/bio-admin-v1`, só local: sem push, deploy nem acesso ao Neon.
