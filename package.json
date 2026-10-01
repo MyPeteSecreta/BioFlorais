@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --import ./scripts/register-ts-paths.mjs --test \"scripts/*.test.mjs\""
   },
   "dependencies": {
     "@angelblancdigital/partners": "0.2.0",
@@ -20,6 +21,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
