@@ -1,8 +1,9 @@
 /**
  * BIO FLORAIS B2B — linhas fora da oferta e registro de interesse.
  *
- * O cliente, pelo link da oferta, vê também as demais linhas B2B ativas
- * (sem preço). Ao abrir uma delas, gravamos b2b_offer_line_views
+ * O cliente, pelo link da oferta, vê e COMPRA também as demais linhas B2B
+ * ativas pelo PREÇO B2B NORMAL, sem promoção (decisão do Luis, 01/10).
+ * Ao abrir uma delas, gravamos b2b_offer_line_views
  * (oferta, linha, cliente, vendedor, data) — no máximo 1 registro a cada
  * 30 min por oferta+linha — para o vendedor poder mandar nova oferta.
  */
@@ -16,7 +17,7 @@ import {
   b2bOfferLineViews,
   products,
 } from "@/lib/db/schema";
-import type { PublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
+import type { PublicB2BOfferContext, PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 
 const VIEW_DEDUP_MS = 30 * 60 * 1000;
 
@@ -46,19 +47,67 @@ export async function findOtherB2BLine(context: PublicB2BOfferContext, slug: str
   return lines.find((line) => line.slug === slug) ?? null;
 }
 
-/** Produtos ativos da linha (sem preço: a linha não faz parte da oferta). */
-export async function loadLineProducts(groupId: string) {
-  return db
-    .select({ id: products.id, slug: products.slug, name: products.name })
+/**
+ * Produtos ativos das linhas B2B que NÃO estão na oferta, que o cliente
+ * pode comprar pelo preço B2B normal. Nunca entram no motor de promoção
+ * (que recebe só context.products), então promoção não se aplica a eles.
+ * Produto que também está numa linha da oferta fica só na oferta.
+ */
+export async function loadOtherLineProducts(
+  context: PublicB2BOfferContext,
+  onlyGroupId?: string
+): Promise<PublicB2BProduct[]> {
+  const lines = await loadOtherB2BLines(context);
+  const groupIds = lines
+    .map((line) => line.id)
+    .filter((id) => !onlyGroupId || id === onlyGroupId);
+
+  if (groupIds.length === 0) return [];
+
+  const offerProductIds = new Set(context.products.map((product) => product.id));
+
+  const rows = await db
+    .select({
+      commercialGroupId: b2bCommercialGroupProducts.commercialGroupId,
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      priceCents: products.priceCents,
+      category: products.category,
+    })
     .from(b2bCommercialGroupProducts)
     .innerJoin(products, eq(products.id, b2bCommercialGroupProducts.productId))
     .where(
       and(
-        inArray(b2bCommercialGroupProducts.commercialGroupId, [groupId]),
+        inArray(b2bCommercialGroupProducts.commercialGroupId, groupIds),
         eq(products.active, true)
       )
     )
     .orderBy(asc(products.name));
+
+  const byId = new Map<string, PublicB2BProduct>();
+
+  for (const row of rows) {
+    if (offerProductIds.has(row.id)) continue;
+
+    const existing = byId.get(row.id);
+
+    if (existing) {
+      existing.commercialGroupIds.push(row.commercialGroupId);
+      continue;
+    }
+
+    byId.set(row.id, {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      b2cPriceCents: row.priceCents,
+      category: row.category,
+      commercialGroupIds: [row.commercialGroupId],
+    });
+  }
+
+  return Array.from(byId.values());
 }
 
 export async function recordOfferLineView(context: PublicB2BOfferContext, groupId: string) {

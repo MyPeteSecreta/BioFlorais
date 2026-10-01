@@ -27,6 +27,7 @@ import {
 } from "@/lib/b2b/pricing";
 import { verifyCepMatchesState } from "@/lib/shipping/cep-lookup";
 import { melhorEnvioProvider } from "@/lib/shipping/melhorenvio";
+import { loadOtherLineProducts } from "@/lib/b2b/line-views";
 import type { ShippingItem } from "@/lib/shipping/types";
 
 export type B2BQuoteInput = {
@@ -103,7 +104,12 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
     return fail(400, "O carrinho está vazio.");
   }
 
-  const allowed = new Map(context.products.map((product) => [product.id, product]));
+  // Produtos da oferta + das outras linhas B2B (preço B2B normal, sem
+  // promoção: o motor de promoção abaixo recebe só context.products).
+  const otherLineProducts = await loadOtherLineProducts(context);
+  const allowed = new Map(
+    [...context.products, ...otherLineProducts].map((product) => [product.id, product])
+  );
   const qtyByProductId = new Map<string, number>();
 
   for (const raw of rawItems) {

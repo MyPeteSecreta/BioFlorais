@@ -99,8 +99,8 @@ export default async function B2BOfferPage({
         <section className="mx-auto max-w-[1180px] px-5 pb-10 lg:px-10">
           <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas Bio Florais</h2>
           <p className="mt-1 text-sm text-[#746471]">
-            Estas linhas não fazem parte desta oferta. Abra para conhecer e peça ao seu
-            representante para incluí-las.
+            Estas linhas não fazem parte desta oferta, mas você pode comprar pelo preço B2B
+            normal, sem promoção. Quer uma condição especial? Peça ao seu representante.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {otherLines.map((line) => (

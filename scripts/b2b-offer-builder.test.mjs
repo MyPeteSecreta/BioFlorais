@@ -211,3 +211,20 @@ test("área do vendedor: sessão obrigatória e consultas de posse centralizadas
     assert.doesNotMatch(source, /status:\s*"active",\s*\n?\s*activatedAt/, `${rel}: só a revisão ativa oferta`);
   }
 });
+
+test("outras linhas: compráveis pelo preço B2B normal, nunca com promoção", () => {
+  const quote = readFileSync(join(SRC, "lib/b2b/quote.ts"), "utf8");
+
+  // A cotação aceita produtos da oferta + das outras linhas…
+  assert.match(quote, /\[\.\.\.context\.products, \.\.\.otherLineProducts\]/);
+  // …mas o motor de promoção recebe SÓ os produtos da oferta.
+  assert.match(
+    quote,
+    /resolveB2BPromotionBonusLines\(\s*context\.offerId,\s*context\.products,/
+  );
+
+  const linePage = readFileSync(join(SRC, "app/b2b/oferta/[token]/linha/[slug]/page.tsx"), "utf8");
+  assert.match(linePage, /resolveB2BUnitPriceCents/); // mostra preço B2B normal
+  assert.match(linePage, /<RecordLineView/); // continua gravando o evento
+  assert.match(linePage, /buildWhatsAppUrl/); // e o botão para o vendedor
+});
