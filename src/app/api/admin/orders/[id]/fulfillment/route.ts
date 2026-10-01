@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+import { isAdminRequest } from "@/lib/admin/session";
 import { db } from "@/lib/db/client";
 import { orders } from "@/lib/db/schema";
 
@@ -16,6 +17,14 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rota administrativa: exige a sessão do admin.
+  if (!isAdminRequest(request)) {
+    return NextResponse.json(
+      { error: "Não autorizado." },
+      { status: 401 }
+    );
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
