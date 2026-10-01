@@ -22,6 +22,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { hashToken } from "@/lib/b2b/token";
+import { isTestCommercialGroup } from "@/lib/b2b/offer-builder";
 
 export type PublicB2BProduct = {
   id: string;
@@ -132,7 +133,7 @@ export async function loadPublicB2BOfferContext(
     return { ok: false, error: "client_relationship_inactive" };
   }
 
-  const commercialGroups = await db
+  const commercialGroups = (await db
     .select({
       id: b2bCommercialGroups.id,
       slug: b2bCommercialGroups.slug,
@@ -150,7 +151,8 @@ export async function loadPublicB2BOfferContext(
         eq(b2bCommercialGroups.b2bVisible, true)
       )
     )
-    .orderBy(b2bCommercialGroups.sortOrder, b2bCommercialGroups.name);
+    .orderBy(b2bCommercialGroups.sortOrder, b2bCommercialGroups.name)
+  ).filter((group) => !isTestCommercialGroup(group));
 
   let offerProducts: PublicB2BProduct[] = [];
 

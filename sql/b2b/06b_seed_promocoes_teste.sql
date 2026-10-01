@@ -92,7 +92,7 @@ SELECT g.id, p.id
 -- ---------------------------------------------------------------------------
 UPDATE b2b_commercial_groups
    SET active = false, updated_at = now()
- WHERE upper(trim(name)) = 'BIO-B2B TEST GROUP'
+ WHERE name ILIKE 'BIO-B2B TEST%'
    AND active;
 
 -- ---------------------------------------------------------------------------

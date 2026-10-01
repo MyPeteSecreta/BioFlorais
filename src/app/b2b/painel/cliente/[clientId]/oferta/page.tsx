@@ -82,7 +82,7 @@ export default async function OfferBuilderPage({
       .from(b2bOfferCommercialGroups)
       .where(eq(b2bOfferCommercialGroups.offerId, draftId));
 
-    initialSelected = groups.map((group) => group.id);
+    initialSelected = groups.map((group) => group.id).filter((id) => lines.some((line) => line.id === id));
 
     const promotions = await db
       .select({

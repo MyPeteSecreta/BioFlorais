@@ -157,7 +157,8 @@ before(async () => {
       ('cosmeticos-shampoo', 'Shampoo', 'cosmeticos');
 
     INSERT INTO b2b_commercial_groups (slug, name, active) VALUES
-      ('bio-b2b-test-group', 'BIO-B2B TEST GROUP', true);
+      ('bio-b2b-test-group', 'BIO-B2B TEST GROUP', true),
+      ('bio-b2b-test-group-5519ea839c1d460b', 'BIO-B2B TEST GROUP 5519ea839c1d460b', true);
   `);
 });
 
@@ -238,6 +239,7 @@ test("06b (seed) é idempotente e cria exatamente o pedido do Luis", async () =>
   );
   assert.deepEqual(groups, [
     { slug: "bio-b2b-test-group", active: false },
+    { slug: "bio-b2b-test-group-5519ea839c1d460b", active: false },
     { slug: "adulto", active: true },
     { slug: "pet", active: true },
     { slug: "infantil", active: true },
@@ -336,4 +338,55 @@ test("07b (Offer Builder) aplica e 07a confirma as colunas", async () => {
 
   assert.ok(columns.length > 0);
   assert.deepEqual(columns.filter((column) => column.status !== "ok"), []);
+});
+
+test("08b desativa o grupo de teste (com sufixo hex) sem apagar nada; 09b cria as demais linhas", async () => {
+  // Reativa os dois grupos de teste para provar o 08b.
+  await run(`UPDATE b2b_commercial_groups SET active = true WHERE slug LIKE 'bio-b2b-test-group%'`);
+
+  await pg.exec(sqlFile("08b_desativar_grupo_de_teste.sql"));
+  await pg.exec(sqlFile("08b_desativar_grupo_de_teste.sql")); // idempotente
+
+  const tests = await run(
+    `SELECT slug, active, b2b_visible FROM b2b_commercial_groups WHERE slug LIKE 'bio-b2b-test-group%' ORDER BY slug`
+  );
+  assert.equal(tests.length, 2); // nada foi apagado
+  assert.ok(tests.every((row) => row.active === false && row.b2b_visible === false));
+
+  await pg.exec(sqlFile("09b_linhas_b2b_demais.sql"));
+  await pg.exec(sqlFile("09b_linhas_b2b_demais.sql")); // idempotente
+
+  const lines = await run(
+    `SELECT g.slug, (SELECT count(*)::int FROM b2b_commercial_group_products gp WHERE gp.commercial_group_id = g.id) AS produtos
+       FROM b2b_commercial_groups g WHERE g.slug = 'cosmeticos'`
+  );
+  // Só a linha com produto ativo vira card; kids/teen/etc. sem produto não são criadas.
+  assert.deepEqual(lines, [{ slug: "cosmeticos", produtos: 1 }]);
+  const [{ total }] = await run(`SELECT count(*)::int AS total FROM b2b_commercial_groups WHERE slug IN ('kids','teen','home-care')`);
+  assert.equal(total, 0);
+  // Nenhuma promoção criada para a linha nova: preço B2B normal.
+  const [{ promos }] = await run(
+    `SELECT count(*)::int AS promos FROM b2b_promotion_commercial_groups pg
+       JOIN b2b_commercial_groups g ON g.id = pg.commercial_group_id WHERE g.slug = 'cosmeticos'`
+  );
+  assert.equal(promos, 0);
+});
+
+test("08a (preflight de dados de teste) roda, é somente leitura e acha o grupo de teste", async () => {
+  await pg.exec(`ALTER TABLE b2b_responsibles ADD COLUMN IF NOT EXISTS email text;
+                 CREATE TABLE IF NOT EXISTS coupons (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), code text, active boolean);`);
+  const [row] = await run(sqlFile("08a_dados_de_teste_preflight_one_shot.sql"));
+  const result = row.preflight_dados_de_teste;
+
+  assert.equal(result.grupos_teste.length, 2);
+  assert.ok(Array.isArray(result.ofertas_recentes));
+  assert.ok(Array.isArray(result.linhas_de_produto_ativas_sem_grupo));
+});
+
+test("teste de linha: o filtro de grupos de teste do Offer Builder", async () => {
+  const { isTestCommercialGroup } = await import("@/lib/b2b/offer-builder");
+  assert.equal(isTestCommercialGroup({ slug: "x", name: "BIO-B2B TEST GROUP 5519ea839c1d460b" }), true);
+  assert.equal(isTestCommercialGroup({ slug: "bio-b2b-test-group", name: "qualquer" }), true);
+  assert.equal(isTestCommercialGroup({ slug: "adulto", name: "Adulto" }), false);
+  assert.equal(isTestCommercialGroup({ slug: "cosmeticos", name: "Cosméticos" }), false);
 });

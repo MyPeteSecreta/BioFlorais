@@ -38,12 +38,22 @@ export type BuilderLine = {
   promotions: BuilderPromotion[];
 };
 
+/**
+ * Dado de teste que vazou para produção ("BIO-B2B TEST GROUP <hex>") nunca
+ * vira card, mesmo que esteja ativo no banco. O SQL 08b o desativa de vez.
+ */
+export function isTestCommercialGroup(group: { slug: string; name: string }) {
+  return /^\s*bio-b2b[\s-]*test/i.test(group.name) || /^bio-b2b-test/i.test(group.slug);
+}
+
 export async function loadBuilderLines(now = new Date()): Promise<BuilderLine[]> {
-  const groups = await db
-    .select({ id: b2bCommercialGroups.id, slug: b2bCommercialGroups.slug, name: b2bCommercialGroups.name })
-    .from(b2bCommercialGroups)
-    .where(and(eq(b2bCommercialGroups.active, true), eq(b2bCommercialGroups.b2bVisible, true)))
-    .orderBy(asc(b2bCommercialGroups.sortOrder), asc(b2bCommercialGroups.name));
+  const groups = (
+    await db
+      .select({ id: b2bCommercialGroups.id, slug: b2bCommercialGroups.slug, name: b2bCommercialGroups.name })
+      .from(b2bCommercialGroups)
+      .where(and(eq(b2bCommercialGroups.active, true), eq(b2bCommercialGroups.b2bVisible, true)))
+      .orderBy(asc(b2bCommercialGroups.sortOrder), asc(b2bCommercialGroups.name))
+  ).filter((group) => !isTestCommercialGroup(group));
 
   if (groups.length === 0) return [];
 

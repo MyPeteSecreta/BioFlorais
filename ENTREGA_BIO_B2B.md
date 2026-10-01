@@ -9,6 +9,34 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★ Rodada de correção pós-teste do Luis (vendedor Bio5), sobre `b170d3a`
+
+Só local: sem push, deploy nem acesso ao Neon. **Nada do B2C foi alterado** (só arquivos `src/**/b2b`, `src/lib/b2b`, `api/b2b`, SQL e testes; `products`, header, carrinho B2C e textos não foram tocados). Encoding do banco: não mexi.
+
+### 1. "BIO-B2B TEST GROUP 5519ea839c1d460b"
+- **Origem:** não existe em nenhum código, seed ou teste do repositório (`git log -S` só acha o nome sem sufixo, no 06b/ENTREGA). O sufixo hex indica um teste de fumaça feito fora do repo contra o banco de produção (provavelmente das primeiras validações do B2B). O 06b só desativava o nome **exato**, por isso este sobrou ativo.
+- **Impede de repetir:** `isTestCommercialGroup` (offer-builder.ts) nunca deixa um grupo "BIO-B2B TEST*" virar card no Offer Builder nem aparecer no link do cliente; o 06b agora usa `ILIKE 'BIO-B2B TEST%'`.
+- **SQL (projeto Neon `bio-florais`), nesta ordem:**
+  1. `08a_dados_de_teste_preflight_one_shot.sql` (só leitura, 1 linha JSON): procura "test" em grupos, promoções, produtos, clientes, vendedores e cupons; lista linhas de produto sem grupo e as 10 ofertas mais recentes com linhas e promoções gravadas.
+  2. `08b_desativar_grupo_de_teste.sql`: SELECT antes, `UPDATE` (active=false, b2b_visible=false; sem DELETE) em BEGIN/COMMIT, SELECT depois.
+
+### 2. Demais linhas sem promoção não apareciam
+- Causa: só existiam grupos comerciais Adulto/Pet/Infantil/Baby (criados pelo 06b). O Offer Builder já lista qualquer grupo ativo e visível; faltavam os grupos.
+- **SQL:** `09b_linhas_b2b_demais.sql` (aditivo, idempotente, transação única): cria grupo para Kids, Teen, Dose Única, Virtudes Divinas, Cosméticos, Cosméticos Pet e Home Care **só se houver produto ativo** com aquele `products.line_slug`, e liga os produtos. Sem promoção: o card aparece com preço B2B normal. Só lê `products`. Rode o 08a antes e confira `linhas_de_produto_ativas_sem_grupo`; slug fora da lista não é criado.
+
+### 3. Contador "1 linha(s)" com 5 cards marcados
+- **Não consegui reproduzir só pelo código** (o contador lia `selected.size` do mesmo estado dos cards). Endureci o que podia causar a divergência: o contador conta só linhas que existem na tela; ids antigos de rascunho (ex.: o grupo de teste agora oculto) não são enviados nem contados; o ✓ só é desenhado na linha realmente selecionada; o texto concorda no plural.
+
+### 4. Link do cliente sem promoção / `offer_promotions_total: 0`
+- Revisei o fluxo inteiro (escolher → rascunho → revisão → ativar → link → carrinho → pedido). O servidor aplica a bonificação a partir de `b2b_offer_promotions`; **com 0 linhas nessa tabela nenhuma promoção pode valer**, então a causa está em a escolha não ter sido gravada naquela oferta.
+- Achei dois pontos fracos reais e corrigi: (a) o rascunho fazia 4 comandos soltos (apagar, apagar, inserir, inserir), podendo deixar a oferta com linhas e sem promoção; agora é `db.batch` (transação única) **e confere a contagem gravada**, respondendo erro se diferir; (b) a página do link **não mostrava aviso nenhum de promoção**; agora mostra a faixa azul da linha e o selo "Compre X e leve +Y grátis" por produto elegível (promoção pontual só nos SKUs dela). A bonificação em si continua vindo do servidor (resolveB2BPromotionBonusLines).
+- **Diagnóstico pendente (preciso do resultado do 08a):** o bloco `ofertas_recentes` mostra, por oferta, as linhas e as promoções gravadas. Se a oferta do Bio5 aparecer sem promoção, a escolha não foi salva (ex.: link gerado de oferta feita sem "Salvar esta condição" ou antes do 07b); se aparecer com promoção e o link ainda não bonificar, me mande a linha que investigo o resolver.
+
+### Verificações (em `HEAD` desta rodada)
+`npm.cmd test` 50/50 (novos: 08b com grupo de sufixo hex, 09b, 08a, filtro de teste), `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio.
+
+---
+
 ## ★★★ Terceira rodada, parte 2: itens 3, 5, 6 e 7 (sobre `c2151c9`)
 
 Mesma branch `b2b/bio-admin-v1`, commits novos **depois de `c2151c9` (produção)**. Só local: sem push, deploy nem acesso ao Neon.

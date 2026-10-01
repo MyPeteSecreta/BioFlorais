@@ -13,12 +13,15 @@ export type B2BCatalogProduct = {
   content: string | null;
   image: string | null;
   priceCents: number;
+  /** Aviso da promoção da oferta (ex.: "Compre 2 e leve +1 grátis"). */
+  promotionText?: string | null;
 };
 
 export type B2BCatalogGroup = {
   id: string;
   name: string;
   products: B2BCatalogProduct[];
+  promotionNote?: string | null;
 };
 
 function ProductCard({
@@ -45,6 +48,12 @@ function ProductCard({
 
       <h3 className="mt-3 text-sm font-bold leading-snug text-[#422347]">{product.name}</h3>
       {product.content && <p className="mt-1 text-xs text-[#8a7886]">{product.content}</p>}
+
+      {product.promotionText && (
+        <p className="mt-2 inline-flex self-start rounded-full bg-blue-600 px-3 py-1 text-[11px] font-extrabold text-white">
+          {product.promotionText}
+        </p>
+      )}
 
       <p className="mt-2 text-lg font-extrabold text-[#55245f]">
         {formatB2BCents(product.priceCents)}
@@ -119,6 +128,11 @@ export default function B2BOfferCatalog({
         {groups.map((group) => (
           <section key={group.id} className="mb-10">
             <h2 className="font-serif text-2xl font-semibold text-[#55245f]">{group.name}</h2>
+            {group.promotionNote && (
+              <p className="mt-2 rounded-2xl border-2 border-blue-500 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-900">
+                {group.promotionNote}
+              </p>
+            )}
             <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {group.products.map((product) => (
                 <ProductCard

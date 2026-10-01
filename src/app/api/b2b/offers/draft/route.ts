@@ -105,28 +105,47 @@ export async function POST(request: NextRequest) {
       await db.update(b2bOffers).set({ updatedAt: now }).where(eq(b2bOffers.id, offerId));
     }
 
-    await db.delete(b2bOfferCommercialGroups).where(eq(b2bOfferCommercialGroups.offerId, offerId));
-    await db.delete(b2bOfferPromotions).where(eq(b2bOfferPromotions.offerId, offerId));
+    // Uma transação só (db.batch): ou grava linhas + promoções, ou nada.
+    // Antes eram 4 comandos soltos e uma falha no meio deixava a oferta com
+    // linhas e sem a promoção escolhida.
+    const promotionRows = parsed.value.conditions.map(({ commercialGroupId, condition }) => {
+      if (condition.kind !== "promotion") throw new Error("condição inválida");
 
-    await db.insert(b2bOfferCommercialGroups).values(
-      parsed.value.commercialGroupIds.map((commercialGroupId) => ({ offerId: offerId!, commercialGroupId }))
-    );
+      return {
+        offerId: offerId!,
+        promotionId: condition.promotionId,
+        commercialGroupId,
+        eligibilityMode: condition.eligibilityMode,
+        maxUses: condition.eligibilityMode === "uses" ? condition.maxUses : null,
+        durationDays: condition.eligibilityMode === "days" ? condition.durationDays : null,
+        usesCount: 0,
+      };
+    });
 
-    if (parsed.value.conditions.length > 0) {
-      await db.insert(b2bOfferPromotions).values(
-        parsed.value.conditions.map(({ commercialGroupId, condition }) => {
-          if (condition.kind !== "promotion") throw new Error("condição inválida");
+    await db.batch([
+      db.delete(b2bOfferCommercialGroups).where(eq(b2bOfferCommercialGroups.offerId, offerId)),
+      db.delete(b2bOfferPromotions).where(eq(b2bOfferPromotions.offerId, offerId)),
+      db.insert(b2bOfferCommercialGroups).values(
+        parsed.value.commercialGroupIds.map((commercialGroupId) => ({ offerId: offerId!, commercialGroupId }))
+      ),
+      ...(promotionRows.length > 0 ? [db.insert(b2bOfferPromotions).values(promotionRows)] : []),
+    ]);
 
-          return {
-            offerId: offerId!,
-            promotionId: condition.promotionId,
-            commercialGroupId,
-            eligibilityMode: condition.eligibilityMode,
-            maxUses: condition.eligibilityMode === "uses" ? condition.maxUses : null,
-            durationDays: condition.eligibilityMode === "days" ? condition.durationDays : null,
-            usesCount: 0,
-          };
-        })
+    // Confere o que ficou gravado antes de dizer "ok".
+    const saved = await db
+      .select({ promotionId: b2bOfferPromotions.promotionId })
+      .from(b2bOfferPromotions)
+      .where(eq(b2bOfferPromotions.offerId, offerId));
+
+    if (saved.length !== promotionRows.length) {
+      console.error("[b2b/offers/draft] promoções gravadas diferem das enviadas", {
+        offerId,
+        sent: promotionRows.length,
+        saved: saved.length,
+      });
+      return NextResponse.json(
+        { error: "A promoção escolhida não foi gravada. Tente salvar de novo." },
+        { status: 500 }
       );
     }
 

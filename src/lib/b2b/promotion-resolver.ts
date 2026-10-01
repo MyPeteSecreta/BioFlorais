@@ -181,3 +181,68 @@ export async function resolveB2BPromotionBonusLines(
 
   return { bonusLines, promotionIdsUsed: Array.from(used) };
 }
+
+export type B2BOfferPromotionNotice = {
+  promotionId: string;
+  commercialGroupId: string | null;
+  buyQuantity: number;
+  freeQuantity: number;
+  /** Vazio = vale para a linha inteira; senão, só estes produtos. */
+  productIds: string[];
+};
+
+/**
+ * Promoções vigentes da oferta, só para AVISAR o cliente na página do link
+ * ("compre X, leve Y grátis"). O desconto de verdade continua sendo
+ * calculado no servidor por resolveB2BPromotionBonusLines.
+ */
+export async function listOfferPromotionNotices(offerId: string): Promise<B2BOfferPromotionNotice[]> {
+  const now = new Date();
+
+  const rows = await db
+    .select({
+      promotionId: b2bOfferPromotions.promotionId,
+      commercialGroupId: b2bOfferPromotions.commercialGroupId,
+      maxUses: b2bOfferPromotions.maxUses,
+      usesCount: b2bOfferPromotions.usesCount,
+      validFrom: b2bOfferPromotions.validFrom,
+      validUntil: b2bOfferPromotions.validUntil,
+      type: b2bPromotions.type,
+      active: b2bPromotions.active,
+      startsAt: b2bPromotions.startsAt,
+      endsAt: b2bPromotions.endsAt,
+      buyQuantity: b2bPromotions.buyQuantity,
+      freeQuantity: b2bPromotions.freeQuantity,
+    })
+    .from(b2bOfferPromotions)
+    .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bOfferPromotions.promotionId))
+    .where(eq(b2bOfferPromotions.offerId, offerId));
+
+  const valid = rows.filter(
+    (row) =>
+      row.type === B2B_SUPPORTED_PROMOTION_TYPE &&
+      row.active &&
+      Boolean(row.buyQuantity) &&
+      Boolean(row.freeQuantity) &&
+      !(row.startsAt && now < row.startsAt) &&
+      !(row.endsAt && now > row.endsAt) &&
+      !(row.validFrom && now < row.validFrom) &&
+      !(row.validUntil && now > row.validUntil) &&
+      !(row.maxUses !== null && row.usesCount >= row.maxUses)
+  );
+
+  if (valid.length === 0) return [];
+
+  const explicit = await db
+    .select({ promotionId: b2bPromotionProducts.promotionId, productId: b2bPromotionProducts.productId })
+    .from(b2bPromotionProducts)
+    .where(inArray(b2bPromotionProducts.promotionId, valid.map((row) => row.promotionId)));
+
+  return valid.map((row) => ({
+    promotionId: row.promotionId,
+    commercialGroupId: row.commercialGroupId,
+    buyQuantity: row.buyQuantity!,
+    freeQuantity: row.freeQuantity!,
+    productIds: explicit.filter((item) => item.promotionId === row.promotionId).map((item) => item.productId),
+  }));
+}

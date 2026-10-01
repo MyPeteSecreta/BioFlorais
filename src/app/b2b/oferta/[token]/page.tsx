@@ -9,6 +9,7 @@ import Link from "next/link";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
+import { listOfferPromotionNotices, type B2BOfferPromotionNotice } from "@/lib/b2b/promotion-resolver";
 import { getProduct } from "@/lib/catalog/bio-products";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
 import B2BOfferCatalog, { type B2BCatalogGroup } from "@/components/b2b/B2BOfferCatalog";
@@ -50,10 +51,13 @@ export default async function B2BOfferPage({
 
   const { context } = resolution;
 
+  const notices = await listOfferPromotionNotices(context.offerId);
+
   const groups: B2BCatalogGroup[] = context.commercialGroups
     .map((group) => ({
       id: group.id,
       name: group.name,
+      promotionNote: promotionNote(notices, group.id),
       products: context.products
         .filter((product) => product.commercialGroupIds.includes(group.id))
         .map((product) => {
@@ -66,6 +70,7 @@ export default async function B2BOfferPage({
             content: catalogProduct?.content ?? null,
             image: catalogProduct ? getProductMainImage(catalogProduct) || null : null,
             priceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
+            promotionText: promotionText(notices, group.id, product.id),
           };
         }),
     }))
@@ -118,4 +123,24 @@ export default async function B2BOfferPage({
       )}
     </main>
   );
+}
+
+function bonusLabel(buy: number, free: number) {
+  return `Compre ${buy} e leve +${free} grátis do mesmo produto`;
+}
+
+/** Aviso da linha inteira (promoção sem produtos explícitos). */
+function promotionNote(notices: B2BOfferPromotionNotice[], groupId: string) {
+  const wide = notices.find((item) => item.commercialGroupId === groupId && item.productIds.length === 0);
+  return wide ? `Promoção nesta linha: ${bonusLabel(wide.buyQuantity, wide.freeQuantity)}.` : null;
+}
+
+/** Aviso por produto (linha inteira ou promoção pontual por SKU). */
+function promotionText(notices: B2BOfferPromotionNotice[], groupId: string, productId: string) {
+  const match = notices.find(
+    (item) =>
+      item.commercialGroupId === groupId &&
+      (item.productIds.length === 0 || item.productIds.includes(productId))
+  );
+  return match ? bonusLabel(match.buyQuantity, match.freeQuantity) : null;
 }

@@ -126,17 +126,19 @@ export default function OfferBuilder({
     [lines, modalLineId]
   );
 
+  // Só conta linha que existe na tela (id antigo de rascunho não entra).
+  const selectedCount = lines.filter((line) => selected.has(line.id)).length;
+
   const normalCommission = commissionFor(matrix, { kind: "normal" });
 
   function toggleLine(lineId: string) {
     const wasSelected = selected.has(lineId);
+    const nextSelected = new Set(selected);
 
-    setSelected((current) => {
-      const next = new Set(current);
-      if (wasSelected) next.delete(lineId);
-      else next.add(lineId);
-      return next;
-    });
+    if (wasSelected) nextSelected.delete(lineId);
+    else nextSelected.add(lineId);
+
+    setSelected(nextSelected);
 
     // Tirar a linha da oferta descarta a condição promocional dela.
     if (wasSelected) {
@@ -195,9 +197,9 @@ export default function OfferBuilder({
         body: JSON.stringify({
           clientId,
           offerId,
-          commercialGroupIds: Array.from(selected),
+          commercialGroupIds: lines.filter((line) => selected.has(line.id)).map((line) => line.id),
           promotions: Object.entries(choices)
-            .filter(([lineId]) => selected.has(lineId))
+            .filter(([lineId]) => lines.some((line) => line.id === lineId) && selected.has(lineId))
             .map(([commercialGroupId, choice]) => ({ commercialGroupId, ...choice })),
         }),
       });
@@ -276,7 +278,7 @@ export default function OfferBuilder({
                     isSelected ? "bg-[#55245f] text-white" : "bg-white/95 text-transparent",
                   ].join(" ")}
                 >
-                  <span className="text-xl font-black">✓</span>
+                  {isSelected ? <span className="text-xl font-black">✓</span> : null}
                 </button>
 
                 {line.promotions.length > 0 && (
@@ -339,7 +341,7 @@ export default function OfferBuilder({
       <div className="sticky bottom-4 z-30 mt-10 rounded-[28px] border border-[#eadfd9] bg-white/95 px-6 py-5 shadow-xl backdrop-blur">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-extrabold">{selected.size} linha(s) selecionada(s)</p>
+            <p className="font-extrabold">{selectedCount} {selectedCount === 1 ? "linha selecionada" : "linhas selecionadas"}</p>
             <p className="mt-1 text-sm text-[#746471]">
               Você revisa as condições antes de gerar qualquer link para o cliente.
             </p>
@@ -347,7 +349,7 @@ export default function OfferBuilder({
           <button
             type="button"
             onClick={saveAndReview}
-            disabled={saving || selected.size === 0}
+            disabled={saving || selectedCount === 0}
             className="rounded-full bg-[#55245f] px-8 py-4 font-extrabold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? "Salvando…" : "Salvar e revisar oferta →"}
