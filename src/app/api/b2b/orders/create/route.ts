@@ -15,6 +15,7 @@ import { db } from "@/lib/db/client";
 import {
   addresses,
   b2bOfferPromotions,
+  b2bPromotions,
   couponRedemptions,
   coupons,
   customers,
@@ -23,6 +24,9 @@ import {
 } from "@/lib/db/schema";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
+import { loadCommissionMatrix } from "@/lib/b2b/commission";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { buildOrderItemSnapshots } from "@/lib/b2b/order-commission";
 import {
   isB2BInstallmentCountValid,
   isB2BPaymentMethod,
@@ -236,20 +240,35 @@ export async function POST(request: NextRequest) {
       })
       .returning({ id: orders.id });
 
-    await db.insert(orderItems).values([
-      ...quote.lines.map((line) => ({
-        orderId: order.id,
-        productId: line.productId,
-        qty: line.qty,
-        unitPriceCents: line.unitPriceCents,
-      })),
-      ...quote.bonusLines.map((bonus) => ({
-        orderId: order.id,
-        productId: bonus.productId,
-        qty: bonus.qty,
-        unitPriceCents: 0,
-      })),
+    // Snapshot imutável por item: promoção aplicada e comissão do vendedor
+    // (base + extra = total) congeladas no pedido. O cliente não vê isso.
+    const [matrix, offerPromotionTerms] = await Promise.all([
+      loadCommissionMatrix(getAppSqlRunner(), context.responsibleId, context.clientId),
+      db
+        .select({
+          promotionId: b2bOfferPromotions.promotionId,
+          name: b2bPromotions.name,
+          buyQuantity: b2bPromotions.buyQuantity,
+          freeQuantity: b2bPromotions.freeQuantity,
+          eligibilityMode: b2bOfferPromotions.eligibilityMode,
+          maxUses: b2bOfferPromotions.maxUses,
+          durationDays: b2bOfferPromotions.durationDays,
+        })
+        .from(b2bOfferPromotions)
+        .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bOfferPromotions.promotionId))
+        .where(eq(b2bOfferPromotions.offerId, context.offerId)),
     ]);
+
+    const itemSnapshots = buildOrderItemSnapshots({
+      matrix,
+      offerPromotions: offerPromotionTerms,
+      lines: quote.lines,
+      bonusLines: quote.bonusLines,
+    });
+
+    await db
+      .insert(orderItems)
+      .values(itemSnapshots.map((item) => ({ orderId: order.id, ...item })));
 
     for (const promotionId of quote.promotionIdsUsed) {
       await db

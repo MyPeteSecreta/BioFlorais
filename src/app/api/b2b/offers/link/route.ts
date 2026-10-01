@@ -1,104 +1,64 @@
 /**
- * BIO FLORAIS B2B — gerar (POST) ou revogar (DELETE) o link público da
- * oferta. Gerar um novo link revoga o anterior (no máximo 1 ativo). O
- * token bruto só existe nesta resposta; o banco guarda o hash.
+ * BIO FLORAIS B2B — link de uma oferta JÁ ATIVA (revisada):
+ *   POST   gera um novo link (revoga o anterior)
+ *   DELETE revoga o link ativo
+ * Rascunho não gera link aqui: passa pela revisão (…/activate).
+ * Isolamento: só ofertas do vendedor logado (ownership.ts).
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
-import {
-  b2bClientRelationships,
-  b2bOfferCommercialGroups,
-  b2bOfferLinks,
-  b2bOffers,
-} from "@/lib/db/schema";
+import { b2bOfferLinks } from "@/lib/db/schema";
 import { requireResponsible } from "@/lib/b2b/require-responsible";
-import { generateOpaqueToken, hashToken } from "@/lib/b2b/token";
+import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/ownership";
+import { issueOfferLink } from "@/lib/b2b/offer-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function readOfferId(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as { offerId?: string };
-  return body.offerId?.trim() ?? "";
-}
-
-async function loadOwnedOffer(offerId: string, responsibleId: string) {
-  const [offer] = await db
-    .select({ id: b2bOffers.id, clientId: b2bOffers.clientId, revokedAt: b2bOffers.revokedAt })
-    .from(b2bOffers)
-    .where(and(eq(b2bOffers.id, offerId), eq(b2bOffers.responsibleId, responsibleId)))
-    .limit(1);
-
-  return offer ?? null;
+  return String(body.offerId ?? "").trim();
 }
 
 export async function POST(request: NextRequest) {
+  const responsible = await requireResponsible(request);
+
+  if (!responsible) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
   try {
-    const responsible = await requireResponsible(request);
-
-    if (!responsible) {
-      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-    }
-
-    const offerId = await readOfferId(request);
-    const offer = offerId ? await loadOwnedOffer(offerId, responsible.id) : null;
+    const run = getAppSqlRunner();
+    const offer = await findOwnedOffer(run, responsible.id, await readOfferId(request));
 
     if (!offer || offer.revokedAt) {
       return NextResponse.json({ error: "Oferta não encontrada." }, { status: 404 });
     }
 
-    const [relationship] = await db
-      .select({ id: b2bClientRelationships.id })
-      .from(b2bClientRelationships)
-      .where(
-        and(
-          eq(b2bClientRelationships.clientId, offer.clientId),
-          eq(b2bClientRelationships.responsibleId, responsible.id),
-          eq(b2bClientRelationships.active, true),
-          isNull(b2bClientRelationships.unlinkedAt)
-        )
-      )
-      .limit(1);
-
-    if (!relationship) {
+    if (!offer.activatedAt || offer.status !== "active") {
       return NextResponse.json(
-        { error: "Este cliente não está mais vinculado a você." },
-        { status: 403 }
+        { error: "Revise a oferta antes de gerar o link." },
+        { status: 409 }
       );
     }
 
-    const [groups] = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(b2bOfferCommercialGroups)
-      .where(eq(b2bOfferCommercialGroups.offerId, offer.id));
+    const client = await findOwnedClient(run, responsible.id, offer.clientId);
 
-    if (!groups || Number(groups.total) < 1) {
-      return NextResponse.json(
-        { error: "A oferta não possui linhas comerciais." },
-        { status: 400 }
-      );
+    if (!client) {
+      return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
     }
 
-    await db
-      .update(b2bOfferLinks)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(b2bOfferLinks.offerId, offer.id), isNull(b2bOfferLinks.revokedAt)));
-
-    const token = generateOpaqueToken();
-
-    await db.insert(b2bOfferLinks).values({
+    const link = await issueOfferLink({
       offerId: offer.id,
-      tokenHash: hashToken(token),
-      expiresAt: null,
+      clientName: client.displayName,
+      clientPhone: client.phone,
+      responsibleName: responsible.name,
     });
 
-    return NextResponse.json({
-      ok: true,
-      path: `/b2b/oferta/${token}`,
-    });
+    return NextResponse.json({ ok: true, ...link });
   } catch (error) {
     console.error("[b2b/offers/link POST]", error);
     return NextResponse.json({ error: "Erro ao gerar link." }, { status: 500 });
@@ -106,15 +66,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const responsible = await requireResponsible(request);
+
+  if (!responsible) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
   try {
-    const responsible = await requireResponsible(request);
-
-    if (!responsible) {
-      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-    }
-
-    const offerId = await readOfferId(request);
-    const offer = offerId ? await loadOwnedOffer(offerId, responsible.id) : null;
+    const offer = await findOwnedOffer(getAppSqlRunner(), responsible.id, await readOfferId(request));
 
     if (!offer) {
       return NextResponse.json({ error: "Oferta não encontrada." }, { status: 404 });

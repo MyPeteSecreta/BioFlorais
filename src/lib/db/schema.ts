@@ -420,6 +420,43 @@ export const orderItems = pgTable(
     unitPriceCents:
       integer("unit_price_cents")
         .notNull(),
+
+    /*
+     * B2B — snapshot no pedido (colunas já existentes no Neon da Bio,
+     * conferidas por introspecção em 29/09; sql/b2b/07b garante com
+     * IF NOT EXISTS). B2C deixa tudo NULL.
+     */
+    paidQty:
+      integer("paid_qty"),
+
+    bonusQty:
+      integer("bonus_qty"),
+
+    physicalQty:
+      integer("physical_qty"),
+
+    // TEXT no banco real (não uuid).
+    promotionId:
+      text("promotion_id"),
+
+    promotionName:
+      text("promotion_name"),
+
+    promotionBuyQuantity:
+      integer("promotion_buy_quantity"),
+
+    promotionFreeQuantity:
+      integer("promotion_free_quantity"),
+
+    // Comissão congelada no pedido (cliente nunca vê).
+    commissionBasePercent:
+      numeric("commission_base_percent"),
+
+    commissionExtraPercent:
+      numeric("commission_extra_percent"),
+
+    commissionTotalPercent:
+      numeric("commission_total_percent"),
   }
 );
 
@@ -993,6 +1030,14 @@ export const b2bOfferPromotions = pgTable(
     validFrom: timestamp("valid_from"),
     validUntil: timestamp("valid_until"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /*
+     * Offer Builder (sql/b2b/07b): linha da oferta em que a promoção foi
+     * escolhida e a elegibilidade ("uses" = max_uses compras; "days" =
+     * duration_days a partir da ativação, gravado em valid_until).
+     */
+    commercialGroupId: uuid("commercial_group_id"),
+    eligibilityMode: text("eligibility_mode"),
+    durationDays: integer("duration_days"),
   },
   (t) => [
     primaryKey({ columns: [t.offerId, t.promotionId] }),
@@ -1072,4 +1117,36 @@ export const b2bOfferLineViews = pgTable(
     index("b2b_offer_line_views_offer_idx").on(t.offerId, t.commercialGroupId),
     index("b2b_offer_line_views_responsible_idx").on(t.responsibleId, t.viewedAt),
   ]
+);
+
+/*
+ * Regras de comissão B2B (Especificação V1.27/V1.28; sql/b2b/06b cria se
+ * não existir). Escopos usados:
+ *   responsible_base       base_percent (comissão-base do vendedor)
+ *   normal_price           extra_percent (preço B2B normal)
+ *   promotion_eligibility  extra_percent por promoção + elegibilidade
+ *                          (eligibility_mode "uses" + max_uses, ou
+ *                           "days" + duration_days)
+ * responsible_id / client_id preenchidos = override mais específico.
+ * O cliente nunca vê comissão.
+ */
+export const b2bCommissionRules = pgTable(
+  "b2b_commission_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    scope: text("scope").notNull(),
+    responsibleId: uuid("responsible_id").references(() => b2bResponsibles.id),
+    clientId: uuid("client_id").references(() => b2bClients.id),
+    commercialGroupId: uuid("commercial_group_id").references(() => b2bCommercialGroups.id),
+    productId: uuid("product_id").references(() => products.id),
+    promotionId: uuid("promotion_id").references(() => b2bPromotions.id),
+    eligibilityMode: text("eligibility_mode"),
+    maxUses: integer("max_uses"),
+    durationDays: integer("duration_days"),
+    basePercent: numeric("base_percent", { precision: 10, scale: 4 }),
+    extraPercent: numeric("extra_percent", { precision: 10, scale: 4 }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  }
 );

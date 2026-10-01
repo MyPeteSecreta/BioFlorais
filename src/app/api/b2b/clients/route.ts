@@ -1,13 +1,14 @@
 /**
- * BIO FLORAIS B2B — clientes do responsável logado (listar / cadastrar).
+ * BIO FLORAIS B2B — clientes do vendedor logado (listar / cadastrar).
+ * Novo cliente: só o nome é obrigatório. Isolamento via ownership.ts.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bClientRelationships, b2bClients } from "@/lib/db/schema";
 import { requireResponsible } from "@/lib/b2b/require-responsible";
+import { getAppSqlRunner, listOwnedClients } from "@/lib/b2b/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,26 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const clients = await db
-    .select({
-      id: b2bClients.id,
-      displayName: b2bClients.displayName,
-      contactName: b2bClients.contactName,
-      email: b2bClients.email,
-      phone: b2bClients.phone,
-      active: b2bClients.active,
-    })
-    .from(b2bClientRelationships)
-    .innerJoin(b2bClients, eq(b2bClients.id, b2bClientRelationships.clientId))
-    .where(
-      and(
-        eq(b2bClientRelationships.responsibleId, responsible.id),
-        eq(b2bClientRelationships.active, true),
-        isNull(b2bClientRelationships.unlinkedAt)
-      )
-    )
-    .orderBy(b2bClients.displayName);
-
+  const clients = await listOwnedClients(getAppSqlRunner(), responsible.id);
   return NextResponse.json({ clients });
 }
 
@@ -60,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   if (!displayName) {
     return NextResponse.json(
-      { error: "Informe o nome/razão social do cliente." },
+      { error: "Informe o nome do cliente." },
       { status: 400 }
     );
   }
