@@ -18,6 +18,7 @@ import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { countsAsPurchaseSql } from "@/lib/b2b/purchase-history";
 import {
+  B2B_PERCENT_PROMOTION_TYPE,
   B2B_SUPPORTED_PROMOTION_TYPE,
   parsePromotionBody,
   loadPromotionEligibilities,
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         name: b2bPromotions.name,
         type: b2bPromotions.type,
         promoType: b2bPromotions.promoType,
+        percentage: b2bPromotions.percentage,
         buyQuantity: b2bPromotions.buyQuantity,
         freeQuantity: b2bPromotions.freeQuantity,
         active: b2bPromotions.active,
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
     const usesRows = await getAppSqlRunner()(
       `SELECT i.promotion_id AS promotion_id, count(DISTINCT o.id)::int AS used
          FROM orders o JOIN order_items i ON i.order_id = o.id
-        WHERE i.promotion_id IS NOT NULL AND coalesce(i.bonus_qty, 0) > 0 AND ${countsAsPurchaseSql("o")}
+        WHERE i.promotion_id IS NOT NULL AND ${countsAsPurchaseSql("o")}
         GROUP BY i.promotion_id`
     );
     const usesBy = new Map(usesRows.map((row) => [String(row.promotion_id), Number(row.used)]));
@@ -89,7 +91,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       promotions: promotions.map((promotion) => ({
         ...promotion,
-        supported: promotion.type === B2B_SUPPORTED_PROMOTION_TYPE,
+        supported: promotion.type === B2B_SUPPORTED_PROMOTION_TYPE || promotion.type === B2B_PERCENT_PROMOTION_TYPE,
+        kind: promotion.type === B2B_PERCENT_PROMOTION_TYPE ? "percentage" : "bonus",
+        percentage: promotion.percentage === null ? null : Number(promotion.percentage),
         groupIds: groupLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.groupId),
         productIds: productLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.productId),
         eligibilities: eligibilityBy.get(promotion.id) ?? [],
@@ -135,7 +139,8 @@ export async function POST(request: NextRequest) {
       .values({
         name: parsed.value.name,
         scope: "b2b",
-        type: B2B_SUPPORTED_PROMOTION_TYPE,
+        type: parsed.value.kind === "percentage" ? B2B_PERCENT_PROMOTION_TYPE : B2B_SUPPORTED_PROMOTION_TYPE,
+        percentage: parsed.value.percentage === null ? null : String(parsed.value.percentage),
         promoType: parsed.value.promoType,
         buyQuantity: parsed.value.buyQuantity,
         freeQuantity: parsed.value.freeQuantity,

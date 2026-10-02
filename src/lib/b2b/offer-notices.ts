@@ -10,6 +10,15 @@ export function bonusLabel(buy: number, free: number) {
   return `Compre ${buy} e leve +${free} grátis`;
 }
 
+/** Selo curto da promoção: "3 por 2" ou "10% OFF" (C3). */
+export function promotionBadgeLabel(notice: { percent: number | null; buyQuantity: number; freeQuantity: number }) {
+  return notice.percent !== null ? `${percentText(notice.percent)}% OFF` : promotionShortLabel(notice.buyQuantity, notice.freeQuantity);
+}
+
+export function percentText(percent: number) {
+  return String(Math.round(percent * 100) / 100).replace(".", ",");
+}
+
 /** Selo do card da linha: "3 por 2", ou "Promoção somente em Sono" (pontual). */
 export function lineBadge(
   notices: B2BOfferPromotionNotice[],
@@ -22,13 +31,13 @@ export function lineBadge(
 
   const wide = own.find((item) => item.productIds.length === 0);
 
-  if (wide) return promotionShortLabel(wide.buyQuantity, wide.freeQuantity);
+  if (wide) return promotionBadgeLabel(wide);
 
   const names = Array.from(
     new Set(own.flatMap((item) => item.productIds.map((id) => productNameById.get(id)).filter(Boolean)))
   ) as string[];
 
-  const label = promotionShortLabel(own[0].buyQuantity, own[0].freeQuantity);
+  const label = promotionBadgeLabel(own[0]);
 
   return names.length > 0 ? `${label} · promoção somente em ${names.join(", ")}` : label;
 }
@@ -45,7 +54,9 @@ export function productPromotionRule(
       (item.productIds.length === 0 || item.productIds.includes(productId))
   );
 
-  return match ? { buyQuantity: match.buyQuantity, freeQuantity: match.freeQuantity } : null;
+  return match
+    ? { buyQuantity: match.buyQuantity, freeQuantity: match.freeQuantity, percent: match.percent }
+    : null;
 }
 
 /**
@@ -57,7 +68,7 @@ export function lineEligibilityCaption(notices: B2BOfferPromotionNotice[], group
 
   if (!own) return null;
 
-  const label = promotionShortLabel(own.buyQuantity, own.freeQuantity);
+  const label = promotionBadgeLabel(own);
 
   if (own.usesRemaining !== null) {
     return `Você ainda tem ${own.usesRemaining} ${own.usesRemaining === 1 ? "compra" : "compras"} com ${label}`;
@@ -78,7 +89,8 @@ export function productPromotionText(
   productId: string
 ) {
   const rule = productPromotionRule(notices, groupId, productId);
-  return rule ? bonusLabel(rule.buyQuantity, rule.freeQuantity) : null;
+  if (!rule) return null;
+  return rule.percent !== null ? `−${percentText(rule.percent)}% neste produto` : bonusLabel(rule.buyQuantity, rule.freeQuantity);
 }
 
 /** Volume exibido no card B2B: o do catálogo (bio-products.ts). */

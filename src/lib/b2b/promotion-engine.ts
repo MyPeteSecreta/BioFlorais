@@ -21,3 +21,16 @@ export function calculateB2BPromotionBonusQty(
 
   return Math.floor(paidQty / buyQuantity) * freeQuantity;
 }
+
+/**
+ * Promoção "X% de desconto" (C3): preço unitário efetivo em centavos,
+ * arredondado ao centavo. O desconto Pix 7% / cartão 3% incide DEPOIS, sobre
+ * este preço; o cupom vale sobre o total como antes.
+ */
+export function applyB2BPercentDiscount(unitPriceCents: number, percent: number): number {
+  if (!Number.isFinite(unitPriceCents) || !Number.isFinite(percent) || percent <= 0 || percent >= 100) {
+    return unitPriceCents;
+  }
+
+  return Math.round((unitPriceCents * (100 - percent)) / 100);
+}

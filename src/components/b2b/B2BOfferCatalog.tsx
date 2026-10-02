@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
-import { calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
+import { applyB2BPercentDiscount, calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
 
 export type B2BCatalogProduct = {
   id: string;
@@ -17,7 +17,7 @@ export type B2BCatalogProduct = {
   /** Aviso da promoção da oferta (ex.: "Compre 2 e leve +1 grátis"). */
   promotionText?: string | null;
   /** Regra "compre X, leve Y" (só em produto elegível), para a bonificação ao vivo. */
-  promotion?: { buyQuantity: number; freeQuantity: number } | null;
+  promotion?: { buyQuantity: number; freeQuantity: number; percent?: number | null } | null;
 };
 
 export type B2BCatalogGroup = {
@@ -58,10 +58,21 @@ function ProductCard({
         </p>
       )}
 
-      <p className="mt-2 text-lg font-extrabold text-[#55245f]">
-        {formatB2BCents(product.priceCents)}
-        <span className="ml-1 text-xs font-semibold text-[#8a7886]">/ un.</span>
-      </p>
+      {product.promotion?.percent ? (
+        <p className="mt-2 text-lg font-extrabold text-[#55245f]">
+          <span className="mr-2 text-sm font-semibold text-[#8a7886] line-through">{formatB2BCents(product.priceCents)}</span>
+          {formatB2BCents(applyB2BPercentDiscount(product.priceCents, product.promotion.percent))}
+          <span className="ml-1 text-xs font-semibold text-[#8a7886]">/ un.</span>
+          <span className="ml-2 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-extrabold text-white">
+            −{String(product.promotion.percent).replace(".", ",")}%
+          </span>
+        </p>
+      ) : (
+        <p className="mt-2 text-lg font-extrabold text-[#55245f]">
+          {formatB2BCents(product.priceCents)}
+          <span className="ml-1 text-xs font-semibold text-[#8a7886]">/ un.</span>
+        </p>
+      )}
 
       <div className="mt-auto pt-3">
         <div className="flex items-center gap-2">
@@ -101,7 +112,7 @@ function ProductCard({
             Adicionar
           </button>
         </div>
-        {product.promotion && (() => {
+        {product.promotion && !product.promotion.percent && (() => {
           // Mesma função do servidor (promotion-engine): bonificação sobre o total do pedido.
           const total = inCartQty + qty;
           const bonus = calculateB2BPromotionBonusQty(
@@ -116,7 +127,7 @@ function ProductCard({
               aria-live="polite"
             >
               {bonus > 0
-                ? `+${bonus} grátis · você recebe ${total + bonus}`
+                ? `${total} pagas + ${bonus} grátis = ${total + bonus} unidades`
                 : `Compre ${product.promotion.buyQuantity} para ganhar +${product.promotion.freeQuantity} grátis`}
             </p>
           );
@@ -170,6 +181,7 @@ export default function B2BOfferCatalog({
                         name: product.name,
                         image: product.image,
                         priceCents: product.priceCents,
+                        discountPercent: product.promotion?.percent ?? null,
                       },
                       qty
                     )

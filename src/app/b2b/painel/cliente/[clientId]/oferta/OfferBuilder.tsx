@@ -93,6 +93,13 @@ const PROMOTION_GROUPS: Array<{ type: "abertura_reconquista" | "recorrente"; tit
   { type: "recorrente", title: "Promoção para cliente recorrente" },
 ];
 
+/** "3 por 2" (bonificação) ou "10% OFF" (desconto percentual, C3). */
+function promoLabel(promotion: BuilderPromotion) {
+  return promotion.percent !== null
+    ? `${String(promotion.percent).replace(".", ",")}% OFF`
+    : promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity);
+}
+
 function promotionScopeText(promotion: BuilderPromotion) {
   return promotion.onlyProducts.length > 0
     ? `Somente ${promotion.onlyProducts.map((product) => product.name).join(", ")}`
@@ -101,7 +108,7 @@ function promotionScopeText(promotion: BuilderPromotion) {
 
 function choiceLabel(line: BuilderLine, choice: BuilderChoice) {
   const promotion = line.promotions.find((item) => item.id === choice.promotionId);
-  const label = promotion ? promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity) : "Promoção";
+  const label = promotion ? promoLabel(promotion) : "Promoção";
   const eligibility =
     choice.eligibilityMode === "uses"
       ? `${choice.maxUses} compra${choice.maxUses === 1 ? "" : "s"}`
@@ -453,10 +460,18 @@ export default function OfferBuilder({
                         active ? "border-blue-500 bg-blue-50" : "border-[#eadfd9] bg-white hover:border-blue-300",
                       ].join(" ")}
                     >
-                      <p className="text-2xl font-black">{active ? "✓ " : ""}{promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity)}</p>
+                      <p className="text-2xl font-black">{active ? "✓ " : ""}{promoLabel(promotion)}</p>
                       <p className="mt-2 text-sm font-bold text-blue-700">{promotionScopeText(promotion)}</p>
                       <p className="mt-3 text-sm text-[#746471]">
-                        Compre <strong>{promotion.buyQuantity}</strong> e ganhe <strong>{promotion.freeQuantity}</strong> do mesmo produto.
+                        {promotion.percent !== null ? (
+                          <>
+                            <strong>{String(promotion.percent).replace(".", ",")}%</strong> de desconto no preço B2B.
+                          </>
+                        ) : (
+                          <>
+                            Compre <strong>{promotion.buyQuantity}</strong> e ganhe <strong>{promotion.freeQuantity}</strong> do mesmo produto.
+                          </>
+                        )}
                       </p>
                       {promotion.reason && (
                         <p className={`mt-2 text-xs font-bold ${promotion.available ? "text-emerald-700" : "text-[#b33]"}`}>

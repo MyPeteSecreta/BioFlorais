@@ -56,6 +56,15 @@ export async function POST(request: NextRequest) {
         productId: bonus.productId,
         qty: bonus.qty,
       })),
+      // C3: preço B2B riscado x preço com desconto % por produto (o servidor é a fonte).
+      discountLines: quote.lines
+        .filter((line) => line.discountPercent)
+        .map((line) => ({
+          productId: line.productId,
+          percent: line.discountPercent,
+          listUnitPriceCents: line.listUnitPriceCents,
+          unitPriceCents: line.unitPriceCents,
+        })),
       options: quote.options.map((option) => ({
         serviceName: option.serviceName,
         etaDays: option.etaDays,

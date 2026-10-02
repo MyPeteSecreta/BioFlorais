@@ -164,3 +164,92 @@ test("16a lista a promoção ativa sem regra; 16b cria as 7 regras padrão só p
   const [{ total }] = await run(`SELECT count(*)::int AS total FROM b2b_commission_rules WHERE promotion_id = $1`, [UUID(3)]);
   assert.equal(total, 0); // combinação fora da tabela: não inventa percentual
 });
+
+// ---------------------------------------------------------------------------
+// C3: promoção de DESCONTO PERCENTUAL
+// ---------------------------------------------------------------------------
+const { applyB2BPercentDiscount } = await import("../src/lib/b2b/promotion-engine.ts");
+const { isB2BPromotionComplete } = await import("../src/lib/b2b/promotion-resolver.ts");
+const { resolveB2BOrderTotalsByPaymentMethod } = await import("../src/lib/b2b/pricing.ts");
+const { loadPromotionUses } = await import("../src/lib/b2b/purchase-history.ts");
+
+test("C3: preço com X% de desconto (centavo), 0% e 100% não mexem; Pix/cartão incidem depois, sobre o preço já com a promoção", () => {
+  assert.equal(applyB2BPercentDiscount(2990, 10), 2691); // 29,90 -> 26,91
+  assert.equal(applyB2BPercentDiscount(1990, 15), 1692); // arredonda ao centavo (16,915 -> 16,92 em float; confere o inteiro)
+  assert.equal(applyB2BPercentDiscount(1990, 0), 1990);
+  assert.equal(applyB2BPercentDiscount(1990, 100), 1990);
+
+  // Subtotal com a promoção -> total por forma de pagamento (Pix 7% / cartão 3% depois da promoção).
+  const subtotalWithPromo = 10 * applyB2BPercentDiscount(3000, 10); // 10 un. a 30,00 com -10% = 270,00
+  assert.equal(subtotalWithPromo, 27000);
+  const totals = resolveB2BOrderTotalsByPaymentMethod(subtotalWithPromo, 0);
+  assert.equal(totals.pix, Math.round(27000 * 0.93));
+  assert.equal(totals.card, Math.round(27000 * 0.97));
+  assert.equal(totals.boleto, 27000);
+});
+
+test("C3: promoção percentual só é válida com percentual entre 0 e 100; bonificação precisa de X e Y", () => {
+  assert.equal(isB2BPromotionComplete({ type: "percentage_discount", buyQuantity: null, freeQuantity: null, percentage: "10" }), true);
+  assert.equal(isB2BPromotionComplete({ type: "percentage_discount", buyQuantity: null, freeQuantity: null, percentage: null }), false);
+  assert.equal(isB2BPromotionComplete({ type: "percentage_discount", buyQuantity: null, freeQuantity: null, percentage: "100" }), false);
+  assert.equal(isB2BPromotionComplete({ type: "buy_x_get_y_auto_same_sku", buyQuantity: 2, freeQuantity: 1, percentage: null }), true);
+  assert.equal(isB2BPromotionComplete({ type: "buy_x_get_y_auto_same_sku", buyQuantity: 2, freeQuantity: null, percentage: null }), false);
+});
+
+test("C3: admin cria promoção percentual (kind=percentage) e recusa percentual inválido", () => {
+  const base = { name: "Black Friday 10%", promoType: "recorrente", active: true, eligibilities: [{ mode: "days", value: 30, extraPercent: 5 }] };
+  const ok = parsePromotionBody({ ...base, kind: "percentage", percentage: 10 });
+  assert.equal(ok.ok, true);
+  assert.deepEqual([ok.value.kind, ok.value.percentage], ["percentage", 10]);
+  assert.equal(parsePromotionBody({ ...base, kind: "percentage", percentage: 0 }).ok, false);
+  assert.equal(parsePromotionBody({ ...base, kind: "percentage", percentage: 100 }).ok, false);
+  assert.equal(parsePromotionBody({ ...base, kind: "bonus", buyQuantity: 2, freeQuantity: 1 }).ok, true);
+});
+
+test("C3: snapshot do item com desconto % (preço efetivo, valor descontado, tipo e %), comissão da promoção", async () => {
+  const PCT = UUID(50);
+  await run(`INSERT INTO b2b_promotions (id, name, buy_quantity, free_quantity) VALUES ($1, 'Black Friday 10%', NULL, NULL)`, [PCT]);
+  await run(`INSERT INTO b2b_commission_rules (scope, promotion_id, eligibility_mode, max_uses, extra_percent) VALUES ('promotion_eligibility', $1, 'uses', 2, 7)`, [PCT]);
+  const matrixPct = await loadCommissionMatrix(run, VENDOR, CLIENT);
+
+  const list = 3000;
+  const effective = applyB2BPercentDiscount(list, 10);
+  const [item, other] = buildOrderItemSnapshots({
+    matrix: matrixPct,
+    offerPromotions: [{ promotionId: PCT, name: "Black Friday 10%", buyQuantity: null, freeQuantity: null, eligibilityMode: "uses", maxUses: 2, durationDays: null }],
+    lines: [
+      { productId: PRODUCT, qty: 4, unitPriceCents: effective, listUnitPriceCents: list },
+      { productId: UUID(21), qty: 1, unitPriceCents: 2000, listUnitPriceCents: 2000 },
+    ],
+    bonusLines: [],
+    discountLines: [{ productId: PRODUCT, percent: 10, promotionId: PCT }],
+    window: { firstPaidAt: null, endsAt: null, open: true },
+  });
+
+  assert.equal(item.unitPriceCents, 2700); // Omie lê o preço efetivo
+  assert.deepEqual([item.promotionType, item.promotionPercent, item.promotionDiscountCents], ["percentage_discount", "10", (3000 - 2700) * 4]);
+  assert.deepEqual([item.commissionBasis, item.commissionTotalPercent], ["promotion", "17"]); // 10 base + 7 extra
+  assert.deepEqual([other.promotionType, other.promotionDiscountCents, other.commissionBasis], [null, null, "normal_price"]);
+});
+
+test("C3 + R5: pedido com desconto % (sem bonificação) conta como uso da promoção", async () => {
+  const PCT = UUID(50);
+  const OFFER = UUID(60);
+  await pg.exec(`
+    CREATE TABLE IF NOT EXISTS orders (id uuid PRIMARY KEY, status text, payment_method text, b2b_client_id uuid, b2b_offer_id uuid, created_at timestamp DEFAULT now());
+    CREATE TABLE IF NOT EXISTS order_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, product_id uuid, qty int, unit_price_cents int, bonus_qty int, promotion_id text);
+    CREATE TABLE IF NOT EXISTS b2b_boleto_requests (order_id uuid PRIMARY KEY);
+  `);
+  await run(`INSERT INTO orders (id, status, payment_method, b2b_client_id, b2b_offer_id) VALUES ($1, 'paid', 'pix', $2, $3)`, [UUID(61), CLIENT, OFFER]);
+  await run(`INSERT INTO order_items (order_id, product_id, qty, unit_price_cents, bonus_qty, promotion_id) VALUES ($1, $2, 4, 2700, 0, $3)`, [UUID(61), PRODUCT, PCT]);
+
+  assert.equal((await loadPromotionUses(run, OFFER)).get(PCT), 1);
+});
+
+test("17b é idempotente", async () => {
+  await pg.exec(`CREATE TABLE IF NOT EXISTS order_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid())`);
+  await pg.exec(sqlFile("17b_promocao_percentual_snapshot.sql"));
+  await pg.exec(sqlFile("17b_promocao_percentual_snapshot.sql"));
+  const cols = await run(`SELECT column_name FROM information_schema.columns WHERE table_name='order_items' AND column_name LIKE 'promotion_%' ORDER BY 1`);
+  assert.deepEqual(cols.map((c) => c.column_name), ["promotion_discount_cents", "promotion_id", "promotion_percent", "promotion_type"]);
+});

@@ -25,6 +25,8 @@ type Promotion = {
   supported: boolean;
   buyQuantity: number | null;
   freeQuantity: number | null;
+  kind: "bonus" | "percentage";
+  percentage: number | null;
   active: boolean;
   sellerSelectable: boolean;
   startsAt: string | null;
@@ -42,6 +44,8 @@ type Draft = {
   id: string | null;
   name: string;
   promoType: "" | "abertura_reconquista" | "recorrente";
+  kind: "bonus" | "percentage";
+  percentage: number;
   buyQuantity: number;
   freeQuantity: number;
   active: boolean;
@@ -59,6 +63,8 @@ const EMPTY: Draft = {
   id: null,
   name: "",
   promoType: "",
+  kind: "bonus",
+  percentage: 10,
   buyQuantity: 2,
   freeQuantity: 1,
   active: true,
@@ -148,6 +154,8 @@ export default function PromotionsTab() {
           body: {
             name: draft.name,
             promoType: draft.promoType,
+            kind: draft.kind,
+            percentage: draft.kind === "percentage" ? draft.percentage : null,
             buyQuantity: draft.buyQuantity,
             freeQuantity: draft.freeQuantity,
             active: draft.active,
@@ -219,11 +227,33 @@ export default function PromotionsTab() {
               <option value="recorrente">Recorrente: qualquer cliente B2B (ex.: Black Friday)</option>
             </select>
           </label>
+          <label className="block text-xs font-bold text-[#7b6a77]">
+            Tipo de benefício
+            <select className={field} value={draft.kind} onChange={(e) => {
+              const kind = e.target.value as Draft["kind"];
+              // Desconto % não tem tabela padrão de comissão extra: o admin define (começa tudo desmarcado).
+              setDraft({
+                ...draft,
+                kind,
+                eligibilities: draft.eligibilityTouched ? draft.eligibilities : kind === "percentage" ? defaultEligibilityRows(0, 0) : defaultEligibilityRows(draft.buyQuantity, draft.freeQuantity),
+              });
+            }}>
+              <option value="bonus">Compre X, leve Y grátis (mesmo produto)</option>
+              <option value="percentage">X% de desconto sobre os produtos do alcance</option>
+            </select>
+          </label>
           <div className="grid gap-3 md:grid-cols-[1fr_140px_140px]">
             <label className="text-xs font-bold text-[#7b6a77]">
               Nome
               <input className={field} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} required />
             </label>
+            {draft.kind === "percentage" ? (
+              <label className="text-xs font-bold text-[#7b6a77] md:col-span-2">
+                Desconto (%)
+                <input className={field} type="number" min={1} max={99} step="0.5" value={draft.percentage} onChange={(e) => setDraft({ ...draft, percentage: Number(e.target.value) })} />
+              </label>
+            ) : (
+              <>
             <label className="text-xs font-bold text-[#7b6a77]">
               A cada (pagas)
               <input className={field} type="number" min={1} value={draft.buyQuantity} onChange={(e) => changeQuantities(Number(e.target.value), draft.freeQuantity)} />
@@ -232,10 +262,13 @@ export default function PromotionsTab() {
               Ganha (grátis)
               <input className={field} type="number" min={1} value={draft.freeQuantity} onChange={(e) => changeQuantities(draft.buyQuantity, Number(e.target.value))} />
             </label>
+              </>
+            )}
           </div>
           <p className="text-xs text-[#7b6a77]">
-            Exemplo: a cada {draft.buyQuantity || "X"} unidades pagas de um produto, o cliente leva
-            mais {draft.freeQuantity || "Y"} do mesmo produto sem custo.
+            {draft.kind === "percentage"
+              ? `O cliente vê o preço B2B riscado e o preço com −${draft.percentage || "X"}%. O desconto Pix/cartão incide depois, sobre o preço já com a promoção; o pedido mínimo conta depois do desconto e antes do cupom.`
+              : `Exemplo: a cada ${draft.buyQuantity || "X"} unidades pagas de um produto, o cliente leva mais ${draft.freeQuantity || "Y"} do mesmo produto sem custo.`}
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-xs font-bold text-[#7b6a77]">
@@ -361,7 +394,9 @@ export default function PromotionsTab() {
                 <td className="px-4 py-3 font-bold">{promotion.name}</td>
                 <td className="px-4 py-3 text-xs">
                   {promotion.supported
-                    ? `A cada ${promotion.buyQuantity}, +${promotion.freeQuantity} grátis`
+                    ? promotion.kind === "percentage"
+                      ? `${promotion.percentage}% de desconto`
+                      : `A cada ${promotion.buyQuantity}, +${promotion.freeQuantity} grátis`
                     : `Tipo "${promotion.type}" — sem efeito na Bio`}
                 </td>
                 <td className="px-4 py-3 text-xs">
@@ -387,6 +422,8 @@ export default function PromotionsTab() {
                           id: promotion.id,
                           name: promotion.name,
                           promoType: promotion.promoType,
+                          kind: promotion.kind ?? "bonus",
+                          percentage: promotion.percentage ?? 10,
                           buyQuantity: promotion.buyQuantity ?? 1,
                           freeQuantity: promotion.freeQuantity ?? 1,
                           active: promotion.active,

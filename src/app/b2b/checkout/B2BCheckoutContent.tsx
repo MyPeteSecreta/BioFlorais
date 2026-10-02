@@ -20,7 +20,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
-import { useB2BCart } from "@/lib/b2b/cart-context";
+import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
 import {
   B2B_MAX_INSTALLMENTS,
@@ -62,6 +62,7 @@ type Quote = {
   couponDiscountCents: number;
   subtotalAfterCouponCents: number;
   bonusLines: Array<{ productId: string; qty: number }>;
+  discountLines?: Array<{ productId: string; percent: number; listUnitPriceCents: number; unitPriceCents: number }>;
   options: ShippingOption[];
 };
 
@@ -499,6 +500,7 @@ export default function B2BCheckoutContent() {
     );
   }
 
+  const discountByProduct = new Map((quoteIsCurrent ? quote?.discountLines ?? [] : []).map((d) => [d.productId, d]));
   const bonusByProduct = new Map((quoteIsCurrent ? quote?.bonusLines ?? [] : []).map((b) => [b.productId, b.qty]));
 
   return (
@@ -691,7 +693,21 @@ export default function B2BCheckoutContent() {
                     </span>
                   ) : null}
                 </span>
-                <span className="shrink-0">{formatB2BCents(line.priceCents * line.qty)}</span>
+                <span className="shrink-0 text-right">
+                  {discountByProduct.get(line.productId) ? (
+                    <>
+                      <span className="block text-xs text-[#8a7886] line-through">
+                        {formatB2BCents(discountByProduct.get(line.productId)!.listUnitPriceCents * line.qty)}
+                      </span>
+                      {formatB2BCents(discountByProduct.get(line.productId)!.unitPriceCents * line.qty)}
+                      <span className="block text-xs font-bold text-blue-700">
+                        −{String(discountByProduct.get(line.productId)!.percent).replace(".", ",")}%
+                      </span>
+                    </>
+                  ) : (
+                    formatB2BCents(cartLineUnitCents(line) * line.qty)
+                  )}
+                </span>
               </li>
             ))}
           </ul>

@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 
 import { findOtherB2BLine, loadOtherLineProducts } from "@/lib/b2b/line-views";
 import { buildWhatsAppUrl } from "@/lib/b2b/invite-links";
-import { b2bProductContent, bonusLabel, productPromotionRule, productPromotionText } from "@/lib/b2b/offer-notices";
+import { b2bProductContent, bonusLabel, percentText, productPromotionRule, productPromotionText } from "@/lib/b2b/offer-notices";
 import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext, type PublicB2BProduct } from "@/lib/b2b/public-offer-context";
@@ -29,7 +29,7 @@ export const runtime = "nodejs";
 function toCatalogProduct(
   product: PublicB2BProduct,
   promotionText: string | null,
-  promotion: { buyQuantity: number; freeQuantity: number } | null = null
+  promotion: { buyQuantity: number; freeQuantity: number; percent: number | null } | null = null
 ): B2BCatalogProduct {
   const catalogProduct = getProduct(product.slug);
 
@@ -92,7 +92,11 @@ export default async function B2BLinePage({
       );
 
     const wide = notices.find((item) => item.commercialGroupId === offerLine.id && item.productIds.length === 0);
-    promotionNote = wide ? `Promoção nesta linha: ${bonusLabel(wide.buyQuantity, wide.freeQuantity)} do mesmo produto.` : null;
+    promotionNote = wide
+      ? wide.percent !== null
+        ? `Promoção nesta linha: ${percentText(wide.percent)}% de desconto.`
+        : `Promoção nesta linha: ${bonusLabel(wide.buyQuantity, wide.freeQuantity)} do mesmo produto.`
+      : null;
 
     // Promoção pontual: só os SKUs dela.
     const pointed = notices.filter((item) => item.commercialGroupId === offerLine.id && item.productIds.length > 0);

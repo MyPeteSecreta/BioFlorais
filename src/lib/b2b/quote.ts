@@ -16,7 +16,9 @@ import { resolveB2BCouponDiscount } from "@/lib/b2b/coupon-resolver";
 import {
   resolveB2BPromotionBonusLines,
   type B2BPromotionBonusLine,
+  type B2BPromotionDiscountLine,
 } from "@/lib/b2b/promotion-resolver";
+import { applyB2BPercentDiscount } from "@/lib/b2b/promotion-engine";
 import {
   B2B_MIN_ORDER_CENTS,
   applyB2BCheapestModalityRule,
@@ -44,7 +46,12 @@ export type B2BQuoteLine = {
   slug: string;
   name: string;
   qty: number;
+  /** Preço unitário EFETIVO (já com a promoção de desconto %, se houver). */
   unitPriceCents: number;
+  /** C3: preço B2B antes do desconto % e o percentual (null = sem desconto). */
+  listUnitPriceCents: number;
+  discountPercent: number | null;
+  discountPromotionId: string | null;
 };
 
 export type B2BQuoteShippingOption = {
@@ -62,6 +69,7 @@ export type B2BQuote = {
   state: string;
   lines: B2BQuoteLine[];
   bonusLines: B2BPromotionBonusLine[];
+  discountLines: B2BPromotionDiscountLine[];
   promotionIdsUsed: string[];
   subtotalCents: number;
   couponId: string | null;
@@ -138,9 +146,31 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
         name: product.name,
         qty,
         unitPriceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
+        listUnitPriceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
+        discountPercent: null,
+        discountPromotionId: null,
       };
     }
   );
+
+  // ---- Promoções da oferta (C3: "X% de desconto" muda o preço; "leve Y grátis" gera bônus).
+  // Vem ANTES do mínimo: o pedido mínimo conta DEPOIS da promoção % e ANTES do cupom.
+  const { bonusLines, discountLines, promotionIdsUsed } = await resolveB2BPromotionBonusLines(
+    context.offerId,
+    context.products,
+    lines,
+    context.clientId
+  );
+
+  for (const discount of discountLines) {
+    const line = lines.find((item) => item.productId === discount.productId);
+
+    if (line) {
+      line.unitPriceCents = applyB2BPercentDiscount(line.listUnitPriceCents, discount.percent);
+      line.discountPercent = discount.percent;
+      line.discountPromotionId = discount.promotionId;
+    }
+  }
 
   const subtotalCents = lines.reduce(
     (sum, line) => sum + line.unitPriceCents * line.qty,
@@ -167,14 +197,7 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
 
   const subtotalAfterCouponCents = Math.max(0, subtotalCents - coupon.couponDiscountCents);
 
-  // ---- Promoção "leve Y grátis": bônus sem preço, mas pesa no frete.
-  const { bonusLines, promotionIdsUsed } = await resolveB2BPromotionBonusLines(
-    context.offerId,
-    context.products,
-    lines,
-    context.clientId
-  );
-
+  // Bônus "leve Y grátis": sem preço, mas pesa no frete.
   const bonusByProductId = new Map<string, number>();
   for (const bonus of bonusLines) {
     bonusByProductId.set(
@@ -267,6 +290,7 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
       state,
       lines,
       bonusLines,
+      discountLines,
       promotionIdsUsed,
       subtotalCents,
       couponId: coupon.couponId,

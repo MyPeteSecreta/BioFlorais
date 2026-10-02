@@ -15,14 +15,23 @@ import {
   type ReactNode,
 } from "react";
 
+import { applyB2BPercentDiscount } from "@/lib/b2b/promotion-engine";
+
 export type B2BCartLine = {
   productId: string;
   slug: string;
   name: string;
   image: string | null;
   priceCents: number;
+  /** C3: percentual da promoção de desconto (só para exibição; o servidor recalcula). */
+  discountPercent?: number | null;
   qty: number;
 };
+
+/** Preço unitário efetivo exibido (com o desconto %, se houver). */
+export function cartLineUnitCents(line: Pick<B2BCartLine, "priceCents" | "discountPercent">) {
+  return applyB2BPercentDiscount(line.priceCents, line.discountPercent ?? 0);
+}
 
 type B2BCartState = {
   offerToken: string | null;
@@ -151,7 +160,7 @@ export function B2BCartProvider({ children }: { children: ReactNode }) {
       state,
       hydrated: state.hydrated,
       itemCount: state.lines.reduce((sum, line) => sum + line.qty, 0),
-      subtotalCents: state.lines.reduce((sum, line) => sum + line.priceCents * line.qty, 0),
+      subtotalCents: state.lines.reduce((sum, line) => sum + cartLineUnitCents(line) * line.qty, 0),
       setOfferToken: (token) => dispatch({ type: "SET_OFFER_TOKEN", token }),
       addItem: (item, qty = 1) => dispatch({ type: "ADD_ITEM", item, qty }),
       setQty: (productId, qty) => dispatch({ type: "SET_QTY", productId, qty }),

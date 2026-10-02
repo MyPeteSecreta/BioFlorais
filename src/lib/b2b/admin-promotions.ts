@@ -22,15 +22,18 @@ import {
   products,
 } from "@/lib/db/schema";
 import { parseInteger, parseSaoPauloDate, parseUuidList } from "@/lib/b2b/admin-input";
-import { B2B_SUPPORTED_PROMOTION_TYPE } from "@/lib/b2b/promotion-resolver";
+import { B2B_PERCENT_PROMOTION_TYPE, B2B_SUPPORTED_PROMOTION_TYPE } from "@/lib/b2b/promotion-resolver";
 import { parseEligibilities, type EligibilityInput } from "@/lib/b2b/promotion-eligibility-defaults";
 
-export { B2B_SUPPORTED_PROMOTION_TYPE };
+export { B2B_PERCENT_PROMOTION_TYPE, B2B_SUPPORTED_PROMOTION_TYPE };
 
 export type PromotionInput = {
   name: string;
   /** Obrigatório: abertura_reconquista | recorrente (Rodada 2, R7). */
   promoType: "abertura_reconquista" | "recorrente";
+  /** C3: bonificação "compre X leve Y" ou "X% de desconto". */
+  kind: "bonus" | "percentage";
+  percentage: number | null;
   buyQuantity: number;
   freeQuantity: number;
   active: boolean;
@@ -49,8 +52,11 @@ export function parsePromotionBody(
   body: Record<string, unknown>
 ): { ok: true; value: PromotionInput } | { ok: false; error: string } {
   const name = String(body.name ?? "").trim();
-  const buyQuantity = parseInteger(body.buyQuantity, { min: 1, max: 999 });
-  const freeQuantity = parseInteger(body.freeQuantity, { min: 1, max: 999 });
+  const kind = body.kind === "percentage" ? "percentage" : "bonus";
+  const percentageRaw = Number(body.percentage);
+  const percentage = kind === "percentage" ? Math.round(percentageRaw * 100) / 100 : null;
+  const buyQuantity = kind === "bonus" ? parseInteger(body.buyQuantity, { min: 1, max: 999 }) : 1;
+  const freeQuantity = kind === "bonus" ? parseInteger(body.freeQuantity, { min: 1, max: 999 }) : 1;
   const startsAt = parseSaoPauloDate(body.startsAt, "start");
   const endsAt = parseSaoPauloDate(body.endsAt, "end");
   const groupIds = parseUuidList(body.groupIds);
@@ -61,6 +67,9 @@ export function parsePromotionBody(
   if (!name) return { ok: false, error: "Informe o nome da promoção." };
   if (promoType !== "abertura_reconquista" && promoType !== "recorrente") {
     return { ok: false, error: "Escolha o tipo: abertura / reconquista ou recorrente." };
+  }
+  if (kind === "percentage" && (percentage === null || !Number.isFinite(percentage) || percentage <= 0 || percentage >= 100)) {
+    return { ok: false, error: "Informe o percentual de desconto (maior que 0 e menor que 100)." };
   }
   if (buyQuantity === null) return { ok: false, error: "Quantidade paga inválida (1 a 999)." };
   if (freeQuantity === null) return { ok: false, error: "Quantidade grátis inválida (1 a 999)." };
@@ -91,6 +100,8 @@ export function parsePromotionBody(
     value: {
       name,
       promoType,
+      kind,
+      percentage,
       buyQuantity,
       freeQuantity,
       active: body.active !== false,

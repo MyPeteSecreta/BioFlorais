@@ -4,13 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bPromotions } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { isUuid } from "@/lib/b2b/admin-input";
 import {
+  B2B_PERCENT_PROMOTION_TYPE,
   B2B_SUPPORTED_PROMOTION_TYPE,
   parsePromotionBody,
   replacePromotionEligibilities,
@@ -54,6 +55,8 @@ export async function PATCH(
       .set({
         name: parsed.value.name,
         promoType: parsed.value.promoType,
+        type: parsed.value.kind === "percentage" ? B2B_PERCENT_PROMOTION_TYPE : B2B_SUPPORTED_PROMOTION_TYPE,
+        percentage: parsed.value.percentage === null ? null : String(parsed.value.percentage),
         buyQuantity: parsed.value.buyQuantity,
         freeQuantity: parsed.value.freeQuantity,
         active: parsed.value.active,
@@ -62,7 +65,7 @@ export async function PATCH(
         endsAt: parsed.value.endsAt,
         updatedAt: new Date(),
       })
-      .where(and(eq(b2bPromotions.id, id), eq(b2bPromotions.type, B2B_SUPPORTED_PROMOTION_TYPE)))
+      .where(and(eq(b2bPromotions.id, id), inArray(b2bPromotions.type, [B2B_SUPPORTED_PROMOTION_TYPE, B2B_PERCENT_PROMOTION_TYPE])))
       .returning({ id: b2bPromotions.id });
 
     if (!updated) {

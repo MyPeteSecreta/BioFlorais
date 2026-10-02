@@ -28,8 +28,10 @@ export type OfferPromotionTerms = {
   durationDays: number | null;
 };
 
-type QuoteLine = { productId: string; qty: number; unitPriceCents: number };
+type QuoteLine = { productId: string; qty: number; unitPriceCents: number; listUnitPriceCents?: number };
 type BonusLine = { productId: string; qty: number; promotionId: string };
+/** C3: produto com X% de desconto (listUnitPriceCents = preço B2B antes do desconto). */
+type DiscountLine = { productId: string; percent: number; promotionId: string };
 
 export type OrderItemSnapshot = {
   productId: string;
@@ -47,6 +49,10 @@ export type OrderItemSnapshot = {
   commissionTotalPercent: string | null;
   /** promotion | normal_price | base_only (janela de 180 dias). */
   commissionBasis: CommissionBasis | null;
+  /** C3 (sql/b2b/17b): tipo, percentual e valor descontado do item (unit_price já é o efetivo). */
+  promotionType: string | null;
+  promotionPercent: string | null;
+  promotionDiscountCents: number | null;
 };
 
 function percentText(value: number | null | undefined) {
@@ -58,18 +64,23 @@ export function buildOrderItemSnapshots(input: {
   offerPromotions: OfferPromotionTerms[];
   lines: QuoteLine[];
   bonusLines: BonusLine[];
+  discountLines?: DiscountLine[];
   /** Janela de 180 dias (por cliente e LINHA), avaliada na criação do pedido; função = por produto. */
   window: CommissionWindow | ((productId: string) => CommissionWindow);
 }): OrderItemSnapshot[] {
   const termsById = new Map(input.offerPromotions.map((terms) => [terms.promotionId, terms]));
   const bonusByProduct = new Map(input.bonusLines.map((bonus) => [bonus.productId, bonus]));
+  const discountByProduct = new Map((input.discountLines ?? []).map((discount) => [discount.productId, discount]));
   const commissionForProduct = (productId: string) => {
+    // Item com bonificação OU com desconto % é o item que "realizou" a promoção da oferta.
     const bonus = bonusByProduct.get(productId);
-    const terms = bonus ? termsById.get(bonus.promotionId) : undefined;
+    const discount = discountByProduct.get(productId);
+    const realized = bonus ?? discount;
+    const terms = realized ? termsById.get(realized.promotionId) : undefined;
     let promotionExtraPercent: number | null = null;
     let promotionTerms: OfferPromotionTerms | undefined;
 
-    if (bonus && terms && (terms.eligibilityMode === "uses" || terms.eligibilityMode === "days")) {
+    if (realized && terms && (terms.eligibilityMode === "uses" || terms.eligibilityMode === "days")) {
       const promotional = commissionFor(input.matrix, {
         kind: "promotion",
         promotionId: terms.promotionId,
@@ -112,6 +123,11 @@ export function buildOrderItemSnapshots(input: {
       commissionExtraPercent: percentText(configured?.extraPercent),
       commissionTotalPercent: percentText(configured?.totalPercent),
       commissionBasis: configured ? configured.basis : null,
+      promotionType: terms ? (discountByProduct.has(line.productId) ? "percentage_discount" : "buy_x_get_y_auto_same_sku") : null,
+      promotionPercent: discountByProduct.has(line.productId) ? String(discountByProduct.get(line.productId)!.percent) : null,
+      promotionDiscountCents: discountByProduct.has(line.productId)
+        ? Math.max(0, ((line.listUnitPriceCents ?? line.unitPriceCents) - line.unitPriceCents) * line.qty)
+        : null,
     };
 
     snapshots.push({

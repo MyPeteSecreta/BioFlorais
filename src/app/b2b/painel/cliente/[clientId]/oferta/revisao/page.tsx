@@ -111,7 +111,9 @@ export default async function OfferReviewPage({
                     <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#9b6c24]">{line.name}</p>
                     <h3 className="mt-2 text-2xl font-extrabold">
                       {line.promotion
-                        ? promotionShortLabel(line.promotion.buyQuantity, line.promotion.freeQuantity)
+                        ? line.promotion.percent !== null
+                          ? `${String(line.promotion.percent).replace(".", ",")}% OFF`
+                          : promotionShortLabel(line.promotion.buyQuantity, line.promotion.freeQuantity)
                         : hasPromotion
                           ? "Promoção indisponível"
                           : "Preço B2B normal"}

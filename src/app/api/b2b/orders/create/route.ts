@@ -275,6 +275,7 @@ export async function POST(request: NextRequest) {
       offerPromotions: offerPromotionTerms,
       lines: quote.lines,
       bonusLines: quote.bonusLines,
+      discountLines: quote.discountLines,
       window: (productId) => {
         const nowAt = new Date();
         const groups = groupRows
@@ -284,19 +285,31 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    try {
-      await db
-        .insert(orderItems)
-        .values(itemSnapshots.map((item) => ({ orderId: order.id, ...item })));
-    } catch (error) {
-      // SQL 13b ainda não aplicado (coluna commission_basis ausente): grava sem a base.
-      console.error("[b2b/orders/create] sem commission_basis, gravando sem a base", error);
-      await db
-        .insert(orderItems)
-        .values(
-          itemSnapshots.map(({ commissionBasis: _basis, ...item }) => ({ orderId: order.id, ...item }))
-        );
+    // Colunas novas são opcionais: se um SQL (13b commission_basis, 17b desconto %) ainda não
+    // foi aplicado, o pedido é gravado sem elas em vez de falhar.
+    const attempts: Array<(item: (typeof itemSnapshots)[number]) => Record<string, unknown>> = [
+      (item) => ({ orderId: order.id, ...item }),
+      ({ promotionType: _t, promotionPercent: _p, promotionDiscountCents: _d, ...item }) => ({ orderId: order.id, ...item }),
+      ({ promotionType: _t, promotionPercent: _p, promotionDiscountCents: _d, commissionBasis: _b, ...item }) => ({
+        orderId: order.id,
+        ...item,
+      }),
+    ];
+
+    let inserted = false;
+
+    for (const [index, toRow] of attempts.entries()) {
+      try {
+        await db.insert(orderItems).values(itemSnapshots.map((item) => toRow(item)) as never);
+        inserted = true;
+        break;
+      } catch (error) {
+        if (index === attempts.length - 1) throw error;
+        console.error("[b2b/orders/create] coluna de snapshot ausente, tentando sem ela", error);
+      }
     }
+
+    if (!inserted) throw new Error("não foi possível gravar os itens do pedido");
 
     // Contador de usos 2x/3x agora é DINÂMICO (purchase-history.ts, R5): conta pedidos
     // que receberam a bonificação e contam como compra, mais a reserva de Pix/cartão

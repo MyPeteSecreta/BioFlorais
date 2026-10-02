@@ -19,7 +19,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
-import { B2B_SUPPORTED_PROMOTION_TYPE } from "@/lib/b2b/promotion-resolver";
+import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import {
   historyForGroup,
@@ -34,6 +34,8 @@ export type BuilderPromotion = {
   name: string;
   buyQuantity: number;
   freeQuantity: number;
+  /** C3: percentual da promoção "X% de desconto" (null = bonificação X+Y). */
+  percent: number | null;
   /** abertura_reconquista | recorrente (Rodada 2). */
   promoType: PromotionType;
   /** Para o cliente em questão: disponível? (sem cliente = sempre disponível) */
@@ -94,6 +96,7 @@ export async function loadBuilderLines(
       endsAt: b2bPromotions.endsAt,
       buyQuantity: b2bPromotions.buyQuantity,
       freeQuantity: b2bPromotions.freeQuantity,
+      percentage: b2bPromotions.percentage,
       promoType: b2bPromotions.promoType,
     })
     .from(b2bPromotionCommercialGroups)
@@ -103,11 +106,9 @@ export async function loadBuilderLines(
 
   const usable = links.filter(
     (row) =>
-      row.type === B2B_SUPPORTED_PROMOTION_TYPE &&
+      isB2BPromotionComplete(row) &&
       row.active &&
       row.sellerSelectable &&
-      Boolean(row.buyQuantity) &&
-      Boolean(row.freeQuantity) &&
       !(row.startsAt && now < row.startsAt) &&
       !(row.endsAt && now > row.endsAt)
   );
@@ -141,8 +142,9 @@ export async function loadBuilderLines(
       .map((row) => ({
         id: row.id,
         name: row.name,
-        buyQuantity: row.buyQuantity!,
-        freeQuantity: row.freeQuantity!,
+        buyQuantity: row.buyQuantity ?? 0,
+        freeQuantity: row.freeQuantity ?? 0,
+        percent: row.type === B2B_PERCENT_PROMOTION_TYPE ? Number(row.percentage) : null,
         ...(() => {
           const promoType: PromotionType = row.promoType === "recorrente" ? "recorrente" : "abertura_reconquista";
           if (!clientId) return { promoType, available: true, reason: "" };

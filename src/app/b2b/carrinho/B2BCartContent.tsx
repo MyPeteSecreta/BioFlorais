@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { useB2BCart } from "@/lib/b2b/cart-context";
+import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 
@@ -50,7 +50,16 @@ export default function B2BCartContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold">{line.name}</p>
-                    <p className="text-xs text-[#8a7886]">{formatB2BCents(line.priceCents)} / un.</p>
+                    <p className="text-xs text-[#8a7886]">
+                      {line.discountPercent ? (
+                        <>
+                          <span className="line-through">{formatB2BCents(line.priceCents)}</span>{" "}
+                          <strong className="text-[#55245f]">{formatB2BCents(cartLineUnitCents(line))}</strong> / un. · −{String(line.discountPercent).replace(".", ",")}%
+                        </>
+                      ) : (
+                        <>{formatB2BCents(line.priceCents)} / un.</>
+                      )}
+                    </p>
                   </div>
                   <input
                     aria-label={`Quantidade de ${line.name}`}
@@ -62,7 +71,7 @@ export default function B2BCartContent() {
                     className="w-16 rounded-lg border border-[#d9c7dc] px-2 py-1 text-center text-sm font-bold"
                   />
                   <p className="w-24 text-right text-sm font-bold">
-                    {formatB2BCents(line.priceCents * line.qty)}
+                    {formatB2BCents(cartLineUnitCents(line) * line.qty)}
                   </p>
                   <button
                     type="button"

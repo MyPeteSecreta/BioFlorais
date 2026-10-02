@@ -17,15 +17,44 @@ import {
   b2bPromotionTerms,
   b2bPromotions,
 } from "@/lib/db/schema";
-import { calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
+import { applyB2BPercentDiscount, calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
 import { loadOfferPromotionGate } from "@/lib/b2b/promotion-gate";
 import type { PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 
 export const B2B_SUPPORTED_PROMOTION_TYPE = "buy_x_get_y_auto_same_sku";
+/** C3: "X% de desconto" sobre os produtos do alcance da promoção. */
+export const B2B_PERCENT_PROMOTION_TYPE = "percentage_discount";
+export const B2B_PROMOTION_TYPES = [B2B_SUPPORTED_PROMOTION_TYPE, B2B_PERCENT_PROMOTION_TYPE] as const;
+
+export function isB2BPromotionType(type: string | null | undefined) {
+  return type === B2B_SUPPORTED_PROMOTION_TYPE || type === B2B_PERCENT_PROMOTION_TYPE;
+}
+
+/** Promoção com os campos do seu tipo preenchidos (X/Y ou percentual). */
+export function isB2BPromotionComplete(row: {
+  type: string | null;
+  buyQuantity: number | null;
+  freeQuantity: number | null;
+  percentage: string | number | null;
+}) {
+  if (row.type === B2B_SUPPORTED_PROMOTION_TYPE) return Boolean(row.buyQuantity) && Boolean(row.freeQuantity);
+  if (row.type === B2B_PERCENT_PROMOTION_TYPE) {
+    const percent = Number(row.percentage);
+    return Number.isFinite(percent) && percent > 0 && percent < 100;
+  }
+  return false;
+}
 
 export type B2BPromotionBonusLine = {
   productId: string;
   qty: number;
+  promotionId: string;
+};
+
+/** C3: produto com X% de desconto (o preço efetivo é aplicado na cotação). */
+export type B2BPromotionDiscountLine = {
+  productId: string;
+  percent: number;
   promotionId: string;
 };
 
@@ -34,7 +63,11 @@ export async function resolveB2BPromotionBonusLines(
   offerProducts: readonly PublicB2BProduct[],
   cartItems: ReadonlyArray<{ productId: string; qty: number }>,
   clientId: string
-): Promise<{ bonusLines: B2BPromotionBonusLine[]; promotionIdsUsed: string[] }> {
+): Promise<{
+  bonusLines: B2BPromotionBonusLine[];
+  discountLines: B2BPromotionDiscountLine[];
+  promotionIdsUsed: string[];
+}> {
   const now = new Date();
   // Porteiro (Rodada 2): abertura x recorrente por cliente e usos dinâmicos (R4/R5).
   const gate = await loadOfferPromotionGate(offerId, clientId, now);
@@ -53,6 +86,7 @@ export async function resolveB2BPromotionBonusLines(
       endsAt: b2bPromotions.endsAt,
       buyQuantity: b2bPromotions.buyQuantity,
       freeQuantity: b2bPromotions.freeQuantity,
+      percentage: b2bPromotions.percentage,
     })
     .from(b2bOfferPromotions)
     .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bOfferPromotions.promotionId))
@@ -60,10 +94,8 @@ export async function resolveB2BPromotionBonusLines(
 
   const eligible = rows.filter(
     (row) =>
-      row.type === B2B_SUPPORTED_PROMOTION_TYPE &&
+      isB2BPromotionComplete(row) &&
       row.active &&
-      Boolean(row.buyQuantity) &&
-      Boolean(row.freeQuantity) &&
       !(row.startsAt && now < row.startsAt) &&
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
@@ -73,7 +105,7 @@ export async function resolveB2BPromotionBonusLines(
   );
 
   if (eligible.length === 0) {
-    return { bonusLines: [], promotionIdsUsed: [] };
+    return { bonusLines: [], discountLines: [], promotionIdsUsed: [] };
   }
 
   const termIds = eligible
@@ -104,7 +136,7 @@ export async function resolveB2BPromotionBonusLines(
   );
 
   if (active.length === 0) {
-    return { bonusLines: [], promotionIdsUsed: [] };
+    return { bonusLines: [], discountLines: [], promotionIdsUsed: [] };
   }
 
   const promotionIds = active.map((row) => row.promotionId);
@@ -157,6 +189,7 @@ export async function resolveB2BPromotionBonusLines(
   }
 
   const bonusLines: B2BPromotionBonusLine[] = [];
+  const discountLines: B2BPromotionDiscountLine[] = [];
   const used = new Set<string>();
 
   for (const item of cartItems) {
@@ -165,6 +198,18 @@ export async function resolveB2BPromotionBonusLines(
     );
 
     if (!match) {
+      continue;
+    }
+
+    if (match.type === B2B_PERCENT_PROMOTION_TYPE) {
+      // C3: X% de desconto; o item é considerado "promocional" mesmo se o preço não mudar de centavo.
+      const percent = Number(match.percentage);
+
+      if (applyB2BPercentDiscount(1000, percent) < 1000) {
+        discountLines.push({ productId: item.productId, percent, promotionId: match.promotionId });
+        used.add(match.promotionId);
+      }
+
       continue;
     }
 
@@ -184,11 +229,13 @@ export async function resolveB2BPromotionBonusLines(
     }
   }
 
-  return { bonusLines, promotionIdsUsed: Array.from(used) };
+  return { bonusLines, discountLines, promotionIdsUsed: Array.from(used) };
 }
 
 export type B2BOfferPromotionNotice = {
   promotionId: string;
+  /** C3: percentual (null = promoção de bonificação X+Y). */
+  percent: number | null;
   commercialGroupId: string | null;
   buyQuantity: number;
   freeQuantity: number;
@@ -225,6 +272,7 @@ export async function listOfferPromotionNotices(
       endsAt: b2bPromotions.endsAt,
       buyQuantity: b2bPromotions.buyQuantity,
       freeQuantity: b2bPromotions.freeQuantity,
+      percentage: b2bPromotions.percentage,
     })
     .from(b2bOfferPromotions)
     .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bOfferPromotions.promotionId))
@@ -232,10 +280,8 @@ export async function listOfferPromotionNotices(
 
   const valid = rows.filter(
     (row) =>
-      row.type === B2B_SUPPORTED_PROMOTION_TYPE &&
+      isB2BPromotionComplete(row) &&
       row.active &&
-      Boolean(row.buyQuantity) &&
-      Boolean(row.freeQuantity) &&
       !(row.startsAt && now < row.startsAt) &&
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
@@ -254,8 +300,9 @@ export async function listOfferPromotionNotices(
   return valid.map((row) => ({
     promotionId: row.promotionId,
     commercialGroupId: row.commercialGroupId,
-    buyQuantity: row.buyQuantity!,
-    freeQuantity: row.freeQuantity!,
+    percent: row.type === B2B_PERCENT_PROMOTION_TYPE ? Number(row.percentage) : null,
+    buyQuantity: row.buyQuantity ?? 0,
+    freeQuantity: row.freeQuantity ?? 0,
     productIds: explicit.filter((item) => item.promotionId === row.promotionId).map((item) => item.productId),
     usesRemaining:
       row.maxUses !== null ? Math.max(0, row.maxUses - (gate.get(row.promotionId)?.used ?? row.usesCount)) : null,

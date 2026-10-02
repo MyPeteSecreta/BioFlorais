@@ -461,6 +461,16 @@ export const orderItems = pgTable(
     /* sql/b2b/13b: promotion | normal_price | base_only (janela de 180 dias). */
     commissionBasis:
       text("commission_basis"),
+
+    /* sql/b2b/17b: promoção % (C3). unit_price_cents já é o preço EFETIVO. */
+    promotionType:
+      text("promotion_type"),
+
+    promotionPercent:
+      numeric("promotion_percent"),
+
+    promotionDiscountCents:
+      integer("promotion_discount_cents"),
   }
 );
 

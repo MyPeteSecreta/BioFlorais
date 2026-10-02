@@ -216,7 +216,7 @@ export async function loadPromotionUses(run: SqlRunner, offerId: string): Promis
        FROM orders o
        JOIN order_items i ON i.order_id = o.id
       WHERE o.b2b_offer_id = $1
-        AND i.promotion_id IS NOT NULL AND coalesce(i.bonus_qty, 0) > 0
+        AND i.promotion_id IS NOT NULL
         AND (${countsAsPurchaseSql("o")} OR ${reservesUseSql("o")})
       GROUP BY i.promotion_id`,
     [offerId]
