@@ -48,22 +48,7 @@ export function productPromotionText(
   return match ? bonusLabel(match.buyQuantity, match.freeQuantity) : null;
 }
 
-/**
- * Volume que falta no catálogo compartilhado (bio-products.ts, content "").
- * Só para exibir no B2B: o catálogo do B2C não é alterado. Padrão das
- * demais gotas da mesma linha (Baby 37 ml; Kids e Teen 31 ml).
- */
-const FLORAL_DROPS_VOLUME_BY_LINE: Record<string, string> = {
-  baby: "37 ml",
-  kids: "31 ml",
-  teen: "31 ml",
-};
-
-export function b2bProductContent(
-  product: { content: string; lineSlug: string; category: string } | null | undefined
-) {
-  if (!product) return null;
-  if (product.content) return product.content;
-  if (product.category === "Floral em gotas") return FLORAL_DROPS_VOLUME_BY_LINE[product.lineSlug] ?? null;
-  return null;
+/** Volume exibido no card B2B: o do catálogo (bio-products.ts). */
+export function b2bProductContent(product: { content: string } | null | undefined) {
+  return product?.content || null;
 }
