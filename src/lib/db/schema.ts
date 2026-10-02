@@ -1055,6 +1055,8 @@ export const b2bOfferLinks = pgTable(
     expiresAt: timestamp("expires_at"),
     revokedAt: timestamp("revoked_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /* sql/b2b/11b: token cifrado (AES-GCM) para o vendedor copiar o link de novo. */
+    tokenCiphertext: text("token_ciphertext"),
   }
 );
 

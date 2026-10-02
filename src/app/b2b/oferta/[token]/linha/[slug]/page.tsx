@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 
 import { findOtherB2BLine, loadOtherLineProducts } from "@/lib/b2b/line-views";
 import { buildWhatsAppUrl } from "@/lib/b2b/invite-links";
-import { b2bProductContent, bonusLabel, productPromotionText } from "@/lib/b2b/offer-notices";
+import { b2bProductContent, bonusLabel, productPromotionRule, productPromotionText } from "@/lib/b2b/offer-notices";
 import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext, type PublicB2BProduct } from "@/lib/b2b/public-offer-context";
@@ -26,7 +26,11 @@ import RecordLineView from "./RecordLineView";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function toCatalogProduct(product: PublicB2BProduct, promotionText: string | null): B2BCatalogProduct {
+function toCatalogProduct(
+  product: PublicB2BProduct,
+  promotionText: string | null,
+  promotion: { buyQuantity: number; freeQuantity: number } | null = null
+): B2BCatalogProduct {
   const catalogProduct = getProduct(product.slug);
 
   return {
@@ -37,6 +41,7 @@ function toCatalogProduct(product: PublicB2BProduct, promotionText: string | nul
     image: catalogProduct ? getProductMainImage(catalogProduct) || null : null,
     priceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
     promotionText,
+    promotion,
   };
 }
 
@@ -78,7 +83,13 @@ export default async function B2BLinePage({
 
     catalogProducts = context.products
       .filter((product) => product.commercialGroupIds.includes(offerLine.id))
-      .map((product) => toCatalogProduct(product, productPromotionText(notices, offerLine.id, product.id)));
+      .map((product) =>
+        toCatalogProduct(
+          product,
+          productPromotionText(notices, offerLine.id, product.id),
+          productPromotionRule(notices, offerLine.id, product.id)
+        )
+      );
 
     const wide = notices.find((item) => item.commercialGroupId === offerLine.id && item.productIds.length === 0);
     promotionNote = wide ? `Promoção nesta linha: ${bonusLabel(wide.buyQuantity, wide.freeQuantity)} do mesmo produto.` : null;
@@ -113,9 +124,6 @@ export default async function B2BLinePage({
           <h1 className="mt-3 font-serif text-3xl font-semibold text-[#55245f]">{line.name}</h1>
           {otherLine ? (
             <>
-              <p className="mt-2 max-w-2xl text-sm text-[#746471]">
-                Preço B2B normal, sem promoção. Quer uma condição especial? Peça ao seu representante.
-              </p>
               {whatsappUrl && (
                 <a
                   href={whatsappUrl}

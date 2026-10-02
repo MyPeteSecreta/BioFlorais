@@ -15,6 +15,7 @@
  */
 
 import Link from "next/link";
+import ReorderLink from "@/components/b2b/ReorderLink";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -368,6 +369,7 @@ export default function B2BCheckoutContent() {
             Pedido {order.id.slice(0, 8).toUpperCase()} · {formatB2BCents(order.totalCents)}
           </p>
         )}
+        <ReorderLink token={token} />
         <Link
           href={`/b2b/oferta/${encodeURIComponent(token)}`}
           className="mt-6 inline-block text-sm font-bold text-[#63326d] underline underline-offset-4"

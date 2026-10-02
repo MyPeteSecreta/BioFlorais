@@ -97,7 +97,7 @@ function choiceLabel(line: BuilderLine, choice: BuilderChoice) {
   const label = promotion ? promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity) : "Promoção";
   const eligibility =
     choice.eligibilityMode === "uses"
-      ? `${choice.maxUses}x compra${choice.maxUses === 1 ? "" : "s"}`
+      ? `${choice.maxUses} compra${choice.maxUses === 1 ? "" : "s"}`
       : `${choice.durationDays} dias`;
   return `${label} · ${eligibility}`;
 }
@@ -435,7 +435,7 @@ export default function OfferBuilder({
                         active ? "border-blue-500 bg-blue-50" : "border-[#eadfd9] bg-white hover:border-blue-300",
                       ].join(" ")}
                     >
-                      <p className="text-2xl font-black">{promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity)}</p>
+                      <p className="text-2xl font-black">{active ? "✓ " : ""}{promotionShortLabel(promotion.buyQuantity, promotion.freeQuantity)}</p>
                       <p className="mt-2 text-sm font-bold text-blue-700">{promotionScopeText(promotion)}</p>
                       <p className="mt-3 text-sm text-[#746471]">
                         Compre <strong>{promotion.buyQuantity}</strong> e ganhe <strong>{promotion.freeQuantity}</strong> do mesmo produto.
@@ -481,7 +481,7 @@ export default function OfferBuilder({
                         isActive ? "border-blue-600 bg-blue-600 text-white" : "border-[#eadfd9] bg-[#fffaf6]",
                       ].join(" ")}
                     >
-                      <p className="text-lg font-black">{label}</p>
+                      <p className="text-lg font-black">{isActive ? "✓ " : ""}{label}</p>
                       <p className="mt-2 text-xs">Comissão</p>
                       <p className="mt-1 text-sm font-bold">
                         {formatPercent(matrix.basePercent)} + {formatPercent(extraPercent)}

@@ -189,6 +189,9 @@ export type B2BOfferPromotionNotice = {
   freeQuantity: number;
   /** Vazio = vale para a linha inteira; senão, só estes produtos. */
   productIds: string[];
+  /** Elegibilidade restante: compras que sobram (null = por prazo) e fim do prazo (null = por compras). */
+  usesRemaining: number | null;
+  validUntil: Date | null;
 };
 
 /**
@@ -244,5 +247,7 @@ export async function listOfferPromotionNotices(offerId: string): Promise<B2BOff
     buyQuantity: row.buyQuantity!,
     freeQuantity: row.freeQuantity!,
     productIds: explicit.filter((item) => item.promotionId === row.promotionId).map((item) => item.productId),
+    usesRemaining: row.maxUses !== null ? Math.max(0, row.maxUses - row.usesCount) : null,
+    validUntil: row.validUntil,
   }));
 }

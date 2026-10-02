@@ -17,7 +17,37 @@ export default function OfferLinkActions({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [link, setLink] = useState<{ url: string; whatsappUrl: string } | null>(null);
+
+  async function copyCurrent(whatsapp: boolean) {
+    setBusy(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/b2b/offers/link?offerId=${encodeURIComponent(offerId)}`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data.error ?? "Erro.");
+        return;
+      }
+
+      if (whatsapp) {
+        window.open(data.whatsappUrl, "_blank", "noopener");
+      } else {
+        try {
+          await navigator.clipboard.writeText(data.url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        } catch {
+          setLink({ url: data.url, whatsappUrl: data.whatsappUrl });
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function call(method: "POST" | "DELETE") {
     if (method === "POST" && hasActiveLink && !window.confirm("Gerar um novo link? O link atual deixa de funcionar.")) return;
@@ -57,6 +87,26 @@ export default function OfferLinkActions({
         >
           {hasActiveLink ? "Gerar novo link" : "Gerar link"}
         </button>
+        {hasActiveLink && (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => copyCurrent(false)}
+              className="rounded-full border border-[#55245f] px-4 py-2 text-xs font-extrabold text-[#55245f] disabled:opacity-50"
+            >
+              {copied ? "Link copiado ✓" : "Copiar link da oferta"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => copyCurrent(true)}
+              className="rounded-full bg-[#1f9d55] px-4 py-2 text-xs font-extrabold text-white disabled:opacity-50"
+            >
+              Enviar por WhatsApp
+            </button>
+          </>
+        )}
         {hasActiveLink && (
           <button
             type="button"

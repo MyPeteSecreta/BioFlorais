@@ -13,7 +13,7 @@ import { db } from "@/lib/db/client";
 import { b2bOfferLinks } from "@/lib/db/schema";
 import { requireResponsible } from "@/lib/b2b/require-responsible";
 import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/ownership";
-import { issueOfferLink } from "@/lib/b2b/offer-link";
+import { issueOfferLink, readActiveOfferLink } from "@/lib/b2b/offer-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +63,43 @@ export async function POST(request: NextRequest) {
     console.error("[b2b/offers/link POST]", error);
     return NextResponse.json({ error: "Erro ao gerar link." }, { status: 500 });
   }
+}
+
+/** Copiar/reenviar: devolve o link ATIVO da oferta (só do próprio vendedor). */
+export async function GET(request: NextRequest) {
+  const responsible = await requireResponsible(request);
+
+  if (!responsible) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  const run = getAppSqlRunner();
+  const offer = await findOwnedOffer(run, responsible.id, String(request.nextUrl.searchParams.get("offerId") ?? "").trim());
+
+  if (!offer || offer.revokedAt || !offer.activatedAt) {
+    return NextResponse.json({ error: "Oferta não encontrada." }, { status: 404 });
+  }
+
+  const client = await findOwnedClient(run, responsible.id, offer.clientId);
+
+  if (!client) {
+    return NextResponse.json({ error: "Oferta não encontrada." }, { status: 404 });
+  }
+
+  const link = await readActiveOfferLink(offer.id, {
+    clientName: client.displayName,
+    clientPhone: client.phone,
+    responsibleName: responsible.name,
+  });
+
+  if (!link) {
+    return NextResponse.json(
+      { error: "Este link foi criado antes da cópia guardada. Use \"Gerar novo link\" (o anterior deixa de funcionar)." },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, ...link });
 }
 
 export async function DELETE(request: NextRequest) {

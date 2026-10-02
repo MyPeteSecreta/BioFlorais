@@ -67,7 +67,11 @@ export async function loadPublicB2BOfferContext(
   }
 
   const [link] = await db
-    .select()
+    .select({
+      offerId: b2bOfferLinks.offerId,
+      revokedAt: b2bOfferLinks.revokedAt,
+      expiresAt: b2bOfferLinks.expiresAt,
+    })
     .from(b2bOfferLinks)
     .where(eq(b2bOfferLinks.tokenHash, hashToken(token)))
     .limit(1);

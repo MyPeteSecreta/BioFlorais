@@ -9,6 +9,38 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★ Rodada comum 01/10 (noite), sobre `3dc6d5d`
+
+Só local: sem push, deploy nem Neon. Commits: `4207cf0` (volumes) e o commit desta rodada (hash no fim da resposta).
+
+**Volumes (aprovado pelo Luis, afeta o B2C):** só o campo `content` de `bio-products.ts`; 22 produtos mudaram para "31 ml" (os 9 Baby que mostravam 37 ml e os 13 que estavam vazios). Baby: Bebê Nervoso, Choro Excessivo, Fala Nenê!, Rescue S.O.S., Sociabilidade, Sono, Tirando a Chupeta, Tirando a Fralda (37→31); Gravidez Conturbada, Mamãe Volta ao Trabalho, Pós-Vacina (vazio→31). Kids (vazio→31): Concentração, Sociabilidade, Separação, Momento Reequilíbrio Alimentar, Medos Infantis, Carência, Pesadelos, Teimosia. Teen (vazio→31): Controle Emocional, Meu Lugar no Mundo, Controle Alimentar. O "padrão inferido" do B2B foi removido (`b2bProductContent` lê só o catálogo). Obs.: o título de alguns slugs/URLs antigos com "37ml" no `middleware.ts` (Pet) não foi tocado.
+
+**P0.1 isolamento:** revisão feita: todas as páginas e rotas do vendedor passam por `ownership.ts` (vínculo ativo + vendedor ativo, no SQL); "Interesses dos clientes" filtra `responsible_id` na query; cliente de outro vendedor = 404; o teste com dois vendedores (lista, URL direta, oferta, transferência, desativado) segue verde. Como o código já isola, a causa provável é dado: `10b_diagnostico_isolamento_vendedores.sql` (leitura, uma linha JSON) lista cliente com 2+ vendedores ativos, cliente sem vínculo, oferta de vendedor diferente do vínculo e pedido com vendedor diferente da oferta. Rodar no `bio-florais` e me mandar o resultado; correção de dado só depois de ver.
+
+**P0.2 sacola:** a sacola B2B já usa chave própria (`bioflorais.b2b.cart.v1`, não toca a do B2C) e só aparece no carrinho/checkout se o token da URL for igual ao token guardado; outro link esvazia. Fechei duas brechas: sacola gravada sem token é descartada e itens sem token não passam para o link novo. Concluir o pedido esvazia (já fazia). Limite assumido: uma sacola por navegador (trocar de link zera a anterior).
+
+**P0.3 comissão:** o pedido B2B da Bio grava o snapshot **por item** em `order_items` (`commission_base/extra/total_percent`, mais `promotion_name`, `paid_qty`, `bonus_qty`), em qualquer forma de pagamento (todas passam por `orders/create`). Não existe coluna de comissão no pedido (a ponderada é calculada na consulta). Conferência para o Luis: `sql/b2b/10a_conferencia_comissao_pedidos_b2b.sql` (Neon `bio-florais`, só leitura): `itens_sem_comissao` deve ser 0 e `comissao_ponderada_pct` é a do pedido (testada: 25%/18% → 20,8%). Se vier NULL, o pedido nasceu sem a matriz de comissão.
+
+**P1.1:** frase única "Preço B2B normal, sem promoção. Quer uma condição especial? Pergunte ao seu representante." só no topo de "Outras linhas"; removida dos cards e do cabeçalho da linha. ("Peça um novo ao administrador" nos convites é outro contexto e ficou.)
+
+**P1.2:** bonificação ao vivo no seletor de quantidade, só em produto elegível, com a mesma função do servidor (`calculateB2BPromotionBonusQty`) sobre (já no pedido + quantidade): "+1 grátis · você recebe 3"; abaixo do mínimo: "Compre 2 para ganhar +1 grátis".
+
+**P1.3:** no "Ver promoções", a opção escolhida (promoção e elegibilidade) fica preenchida e com ✓; o resumo do card diz "3 por 2 · 2 compras" / "· 60 dias".
+
+**P1.4:** na página do cliente, "Copiar link da oferta" e "Enviar por WhatsApp" (wa.me com o telefone do cliente, se houver) para o link ATIVO, só do próprio vendedor (`GET /api/b2b/offers/link?offerId=`). Como o banco guarda só o hash, o token passou a ser guardado **cifrado** (AES-256-GCM, chave derivada de `ADMIN_SESSION_SECRET`) em `b2b_offer_links.token_ciphertext`: **SQL `11b_offer_link_copia_cifrada.sql`** (aditivo). Sem o 11b o app funciona (grava sem a cópia); links já existentes não têm cópia e pedem "Gerar novo link" (o anterior deixa de valer, com aviso). O convite de cadastro do vendedor é gerado pelo admin nesta marca (já tem Copiar/WhatsApp ao gerar), não há convite na área do vendedor.
+
+**P1.5 recompra:** como era: o link não expira (`expires_at` nulo) e continua valendo depois da 1ª compra até ser revogado ou substituído; o contador `uses_count` sobe a cada pedido que usou a promoção e a promoção esgotada simplesmente deixa de bonificar (a linha segue comprável a preço normal). O que faltava e agora existe: (a) tela de pedido concluído com "Para comprar de novo, use sempre este link" + Copiar; (b) ao reabrir o link, o card da linha mostra "Você ainda tem N compras com 3 por 2" ou "3 por 2 válido até dd/mm/aaaa"; esgotada, o selo vira "Preço B2B". Não há e-mail transacional de confirmação nesta marca. O vendedor reenvia pelo P1.4.
+
+**P1.6 texto quebrado:** não achei mojibake nos arquivos do admin B2B (as abas leem os nomes do banco); então a causa provável é dado. Diagnóstico `12a_diagnostico_texto_quebrado.sql` (leitura, uma linha JSON, mostra `texto` e `corrigido` por id) e correção `12b_corrigir_texto_quebrado.sql` (UPDATE só em `b2b_promotions`, `b2b_commercial_groups`, `b2b_clients`, `b2b_responsibles`, só onde o resultado fica limpo; antes/depois; sem DELETE). Testados no Postgres em memória ("3 por 2 â€” PromoÃ§Ã£o" → "3 por 2 — Promoção"). ⚠ **Achado fora do B2B, não corrigido:** há texto com encoding quebrado em arquivos do B2C: mensagens de erro em `src/app/api/orders/create/route.ts` (ex.: "nÃ£o informado", "vÃ¡lido"), `api/payments/mercadopago/card/route.ts`, `api/webhooks/mercadopago/route.ts` e `lib/content/product-content.ts` (comentários em `schema.ts`). Mexer muda o B2C: espero decisão do Luis.
+
+**P2 (só desenho, não publicado, aguarda confirmar 180 dias):** nada de código. Proposta: `orders.b2b` ganha a data da 1ª compra paga por cliente (derivada: `min(paid_at)` dos pedidos B2B pagos do cliente nesta marca, calculada na criação do pedido); um resolvedor puro `resolveItemCommission({matrix, offerCondition, firstPaidAt, now, item})` devolve `{basis: 'promotion'|'normal_price'|'base_only', base, extra, total}`: item bonificado dentro da elegibilidade = promoção; senão, se `now <= firstPaidAt + 180 dias` (ou sem 1ª compra ainda) = preço normal (base+extra); senão `base_only`. O snapshot do item ganha a coluna `commission_basis` (SQL aditivo). Offer Builder, revisão e painel mostram "10% + 15% = 25% até dd/mm/aaaa (180 dias após a 1ª compra); depois 10%" ou "válido por 180 dias a partir da 1ª compra". Testes: dentro da promoção, promoção esgotada dentro de 180 dias, depois de 180 dias, cliente sem compra anterior. Pergunta aberta: o "pago" conta da confirmação do pagamento (Pix/cartão) ou da compensação do boleto?
+
+**Verificações:** `npm.cmd test` 54/54, `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio.
+
+**SQL desta rodada (Neon `bio-florais`):** `10a` e `10b` (leitura), `11b` (aditivo), `12a` (leitura) e, depois de ver o 12a, `12b` (UPDATE por linha).
+
+---
+
 ## ★★★★★ Rodada 2 pós-teste: 08c, filtro em todas as listas e nova página do link (sobre `79cdf5b`)
 
 Só local: sem push, deploy nem acesso ao Neon. **B2C intacto**: Home, header, carrinho B2C e `bio-products.ts` não foram alterados.

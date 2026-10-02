@@ -33,8 +33,8 @@ export function lineBadge(
   return names.length > 0 ? `${label} · promoção somente em ${names.join(", ")}` : label;
 }
 
-/** Selo por produto: só nos elegíveis. */
-export function productPromotionText(
+/** Regra "compre X, leve Y" do produto: só nos elegíveis. */
+export function productPromotionRule(
   notices: B2BOfferPromotionNotice[],
   groupId: string,
   productId: string
@@ -45,7 +45,40 @@ export function productPromotionText(
       (item.productIds.length === 0 || item.productIds.includes(productId))
   );
 
-  return match ? bonusLabel(match.buyQuantity, match.freeQuantity) : null;
+  return match ? { buyQuantity: match.buyQuantity, freeQuantity: match.freeQuantity } : null;
+}
+
+/**
+ * Quanto resta da promoção da linha (reabrir o link depois da 1ª compra):
+ * "Você ainda tem 2 compras com 3 por 2" ou "3 por 2 válido até 30/10/2026".
+ */
+export function lineEligibilityCaption(notices: B2BOfferPromotionNotice[], groupId: string) {
+  const own = notices.find((item) => item.commercialGroupId === groupId);
+
+  if (!own) return null;
+
+  const label = promotionShortLabel(own.buyQuantity, own.freeQuantity);
+
+  if (own.usesRemaining !== null) {
+    return `Você ainda tem ${own.usesRemaining} ${own.usesRemaining === 1 ? "compra" : "compras"} com ${label}`;
+  }
+
+  if (own.validUntil) {
+    const date = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(own.validUntil);
+    return `${label} válido até ${date}`;
+  }
+
+  return null;
+}
+
+/** Selo por produto: só nos elegíveis. */
+export function productPromotionText(
+  notices: B2BOfferPromotionNotice[],
+  groupId: string,
+  productId: string
+) {
+  const rule = productPromotionRule(notices, groupId, productId);
+  return rule ? bonusLabel(rule.buyQuantity, rule.freeQuantity) : null;
 }
 
 /** Volume exibido no card B2B: o do catálogo (bio-products.ts). */

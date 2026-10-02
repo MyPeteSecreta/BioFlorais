@@ -49,8 +49,9 @@ function reducer(state: InternalState, action: Action): InternalState {
       if (state.offerToken === action.token) {
         return state;
       }
-      // Outra oferta = outro catálogo/preço: esvazia o carrinho.
-      if (state.offerToken && state.offerToken !== action.token) {
+      // Outra oferta = outro catálogo/preço: esvazia o carrinho. Itens sem
+      // dono (token nulo) também não passam para o link novo.
+      if (state.offerToken !== action.token) {
         return { ...state, offerToken: action.token, lines: [] };
       }
       return { ...state, offerToken: action.token };
@@ -87,7 +88,8 @@ function reducer(state: InternalState, action: Action): InternalState {
     case "CLEAR":
       return { ...state, lines: [] };
     case "HYDRATE":
-      return action.state
+      // Sacola gravada sem token de oferta não pertence a nenhum link: descarta.
+      return action.state && action.state.offerToken
         ? { offerToken: action.state.offerToken, lines: action.state.lines, hydrated: true }
         : { ...state, hydrated: true };
     default:

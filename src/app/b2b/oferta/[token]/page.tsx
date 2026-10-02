@@ -12,7 +12,7 @@
 import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
-import { lineBadge } from "@/lib/b2b/offer-notices";
+import { lineBadge, lineEligibilityCaption } from "@/lib/b2b/offer-notices";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 
@@ -104,6 +104,7 @@ export default async function B2BOfferPage({
                   image={homeLineImage(line.slug)}
                   highlight
                   badge={lineBadge(notices, line.id, productNameById) ?? "Preço B2B"}
+                  caption={lineEligibilityCaption(notices, line.id) ?? undefined}
                 />
               ))}
             </div>
@@ -114,7 +115,7 @@ export default async function B2BOfferPage({
           <section className={offerLines.length > 0 ? "mt-12" : ""}>
             <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas</h2>
             <p className="mt-1 text-sm text-[#746471]">
-              Preço B2B normal, sem promoção. Quer uma condição especial? Peça ao seu representante.
+              Preço B2B normal, sem promoção. Quer uma condição especial? Pergunte ao seu representante.
             </p>
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {otherLines.map((line) => (
@@ -123,7 +124,6 @@ export default async function B2BOfferPage({
                   href={lineHref(line.slug)}
                   name={line.name}
                   image={homeLineImage(line.slug)}
-                  caption="Preço B2B normal, sem promoção"
                 />
               ))}
             </div>

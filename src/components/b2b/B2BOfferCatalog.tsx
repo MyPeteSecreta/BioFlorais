@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
 
 export type B2BCatalogProduct = {
   id: string;
@@ -15,6 +16,8 @@ export type B2BCatalogProduct = {
   priceCents: number;
   /** Aviso da promoção da oferta (ex.: "Compre 2 e leve +1 grátis"). */
   promotionText?: string | null;
+  /** Regra "compre X, leve Y" (só em produto elegível), para a bonificação ao vivo. */
+  promotion?: { buyQuantity: number; freeQuantity: number } | null;
 };
 
 export type B2BCatalogGroup = {
@@ -98,6 +101,26 @@ function ProductCard({
             Adicionar
           </button>
         </div>
+        {product.promotion && (() => {
+          // Mesma função do servidor (promotion-engine): bonificação sobre o total do pedido.
+          const total = inCartQty + qty;
+          const bonus = calculateB2BPromotionBonusQty(
+            total,
+            product.promotion.buyQuantity,
+            product.promotion.freeQuantity
+          );
+
+          return (
+            <p
+              className={`mt-2 text-xs font-extrabold ${bonus > 0 ? "text-blue-700" : "text-[#8a7886]"}`}
+              aria-live="polite"
+            >
+              {bonus > 0
+                ? `+${bonus} grátis · você recebe ${total + bonus}`
+                : `Compre ${product.promotion.buyQuantity} para ganhar +${product.promotion.freeQuantity} grátis`}
+            </p>
+          );
+        })()}
         {inCartQty > 0 && (
           <p className="mt-2 text-xs font-semibold text-[#2f7a4a]">{inCartQty} no pedido</p>
         )}

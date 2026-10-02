@@ -425,3 +425,62 @@ test("08c desativa só o vendedor e o cliente de teste pelo id exato; vendedor i
   const guard = read(new URL("../src/lib/b2b/require-responsible.ts", import.meta.url), "utf8");
   assert.match(guard, /responsible\.status !== "active"/);
 });
+
+test("11b (cópia cifrada do link) é idempotente; token cifrado volta igual", async () => {
+  await pg.exec(sqlFile("11b_offer_link_copia_cifrada.sql"));
+  await pg.exec(sqlFile("11b_offer_link_copia_cifrada.sql"));
+  const cols = await run(`SELECT column_name FROM information_schema.columns WHERE table_name='b2b_offer_links' AND column_name='token_ciphertext'`);
+  assert.equal(cols.length, 1);
+
+  process.env.ADMIN_SESSION_SECRET = "segredo-de-teste";
+  const { encryptOfferToken, decryptOfferToken } = await import("@/lib/b2b/token");
+  const encrypted = encryptOfferToken("abc-token-123");
+  assert.ok(encrypted && !encrypted.includes("abc-token-123"));
+  assert.equal(decryptOfferToken(encrypted), "abc-token-123");
+  assert.equal(decryptOfferToken(encrypted.slice(0, -2) + "xx"), null); // adulterado
+  assert.equal(decryptOfferToken(null), null);
+});
+
+test("10a/10b (conferências somente leitura) rodam e 10b acha dado fora do lugar", async () => {
+  await pg.exec(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method text, ADD COLUMN IF NOT EXISTS total_cents integer,
+      ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT now(), ADD COLUMN IF NOT EXISTS b2b_offer_id uuid,
+      ADD COLUMN IF NOT EXISTS b2b_responsible_id uuid;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS paid_qty integer, ADD COLUMN IF NOT EXISTS bonus_qty integer,
+      ADD COLUMN IF NOT EXISTS promotion_name text, ADD COLUMN IF NOT EXISTS commission_base_percent numeric,
+      ADD COLUMN IF NOT EXISTS commission_extra_percent numeric, ADD COLUMN IF NOT EXISTS commission_total_percent numeric;
+  `);
+  const [{ id: offerId }] = await run(`SELECT id FROM b2b_offers LIMIT 1`);
+  const [{ id: productId }] = await run(`SELECT id FROM products LIMIT 1`);
+  const [{ id: orderId }] = await run(
+    `INSERT INTO orders (status, payment_method, total_cents, b2b_offer_id) VALUES ('paid','pix',10000,$1) RETURNING id`, [offerId]);
+  await run(`INSERT INTO order_items (order_id, product_id, qty, unit_price_cents, paid_qty, commission_base_percent, commission_extra_percent, commission_total_percent)
+             VALUES ($1,$2,2,2000,2,10,15,25), ($1,$2,2,3000,2,10,8,18)`, [orderId, productId]);
+
+  const [a] = await run(sqlFile("10a_conferencia_comissao_pedidos_b2b.sql"));
+  const pedido = a.conferencia_comissao_b2b.pedidos.find((p) => p.id === orderId);
+  assert.equal(pedido.itens_sem_comissao, 0);
+  assert.equal(Number(pedido.comissao_ponderada_pct), 20.8); // (4000*25 + 6000*18) / 10000
+
+  const [b] = await run(sqlFile("10b_diagnostico_isolamento_vendedores.sql"));
+  const d = b.diagnostico_isolamento;
+  for (const key of ["cliente_com_mais_de_um_vendedor_ativo", "cliente_ativo_sem_vinculo",
+    "oferta_de_vendedor_diferente_do_vinculo", "pedido_b2b_com_vendedor_diferente_da_oferta", "vendedores"]) {
+    assert.ok(Array.isArray(d[key]), key);
+  }
+  // O pedido de teste não tem vendedor, a oferta tem: o diagnóstico aponta.
+  assert.ok(d.pedido_b2b_com_vendedor_diferente_da_oferta.some((row) => row.order_id === orderId));
+});
+
+test("12a/12b corrigem texto quebrado só em b2b_*, sem apagar", async () => {
+  await run(`INSERT INTO b2b_promotions (name, scope, type) VALUES ('3 por 2 â€” PromoÃ§Ã£o', 'b2b', 'buy_x_get_y_auto_same_sku')`);
+  const [before] = await run(sqlFile("12a_diagnostico_texto_quebrado.sql"));
+  const found = before.diagnostico_texto_quebrado.achados.find((row) => row.tabela === "b2b_promotions");
+  assert.equal(found.corrigido, "3 por 2 — Promoção");
+
+  await pg.exec(sqlFile("12b_corrigir_texto_quebrado.sql"));
+  const [after] = await run(sqlFile("12a_diagnostico_texto_quebrado.sql"));
+  assert.deepEqual(after.diagnostico_texto_quebrado.achados, []);
+  const rows = await run(`SELECT name FROM b2b_promotions WHERE name LIKE '3 por 2 —%'`);
+  assert.equal(rows.length, 1);
+});
