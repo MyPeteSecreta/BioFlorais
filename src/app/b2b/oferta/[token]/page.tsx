@@ -115,7 +115,7 @@ export default async function B2BOfferPage({
           <section className={offerLines.length > 0 ? "mt-12" : ""}>
             <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Outras linhas</h2>
             <p className="mt-1 text-sm text-[#746471]">
-              Preço B2B normal, sem promoção. Quer uma condição especial? Pergunte ao seu representante.
+              Fique atento às campanhas. Pergunte ao seu representante.
             </p>
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {otherLines.map((line) => (

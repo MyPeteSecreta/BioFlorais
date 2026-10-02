@@ -9,5 +9,15 @@ export const metadata: Metadata = {
 };
 
 export default function B2BLayout({ children }: { children: ReactNode }) {
-  return <B2BCartProvider>{children}</B2BCartProvider>;
+  return (
+    <B2BCartProvider>
+      {/*
+        C6: o rodapé institucional do layout raiz leva ao site B2C. Dentro do B2B ele fica oculto
+        (só nesta área; o layout raiz e o B2C não mudam). Logo, menu e "continuar comprando" do
+        B2B apontam sempre para o link (token).
+      */}
+      <style>{"body > footer { display: none !important; }"}</style>
+      {children}
+    </B2BCartProvider>
+  );
 }

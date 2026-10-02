@@ -98,7 +98,7 @@ export default async function B2BLinePage({
     const pointed = notices.filter((item) => item.commercialGroupId === offerLine.id && item.productIds.length > 0);
     if (!promotionNote && pointed.length > 0) {
       const names = catalogProducts.filter((product) => product.promotionText).map((product) => product.name);
-      promotionNote = `Promoção somente em ${names.join(", ")}. Os demais produtos seguem pelo preço B2B normal.`;
+      promotionNote = `Promoção somente em ${names.join(", ")}.`;
     }
   } else {
     const lineProducts = await loadOtherLineProducts(context, line.id);
