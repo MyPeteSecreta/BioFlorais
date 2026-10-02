@@ -485,24 +485,6 @@ test("12a/12b corrigem texto quebrado só em b2b_*, sem apagar", async () => {
   assert.equal(rows.length, 1);
 });
 
-test("janela: 1ª compra PAGA do cliente (created_at), independente do vendedor; pendente não conta", async () => {
-  const { loadFirstPaidOrderAt } = await import("@/lib/b2b/commission-window");
-  const [{ id: clientId }] = await run(`SELECT id FROM b2b_clients WHERE display_name = 'ClienteTesteB2'`);
-  const [{ id: offerId }] = await run(`SELECT id FROM b2b_offers LIMIT 1`);
-
-  await pg.exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS b2b_client_id uuid;`);
-  assert.equal(await loadFirstPaidOrderAt(run, clientId), null); // nunca comprou
-
-  await run(`INSERT INTO orders (status, b2b_client_id, b2b_offer_id, created_at) VALUES
-    ('pending', $1, $2, '2026-01-01 10:00:00'),
-    ('paid',    $1, $2, '2026-03-10 12:00:00'),
-    ('paid',    $1, $2, '2026-05-01 12:00:00')`, [clientId, offerId]);
-
-  const found = await loadFirstPaidOrderAt(run, clientId);
-  assert.equal(found.toISOString(), "2026-03-10T12:00:00.000Z"); // o pendente de janeiro não conta
-  assert.equal(await loadFirstPaidOrderAt(run, "não-é-uuid"), null);
-});
-
 test("13b (commission_basis) idempotente e 13a (contador de usos) roda", async () => {
   await pg.exec(sqlFile("13b_commission_basis.sql"));
   await pg.exec(sqlFile("13b_commission_basis.sql"));
@@ -511,4 +493,26 @@ test("13b (commission_basis) idempotente e 13a (contador de usos) roda", async (
 
   const [row] = await run(sqlFile("13a_conferencia_contador_de_usos.sql"));
   assert.ok(Array.isArray(row.conferencia_contador_de_usos.promocoes_das_ofertas));
+});
+
+test("14a/14b (tipo de promoção) e 15a (contador novo x antigo) rodam; 14b é idempotente e marca tudo como abertura", async () => {
+  const [pre] = await run(sqlFile("14a_promocoes_tipo_preflight_one_shot.sql"));
+  assert.equal(pre.preflight_promocoes_tipo.b2b_promotions_promo_type_existe, false);
+  assert.equal(pre.preflight_promocoes_tipo.b2b_settings_existe, false);
+
+  await pg.exec(`CREATE TABLE IF NOT EXISTS b2b_boleto_requests (order_id uuid PRIMARY KEY);`);
+  await pg.exec(sqlFile("14b_promocoes_tipo.sql"));
+  await pg.exec(sqlFile("14b_promocoes_tipo.sql"));
+
+  const types = await run(`SELECT DISTINCT promo_type FROM b2b_promotions`);
+  assert.deepEqual(types, [{ promo_type: "abertura_reconquista" }]);
+  const [{ value }] = await run(`SELECT value FROM b2b_settings WHERE key = 'reconquista_meses'`);
+  assert.equal(value, "6");
+  await assert.rejects(run(`INSERT INTO b2b_promotions (name, scope, type, promo_type) VALUES ('x','b2b','t','invalida')`));
+
+  const [after] = await run(sqlFile("14a_promocoes_tipo_preflight_one_shot.sql"));
+  assert.equal(after.preflight_promocoes_tipo.b2b_promotions_promo_type_existe, true);
+
+  const [counter] = await run(sqlFile("15a_contador_de_usos_novo_vs_antigo.sql"));
+  assert.ok(Array.isArray(counter.conferencia_contador_novo.promocoes_das_ofertas));
 });

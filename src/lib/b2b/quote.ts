@@ -171,7 +171,8 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
   const { bonusLines, promotionIdsUsed } = await resolveB2BPromotionBonusLines(
     context.offerId,
     context.products,
-    lines
+    lines,
+    context.clientId
   );
 
   const bonusByProductId = new Map<string, number>();

@@ -18,7 +18,6 @@
  */
 
 import Image from "next/image";
-import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -53,8 +52,8 @@ type Props = {
   offerId: string | null;
   lines: BuilderLine[];
   matrix: CommissionMatrix;
-  /** Janela de 180 dias da comissão do preço normal (texto pronto). */
-  windowText: string | null;
+  /** Janela de 180 dias da comissão do preço normal, por linha (texto pronto, só vendedor). */
+  windowTextByLine: Record<string, string>;
   initialSelected: string[];
   initialChoices: Record<string, BuilderChoice>;
 };
@@ -89,6 +88,11 @@ function CommissionBadge({
   );
 }
 
+const PROMOTION_GROUPS: Array<{ type: "abertura_reconquista" | "recorrente"; title: string }> = [
+  { type: "abertura_reconquista", title: "Promoção de abertura / reconquista" },
+  { type: "recorrente", title: "Promoção para cliente recorrente" },
+];
+
 function promotionScopeText(promotion: BuilderPromotion) {
   return promotion.onlyProducts.length > 0
     ? `Somente ${promotion.onlyProducts.map((product) => product.name).join(", ")}`
@@ -112,7 +116,7 @@ export default function OfferBuilder({
   offerId,
   lines,
   matrix,
-  windowText,
+  windowTextByLine,
   initialSelected,
   initialChoices,
 }: Props) {
@@ -241,8 +245,6 @@ export default function OfferBuilder({
           </span>
         </div>
       </div>
-
-      {windowText && <CommissionWindowNote text={windowText} />}
 
       {!matrix.configured && (
         <p className="mx-auto mt-6 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -416,13 +418,23 @@ export default function OfferBuilder({
                   <div>
                     <p className="text-xl font-extrabold">Preço B2B normal</p>
                     <p className="mt-1 text-sm text-[#746471]">Sem promoção de quantidade.</p>
+                    {windowTextByLine[modalLine.id] && (
+                      <p className="mt-2 text-xs font-semibold text-[#55245f]">{windowTextByLine[modalLine.id]}</p>
+                    )}
                   </div>
                   <CommissionBadge matrix={matrix} extraPercent={normalCommission?.extraPercent ?? null} />
                 </div>
               </button>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                {modalLine.promotions.map((promotion) => {
+              {PROMOTION_GROUPS.map((group) => {
+                const groupPromotions = modalLine.promotions.filter((promotion) => promotion.promoType === group.type);
+                if (groupPromotions.length === 0) return null;
+
+                return (
+                <div key={group.type} className="mt-6">
+                <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#9b6c24]">{group.title}</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                {groupPromotions.map((promotion) => {
                   const active = draftChoice?.promotionId === promotion.id;
                   const options = eligibilityOptions(matrix, promotion.id);
                   const hasRules = options.uses.length + options.days.length > 0;
@@ -431,7 +443,7 @@ export default function OfferBuilder({
                     <button
                       type="button"
                       key={promotion.id}
-                      disabled={!hasRules}
+                      disabled={!hasRules || !promotion.available}
                       onClick={() => {
                         setModalError("");
                         setDraftChoice({ promotionId: promotion.id, eligibilityMode: null, maxUses: null, durationDays: null });
@@ -446,13 +458,21 @@ export default function OfferBuilder({
                       <p className="mt-3 text-sm text-[#746471]">
                         Compre <strong>{promotion.buyQuantity}</strong> e ganhe <strong>{promotion.freeQuantity}</strong> do mesmo produto.
                       </p>
+                      {promotion.reason && (
+                        <p className={`mt-2 text-xs font-bold ${promotion.available ? "text-emerald-700" : "text-[#b33]"}`}>
+                          {promotion.reason}
+                        </p>
+                      )}
                       {!hasRules && (
                         <p className="mt-2 text-xs font-bold text-[#b33]">Sem regra de comissão configurada.</p>
                       )}
                     </button>
                   );
                 })}
-              </div>
+                </div>
+                </div>
+                );
+              })}
 
               {draftChoice && (() => {
                 const promotion = modalLine.promotions.find((item) => item.id === draftChoice.promotionId);

@@ -63,7 +63,7 @@ export async function POST(
     }
 
     const [lines, matrix] = await Promise.all([
-      loadBuilderLines(),
+      loadBuilderLines(new Date(), client.id, offer.id),
       loadCommissionMatrix(run, responsible.id, client.id),
     ]);
 

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const [lines, matrix] = await Promise.all([
-      loadBuilderLines(),
+      loadBuilderLines(new Date(), client.id),
       loadCommissionMatrix(run, responsible.id, client.id),
     ]);
 

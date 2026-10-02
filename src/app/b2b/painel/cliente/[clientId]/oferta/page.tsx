@@ -15,7 +15,7 @@ import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
-import { describeCommissionWindow, loadClientCommissionWindow } from "@/lib/b2b/commission-window";
+import { loadLineWindowTexts } from "@/lib/b2b/line-windows";
 import OfferBuilder, { type BuilderChoice } from "./OfferBuilder";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +37,11 @@ export default async function OfferBuilderPage({
     notFound();
   }
 
-  const [lines, matrix, window] = await Promise.all([
-    loadBuilderLines(),
+  const [lines, matrix] = await Promise.all([
+    loadBuilderLines(new Date(), client.id),
     loadCommissionMatrix(run, responsible.id, client.id),
-    loadClientCommissionWindow(run, client.id),
   ]);
+  const windowTextByLine = await loadLineWindowTexts(run, client.id, matrix, lines.map((line) => line.id));
 
   // Rascunho a editar: o pedido na URL ou o mais recente do cliente.
   let draftId: string | null = null;
@@ -125,7 +125,7 @@ export default async function OfferBuilderPage({
       offerId={draftId}
       lines={lines}
       matrix={matrix}
-      windowText={matrix.configured ? describeCommissionWindow(matrix, window) : null}
+      windowTextByLine={windowTextByLine}
       initialSelected={initialSelected}
       initialChoices={initialChoices}
     />

@@ -12,9 +12,8 @@ import {
   getAppSqlRunner,
   listOwnedOffersForClient,
 } from "@/lib/b2b/ownership";
-import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
-import { describeCommissionWindow, loadClientCommissionWindow } from "@/lib/b2b/commission-window";
+import { loadClientLineSummary } from "@/lib/b2b/line-windows";
 import OfferLinkActions from "@/components/b2b/OfferLinkActions";
 
 export const dynamic = "force-dynamic";
@@ -43,11 +42,11 @@ export default async function B2BClientPage({
     notFound();
   }
 
-  const [offers, matrix, window] = await Promise.all([
+  const [offers, matrix] = await Promise.all([
     listOwnedOffersForClient(run, responsible.id, client.id),
     loadCommissionMatrix(run, responsible.id, client.id),
-    loadClientCommissionWindow(run, client.id),
   ]);
+  const lineSummary = await loadClientLineSummary(run, client.id, matrix);
 
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-10 lg:px-10">
@@ -70,7 +69,21 @@ export default async function B2BClientPage({
         </Link>
       </div>
 
-      {matrix.configured && <CommissionWindowNote text={describeCommissionWindow(matrix, window)} />}
+      {lineSummary.length > 0 && (
+        <section className="mt-6 rounded-[20px] border border-[#d9c7dc] bg-white p-4 text-sm text-[#55245f]">
+          <h2 className="font-extrabold">Compras por linha e comissão no preço normal</h2>
+          <p className="mt-1 text-xs text-[#8a7886]">
+            As regras e os prazos são do cliente: continuam os mesmos se ele trocar de vendedor.
+          </p>
+          <ul className="mt-3 space-y-1">
+            {lineSummary.map((line) => (
+              <li key={line.name}>
+                <strong>{line.name}:</strong> {line.text || "comissão não configurada"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-8 space-y-3">
         <h2 className="font-extrabold">Ofertas</h2>

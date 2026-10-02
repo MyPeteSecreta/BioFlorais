@@ -58,8 +58,8 @@ export function buildOrderItemSnapshots(input: {
   offerPromotions: OfferPromotionTerms[];
   lines: QuoteLine[];
   bonusLines: BonusLine[];
-  /** Janela de 180 dias do cliente, avaliada na criação do pedido. */
-  window: CommissionWindow;
+  /** Janela de 180 dias (por cliente e LINHA), avaliada na criação do pedido; função = por produto. */
+  window: CommissionWindow | ((productId: string) => CommissionWindow);
 }): OrderItemSnapshot[] {
   const termsById = new Map(input.offerPromotions.map((terms) => [terms.promotionId, terms]));
   const bonusByProduct = new Map(input.bonusLines.map((bonus) => [bonus.productId, bonus]));
@@ -87,7 +87,7 @@ export function buildOrderItemSnapshots(input: {
       basePercent: input.matrix.basePercent,
       normalExtraPercent: input.matrix.normalExtraPercent,
       promotionExtraPercent,
-      window: input.window,
+      window: typeof input.window === "function" ? input.window(productId) : input.window,
     });
 
     return { terms: promotionTerms, commission };

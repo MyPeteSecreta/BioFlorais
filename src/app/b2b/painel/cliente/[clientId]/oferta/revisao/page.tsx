@@ -13,8 +13,7 @@ import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/owne
 import { formatPercent, loadCommissionMatrix, promotionShortLabel } from "@/lib/b2b/commission";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
 import { describeEligibility, loadOfferReviewLines } from "@/lib/b2b/offer-review";
-import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
-import { describeCommissionWindow, loadClientCommissionWindow } from "@/lib/b2b/commission-window";
+import { loadLineWindowTexts } from "@/lib/b2b/line-windows";
 import ReviewActions from "./ReviewActions";
 
 export const dynamic = "force-dynamic";
@@ -38,13 +37,13 @@ export default async function OfferReviewPage({
     notFound();
   }
 
-  const [lines, matrix, window] = await Promise.all([
-    loadBuilderLines(),
+  const [lines, matrix] = await Promise.all([
+    loadBuilderLines(new Date(), client.id, offer.id),
     loadCommissionMatrix(run, responsible.id, client.id),
-    loadClientCommissionWindow(run, client.id),
   ]);
 
   const reviewLines = await loadOfferReviewLines(offer.id, lines, matrix);
+  const windowTexts = await loadLineWindowTexts(run, client.id, matrix, reviewLines.map((line) => line.id));
   const isDraft = !offer.activatedAt && offer.status === "draft" && !offer.revokedAt;
   const promotions = reviewLines.filter((line) => line.condition.kind === "promotion").length;
   const blocked = reviewLines.some((line) => line.promotionUnavailable);
@@ -84,8 +83,6 @@ export default async function OfferReviewPage({
           </div>
         </div>
       </section>
-
-      {matrix.configured && <CommissionWindowNote text={describeCommissionWindow(matrix, window)} />}
 
       <section className="mt-8 space-y-5">
         {reviewLines.map((line) => {
@@ -127,8 +124,9 @@ export default async function OfferReviewPage({
                     )}
                     {line.promotionUnavailable && (
                       <p className="mt-3 rounded-2xl bg-red-50 px-4 py-2 text-sm font-bold text-red-700">
-                        Esta promoção não está mais disponível (inativa, fora da vigência ou sem regra de
-                        comissão). Volte e edite a oferta.
+                        {line.promotion && line.promotion.available === false
+                          ? `${line.promotion.reason}. Volte e edite a oferta.`
+                          : "Esta promoção não está mais disponível (inativa, fora da vigência ou sem regra de comissão). Volte e edite a oferta."}
                       </p>
                     )}
                   </div>
@@ -143,6 +141,9 @@ export default async function OfferReviewPage({
                       </>
                     ) : (
                       <p className="mt-1 text-sm font-bold">Não configurada</p>
+                    )}
+                    {windowTexts[line.id] && (
+                      <p className="mt-2 text-[11px] leading-snug text-white/70">{windowTexts[line.id]}</p>
                     )}
                   </div>
                 </div>

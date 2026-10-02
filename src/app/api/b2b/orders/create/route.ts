@@ -27,7 +27,7 @@ import { computeB2BQuote } from "@/lib/b2b/quote";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { buildOrderItemSnapshots } from "@/lib/b2b/order-commission";
-import { loadClientCommissionWindow } from "@/lib/b2b/commission-window";
+import { commissionWindowForItem, loadClientPurchases, loadReconquistaMonths } from "@/lib/b2b/purchase-history";
 import {
   isB2BInstallmentCountValid,
   isB2BPaymentMethod,
@@ -243,10 +243,18 @@ export async function POST(request: NextRequest) {
 
     // Snapshot imutável por item: promoção aplicada e comissão do vendedor
     // (base + extra = total) congeladas no pedido. O cliente não vê isso.
-    const [matrix, window, offerPromotionTerms] = await Promise.all([
-      loadCommissionMatrix(getAppSqlRunner(), context.responsibleId, context.clientId),
-      // Janela de 180 dias do CLIENTE (1ª compra paga), avaliada agora e congelada no item.
-      loadClientCommissionWindow(getAppSqlRunner(), context.clientId),
+    const runSql = getAppSqlRunner();
+    const productIds = quote.lines.map((line) => line.productId);
+
+    const [matrix, purchases, reconquistaMonths, groupRows, offerPromotionTerms] = await Promise.all([
+      loadCommissionMatrix(runSql, context.responsibleId, context.clientId),
+      // Janela de 180 dias por CLIENTE e LINHA (R4/R6), avaliada agora e congelada no item.
+      loadClientPurchases(runSql, context.clientId),
+      loadReconquistaMonths(runSql),
+      runSql(
+        `SELECT product_id, commercial_group_id FROM b2b_commercial_group_products WHERE product_id = ANY($1::uuid[])`,
+        [productIds]
+      ),
       db
         .select({
           promotionId: b2bOfferPromotions.promotionId,
@@ -267,7 +275,13 @@ export async function POST(request: NextRequest) {
       offerPromotions: offerPromotionTerms,
       lines: quote.lines,
       bonusLines: quote.bonusLines,
-      window,
+      window: (productId) => {
+        const nowAt = new Date();
+        const groups = groupRows
+          .filter((row) => String(row.product_id) === productId)
+          .map((row) => String(row.commercial_group_id));
+        return commissionWindowForItem(purchases, groups, nowAt, reconquistaMonths);
+      },
     });
 
     try {
@@ -284,17 +298,9 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    for (const promotionId of quote.promotionIdsUsed) {
-      await db
-        .update(b2bOfferPromotions)
-        .set({ usesCount: sql`${b2bOfferPromotions.usesCount} + 1` })
-        .where(
-          and(
-            eq(b2bOfferPromotions.offerId, context.offerId),
-            eq(b2bOfferPromotions.promotionId, promotionId)
-          )
-        );
-    }
+    // Contador de usos 2x/3x agora é DINÂMICO (purchase-history.ts, R5): conta pedidos
+    // que receberam a bonificação e contam como compra, mais a reserva de Pix/cartão
+    // pendente < 60 min. Nada é gravado em b2b_offer_promotions.uses_count.
 
     /*
      * Mesmo momento do B2C (orders/create): o cupom é registrado na

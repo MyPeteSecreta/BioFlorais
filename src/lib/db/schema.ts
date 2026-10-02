@@ -935,6 +935,8 @@ export const b2bPromotions = pgTable(
     endsAt: timestamp("ends_at"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /* sql/b2b/14b: abertura_reconquista | recorrente (Rodada 2). */
+    promoType: text("promo_type").notNull().default("abertura_reconquista"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   }
 );
@@ -1156,3 +1158,10 @@ export const b2bCommissionRules = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   }
 );
+
+/* Parâmetros do admin B2B (sql/b2b/14b). Ex.: reconquista_meses (padrão 6). */
+export const b2bSettings = pgTable("b2b_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

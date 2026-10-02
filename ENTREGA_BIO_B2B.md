@@ -9,6 +9,32 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★ Rodada 2: tipos de promoção, ciclo por linha e contagem (02/10/2026), sobre `dca7d8b`
+
+Só local: sem push, deploy nem Neon. B2C intocado. **Ordem: SQL 14b → publicar.** (O app lê `b2b_promotions.promo_type`; sem o 14b o "porteiro" falha aberto e registra erro, mas o admin e o Offer Builder não funcionam.)
+
+**R1/R7 tipo da promoção.** `b2b_promotions.promo_type` (`abertura_reconquista` | `recorrente`), obrigatório no admin (select na criação/edição); promoções existentes, inclusive as de teste, viram `abertura_reconquista` pelo default do SQL 14b. Parâmetro `reconquista_meses` (padrão 6) em `b2b_settings`, editável na aba Promoções do admin (1 a 60).
+
+**R2 vendedor.** No "Ver promoções" as promoções ficam agrupadas em "Promoção de abertura / reconquista" e "Promoção para cliente recorrente"; cada uma mostra para o cliente em questão "Disponível: cliente nunca comprou esta linha" / "Disponível: sem compras nesta linha desde dd/mm/aaaa (reconquista)" / "Indisponível: cliente comprou esta linha em dd/mm/aaaa; abertura volta a valer em dd/mm/aaaa", e a indisponível aparece **desabilitada** (não some). O servidor revalida: rascunho (`validateDraftInput`), ativação/geração do link (`loadOfferReviewLines`), link do cliente, cotação e criação do pedido (`promotion-gate.ts` + `promotion-resolver.ts`). A abertura de uma oferta já ativa é avaliada pelo histórico do cliente **ignorando os pedidos da própria oferta** (a compra feita por ela não a invalida; a 2ª compra dentro de "2x" continua valendo).
+
+**R3 troca de vendedor.** Tudo (histórico, ciclos, janela) vem de `orders.b2b_client_id`, nunca do vendedor. Oferta nova de outro vendedor para cliente em fase de preço normal: abertura bloqueada no rascunho e na ativação; a comissão segue a janela do cliente.
+
+**R4 uma definição de compra** (`purchase-history.ts`, usada em tudo): pedido B2B **pago**, ou **boleto gerado** (linha em `b2b_boleto_requests`) e não cancelado. Pix/cartão pendente, expirado ou recusado não conta. Data = `orders.created_at`. Compra por linha = item pago (preço > 0) de produto da linha (`b2b_commercial_group_products`); vale também para linhas fora da oferta.
+
+**R5 contador dinâmico.** Na Bio o `uses_count` era gravado na criação do pedido (e contava pendente/abandonado). Agora o app **não grava nem lê mais** `uses_count`: usos = pedidos da oferta que receberam bonificação da promoção e contam como compra (R4), mais **reserva** de Pix/cartão pendente criado há < 60 min (expirou/abandonou: libera). Nada foi apagado nem alterado no banco (a coluna fica como estava). Conferência: `15a_contador_de_usos_novo_vs_antigo.sql` (leitura): `uses_count_antigo` x `usos_regra_nova` por promoção. O "Usos" da aba Promoções do admin passou a usar a regra nova.
+
+**R6 janela de 180 dias por LINHA (a confirmar pelo Luis).** Janela por cliente + linha, contada da 1ª compra (R4) do **ciclo atual** da linha; compra depois de mais de `reconquista_meses` sem comprar a linha abre ciclo novo (nova janela e nova abertura). Linha nunca comprada ou em reconquista: janela ainda não começou (a próxima compra recebe o extra). **Parametrizado em um lugar:** `COMMISSION_WINDOW_SCOPE = "line" | "brand"` em `purchase-history.ts` (`"brand"` usa o histórico da marca inteira; o teste cobre os dois). Cada item usa a janela da linha do produto (produto em mais de uma linha: vale a mais favorável). O snapshot (`commission_basis`) segue igual. O vendedor vê o texto da janela **por linha** no modal (preço normal), na revisão e na página do cliente ("Compras por linha e comissão no preço normal").
+
+**SQL (Neon `bio-florais`), nesta ordem:** `14a_promocoes_tipo_preflight_one_shot.sql` (leitura) → `14b_promocoes_tipo.sql` (aditivo, idempotente, transação única: coluna `promo_type` com default + CHECK, tabela `b2b_settings` + `reconquista_meses=6`) → publicar → `15a_contador_de_usos_novo_vs_antigo.sql` (leitura). Os SQL 13b e 11b da rodada anterior continuam valendo.
+
+**Pergunta do Luis: itens "duplicados" no 10a do pedido f084d862.** Não é a consulta nem linha duplicada por erro. Todo item **com bonificação** é gravado em **duas linhas** de `order_items`: a **paga** (preço > 0) e a **bonificada** (preço 0, `qty` = grátis); as duas carregam os mesmos `paid_qty`, `bonus_qty` e percentuais de comissão, e o 10a antigo não mostrava `qty` nem `unit_price_cents`, então parecia repetido (Menopausa e Viagens tinham bonificação). **Comissão ponderada:** não muda: o peso é `unit_price_cents × paid_qty` e a linha bonificada tem preço 0, logo peso 0. **Omie:** a exportação da central lê `qty` e `unit_price_cents` por linha (sem somar `physical_qty`), então a linha bonificada sai como item de valor zero com a quantidade grátis, que é o desejado; não há pagamento em dobro. O 10a foi ajustado para mostrar `linha_do_pedido` (pago | bonificado) e `unit_price_cents`. Risco só se algum relatório somar `physical_qty` ou `paid_qty` por linha: nesse caso conta em dobro (não identifiquei nenhum no código da Bio).
+
+**Testes (novos, `scripts/b2b-promotion-cycles.test.mjs`, Postgres em memória):** cliente novo (abertura ok); fase de preço normal (abertura bloqueada com a data, recorrente ok); sem compra há 7 meses (reconquista ok, janela recomeça); ciclos (lacuna > 6 meses abre ciclo); janela por linha e por marca; troca de vendedor (nada reinicia, abertura continua bloqueada); a compra da própria oferta não invalida a abertura dela; boleto gerado não pago conta, boleto sem solicitação/cancelado/Pix expirado/Pix pendente não contam; contador dinâmico (pago, boleto, reserva < 60 min, abandono libera); dois pedidos pendentes simultâneos não usam o último uso duas vezes; servidor rejeita promoção indisponível mesmo se a tela mandar; comissão por item usa a janela da linha. Mais 14a/14b/15a no isolamento. **Verificações:** `npm.cmd test` 74/74, `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio.
+
+**Limites assumidos:** a reserva de 60 min não é transacional (dois pedidos no mesmo milissegundo podem passar); "compra" por linha usa o produto pago do pedido (pedido misto conta nas linhas dos seus itens); o fim do ciclo/lacuna usa meses de calendário (UTC).
+
+---
+
 ## ★★★★★★★ P2: comissão com janela de 180 dias (02/10/2026), sobre `847dda2`
 
 Só local: sem push, deploy nem Neon.

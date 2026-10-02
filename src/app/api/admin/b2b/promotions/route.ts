@@ -15,6 +15,8 @@ import {
   b2bPromotions,
 } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { countsAsPurchaseSql } from "@/lib/b2b/purchase-history";
 import {
   B2B_SUPPORTED_PROMOTION_TYPE,
   parsePromotionBody,
@@ -36,6 +38,7 @@ export async function GET(request: NextRequest) {
         id: b2bPromotions.id,
         name: b2bPromotions.name,
         type: b2bPromotions.type,
+        promoType: b2bPromotions.promoType,
         buyQuantity: b2bPromotions.buyQuantity,
         freeQuantity: b2bPromotions.freeQuantity,
         active: b2bPromotions.active,
@@ -65,12 +68,20 @@ export async function GET(request: NextRequest) {
       .select({
         promotionId: b2bOfferPromotions.promotionId,
         offers: sql<number>`count(*)::int`,
-        uses: sql<number>`coalesce(sum(${b2bOfferPromotions.usesCount}), 0)::int`,
       })
       .from(b2bOfferPromotions)
       .groupBy(b2bOfferPromotions.promotionId);
 
     const countsBy = new Map(offerCounts.map((row) => [row.promotionId, row]));
+
+    // Usos = pedidos que receberam a bonificação e contam como compra (R4), não o contador antigo.
+    const usesRows = await getAppSqlRunner()(
+      `SELECT i.promotion_id AS promotion_id, count(DISTINCT o.id)::int AS used
+         FROM orders o JOIN order_items i ON i.order_id = o.id
+        WHERE i.promotion_id IS NOT NULL AND coalesce(i.bonus_qty, 0) > 0 AND ${countsAsPurchaseSql("o")}
+        GROUP BY i.promotion_id`
+    );
+    const usesBy = new Map(usesRows.map((row) => [String(row.promotion_id), Number(row.used)]));
 
     return NextResponse.json({
       promotions: promotions.map((promotion) => ({
@@ -79,7 +90,7 @@ export async function GET(request: NextRequest) {
         groupIds: groupLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.groupId),
         productIds: productLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.productId),
         offers: Number(countsBy.get(promotion.id)?.offers ?? 0),
-        uses: Number(countsBy.get(promotion.id)?.uses ?? 0),
+        uses: usesBy.get(promotion.id) ?? 0,
       })),
     });
   } catch (error) {
@@ -113,6 +124,7 @@ export async function POST(request: NextRequest) {
         name: parsed.value.name,
         scope: "b2b",
         type: B2B_SUPPORTED_PROMOTION_TYPE,
+        promoType: parsed.value.promoType,
         buyQuantity: parsed.value.buyQuantity,
         freeQuantity: parsed.value.freeQuantity,
         active: parsed.value.active,

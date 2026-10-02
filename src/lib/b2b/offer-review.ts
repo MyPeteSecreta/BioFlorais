@@ -94,7 +94,7 @@ export async function loadOfferReviewLines(
       image: homeLineImage(group.slug),
       condition,
       promotion,
-      promotionUnavailable: !promotion || !commission,
+      promotionUnavailable: !promotion || !commission || promotion.available === false,
       commission,
     };
   });

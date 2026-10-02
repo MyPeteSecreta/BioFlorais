@@ -16,6 +16,7 @@ type Promotion = {
   id: string;
   name: string;
   type: string;
+  promoType: "abertura_reconquista" | "recorrente";
   supported: boolean;
   buyQuantity: number | null;
   freeQuantity: number | null;
@@ -34,6 +35,7 @@ type Group = { id: string; name: string; active: boolean; b2bVisible: boolean };
 type Draft = {
   id: string | null;
   name: string;
+  promoType: "" | "abertura_reconquista" | "recorrente";
   buyQuantity: number;
   freeQuantity: number;
   active: boolean;
@@ -47,6 +49,7 @@ type Draft = {
 const EMPTY: Draft = {
   id: null,
   name: "",
+  promoType: "",
   buyQuantity: 3,
   freeQuantity: 1,
   active: true,
@@ -76,6 +79,7 @@ export default function PromotionsTab() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [reconquistaMeses, setReconquistaMeses] = useState(6);
 
   const load = useCallback(async () => {
     const [promotionsResult, groupsResult, productsResult] = await Promise.all([
@@ -88,6 +92,9 @@ export default function PromotionsTab() {
     else setMessage(promotionsResult.data.error ?? "Erro ao carregar promoções.");
     if (groupsResult.ok) setGroups(groupsResult.data.groups ?? []);
     if (productsResult.ok) setProducts(productsResult.data.products ?? []);
+
+    const settingsResult = await api("/api/admin/b2b/settings");
+    if (settingsResult.ok) setReconquistaMeses(Number(settingsResult.data.reconquistaMeses) || 6);
   }, [api]);
 
   useEffect(() => {
@@ -95,6 +102,11 @@ export default function PromotionsTab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  async function saveMonths() {
+    const { ok, data } = await api("/api/admin/b2b/settings", { method: "PUT", body: { reconquistaMeses } });
+    setMessage(ok ? `Reconquista: ${data.reconquistaMeses} meses sem comprar a linha.` : data.error ?? "Erro ao salvar.");
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -110,6 +122,7 @@ export default function PromotionsTab() {
           method: draft.id ? "PATCH" : "POST",
           body: {
             name: draft.name,
+            promoType: draft.promoType,
             buyQuantity: draft.buyQuantity,
             freeQuantity: draft.freeQuantity,
             active: draft.active,
@@ -152,11 +165,32 @@ export default function PromotionsTab() {
         )}
       </div>
 
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#eadfd9] bg-white p-4 text-sm">
+        <label className="text-xs font-bold text-[#7b6a77]">
+          Reconquista: meses sem comprar a linha
+          <input className={`${field} w-32`} type="number" min={1} max={60} value={reconquistaMeses} onChange={(e) => setReconquistaMeses(Number(e.target.value))} />
+        </label>
+        <button type="button" onClick={saveMonths} className="rounded-full border border-[#342737] px-4 py-2 text-xs font-extrabold">
+          Salvar
+        </button>
+        <p className="max-w-xl text-xs text-[#7b6a77]">
+          Vale para a promoção de abertura / reconquista e para o início de um novo ciclo de 180 dias na linha.
+        </p>
+      </div>
+
       {message && <p className="rounded-xl bg-[#f6eef7] p-3 text-sm font-semibold">{message}</p>}
 
       {draft && (
         <form onSubmit={save} className="space-y-4 rounded-2xl border border-[#eadfd9] bg-white p-5">
           <h2 className="font-extrabold">{draft.id ? "Editar promoção" : "Nova promoção"}</h2>
+          <label className="block text-xs font-bold text-[#7b6a77]">
+            Tipo da promoção (obrigatório)
+            <select className={field} value={draft.promoType} required onChange={(e) => setDraft({ ...draft, promoType: e.target.value as Draft["promoType"] })}>
+              <option value="">Escolha…</option>
+              <option value="abertura_reconquista">Abertura / reconquista: só cliente que nunca comprou a linha ou está há {reconquistaMeses}+ meses sem comprar</option>
+              <option value="recorrente">Recorrente: qualquer cliente B2B (ex.: Black Friday)</option>
+            </select>
+          </label>
           <div className="grid gap-3 md:grid-cols-[1fr_140px_140px]">
             <label className="text-xs font-bold text-[#7b6a77]">
               Nome
@@ -268,6 +302,7 @@ export default function PromotionsTab() {
                 </td>
                 <td className="px-4 py-3 text-xs">{period(promotion)}</td>
                 <td className="px-4 py-3 text-xs font-bold">
+                  {promotion.promoType === "recorrente" ? "Recorrente" : "Abertura / reconquista"} ·{" "}
                   {promotion.active ? "Ativa" : "Inativa"}
                   {promotion.sellerSelectable ? " · selecionável" : " · oculta ao vendedor"}
                 </td>
@@ -280,6 +315,7 @@ export default function PromotionsTab() {
                         setDraft({
                           id: promotion.id,
                           name: promotion.name,
+                          promoType: promotion.promoType,
                           buyQuantity: promotion.buyQuantity ?? 1,
                           freeQuantity: promotion.freeQuantity ?? 1,
                           active: promotion.active,

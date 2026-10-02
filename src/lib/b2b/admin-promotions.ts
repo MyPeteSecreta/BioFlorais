@@ -27,6 +27,8 @@ export { B2B_SUPPORTED_PROMOTION_TYPE };
 
 export type PromotionInput = {
   name: string;
+  /** Obrigatório: abertura_reconquista | recorrente (Rodada 2, R7). */
+  promoType: "abertura_reconquista" | "recorrente";
   buyQuantity: number;
   freeQuantity: number;
   active: boolean;
@@ -48,7 +50,12 @@ export function parsePromotionBody(
   const groupIds = parseUuidList(body.groupIds);
   const productIds = parseUuidList(body.productIds);
 
+  const promoType = body.promoType;
+
   if (!name) return { ok: false, error: "Informe o nome da promoção." };
+  if (promoType !== "abertura_reconquista" && promoType !== "recorrente") {
+    return { ok: false, error: "Escolha o tipo: abertura / reconquista ou recorrente." };
+  }
   if (buyQuantity === null) return { ok: false, error: "Quantidade paga inválida (1 a 999)." };
   if (freeQuantity === null) return { ok: false, error: "Quantidade grátis inválida (1 a 999)." };
   if (startsAt === undefined || endsAt === undefined) {
@@ -65,6 +72,7 @@ export function parsePromotionBody(
     ok: true,
     value: {
       name,
+      promoType,
       buyQuantity,
       freeQuantity,
       active: body.active !== false,

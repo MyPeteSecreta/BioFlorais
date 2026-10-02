@@ -20,12 +20,26 @@ import {
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
 import { B2B_SUPPORTED_PROMOTION_TYPE } from "@/lib/b2b/promotion-resolver";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import {
+  historyForGroup,
+  loadClientPurchases,
+  loadReconquistaMonths,
+  promotionAvailability,
+  type PromotionType,
+} from "@/lib/b2b/purchase-history";
 
 export type BuilderPromotion = {
   id: string;
   name: string;
   buyQuantity: number;
   freeQuantity: number;
+  /** abertura_reconquista | recorrente (Rodada 2). */
+  promoType: PromotionType;
+  /** Para o cliente em questão: disponível? (sem cliente = sempre disponível) */
+  available: boolean;
+  /** Motivo mostrado ao vendedor ("Disponível: cliente nunca comprou esta linha", "Indisponível: ..."). */
+  reason: string;
   /** Produtos da promoção pontual; vazio = linha inteira. */
   onlyProducts: Array<{ id: string; name: string }>;
 };
@@ -46,7 +60,18 @@ export function isTestCommercialGroup(group: { slug: string; name: string }) {
   return /^\s*bio-b2b[\s-]*test/i.test(group.name) || /^bio-b2b-test/i.test(group.slug);
 }
 
-export async function loadBuilderLines(now = new Date()): Promise<BuilderLine[]> {
+/**
+ * `clientId`: avalia, para ESSE cliente, quais promoções estão disponíveis
+ * (abertura/reconquista só para quem nunca comprou a linha ou está há mais
+ * de N meses sem comprar; recorrente vale para todos). O servidor repete a
+ * checagem no rascunho, na ativação, no link e no pedido.
+ */
+export async function loadBuilderLines(
+  now = new Date(),
+  clientId?: string | null,
+  /** Oferta já ativa: os pedidos dela não invalidam a própria abertura. */
+  excludeOfferId?: string | null
+): Promise<BuilderLine[]> {
   const groups = (
     await db
       .select({ id: b2bCommercialGroups.id, slug: b2bCommercialGroups.slug, name: b2bCommercialGroups.name })
@@ -69,6 +94,7 @@ export async function loadBuilderLines(now = new Date()): Promise<BuilderLine[]>
       endsAt: b2bPromotions.endsAt,
       buyQuantity: b2bPromotions.buyQuantity,
       freeQuantity: b2bPromotions.freeQuantity,
+      promoType: b2bPromotions.promoType,
     })
     .from(b2bPromotionCommercialGroups)
     .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bPromotionCommercialGroups.promotionId))
@@ -87,6 +113,11 @@ export async function loadBuilderLines(now = new Date()): Promise<BuilderLine[]>
   );
 
   const promotionIds = Array.from(new Set(usable.map((row) => row.id)));
+
+  const run = getAppSqlRunner();
+  const [purchases, months] = clientId
+    ? await Promise.all([loadClientPurchases(run, clientId, excludeOfferId), loadReconquistaMonths(run)])
+    : [[], 6];
 
   const productRows = promotionIds.length
     ? await db
@@ -112,6 +143,11 @@ export async function loadBuilderLines(now = new Date()): Promise<BuilderLine[]>
         name: row.name,
         buyQuantity: row.buyQuantity!,
         freeQuantity: row.freeQuantity!,
+        ...(() => {
+          const promoType: PromotionType = row.promoType === "recorrente" ? "recorrente" : "abertura_reconquista";
+          if (!clientId) return { promoType, available: true, reason: "" };
+          return { promoType, ...promotionAvailability(promoType, historyForGroup(purchases, group.id, now, months)) };
+        })(),
         onlyProducts: productRows
           .filter((product) => product.promotionId === row.id)
           .map((product) => ({ id: product.id, name: product.name })),

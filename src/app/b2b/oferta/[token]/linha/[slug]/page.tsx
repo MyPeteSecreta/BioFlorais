@@ -79,7 +79,7 @@ export default async function B2BLinePage({
   let promotionNote: string | null = null;
 
   if (offerLine) {
-    const notices = await listOfferPromotionNotices(context.offerId);
+    const notices = await listOfferPromotionNotices(context.offerId, context.clientId);
 
     catalogProducts = context.products
       .filter((product) => product.commercialGroupIds.includes(offerLine.id))

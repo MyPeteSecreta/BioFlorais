@@ -53,7 +53,7 @@ export default async function B2BOfferPage({
 
   const { context } = resolution;
   const [notices, otherLines] = await Promise.all([
-    listOfferPromotionNotices(context.offerId),
+    listOfferPromotionNotices(context.offerId, context.clientId),
     loadOtherB2BLines(context),
   ]);
 

@@ -10,7 +10,7 @@ import { findPromotionRule } from "@/lib/b2b/commission";
 export type DraftValidationLine = {
   id: string;
   name: string;
-  promotions: Array<{ id: string }>;
+  promotions: Array<{ id: string; available?: boolean; reason?: string }>;
 };
 
 export type DraftLineCondition = {
@@ -76,8 +76,15 @@ export function validateDraftInput(
 
     const line = lineById.get(groupId)!;
 
-    if (!line.promotions.some((promotion) => promotion.id === promotionId)) {
+    const chosen = line.promotions.find((promotion) => promotion.id === promotionId);
+
+    if (!chosen) {
       return { ok: false, error: `A promoção escolhida não está disponível para a linha ${line.name}.` };
+    }
+
+    // O servidor revalida a elegibilidade do CLIENTE (abertura x recorrente): não confia na tela.
+    if (chosen.available === false) {
+      return { ok: false, error: chosen.reason || `Promoção indisponível para este cliente na linha ${line.name}.` };
     }
 
     if (seenPromotions.has(promotionId)) {

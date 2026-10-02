@@ -6,6 +6,9 @@
 -- pedido (por valor pago de cada item: unit_price_cents x paid_qty).
 -- Bonificados (paid_qty = 0 em linha bonus) não pesam. Se algum item vier
 -- com commission_*_percent NULL, o pedido foi criado SEM snapshot.
+-- Item com bonificação aparece em DUAS linhas do pedido: a PAGA e a BONIFICADA
+-- (preço 0), ambas com os mesmos paid_qty/bonus_qty/percentuais. Não é duplicidade:
+-- 'linha_do_pedido' e 'unit_price_cents' as distinguem; a bonificada pesa 0 na ponderada.
 -- ============================================================================
 SELECT json_build_object(
   'pedidos', (
@@ -21,7 +24,9 @@ SELECT json_build_object(
                   FROM order_items i
                  WHERE i.order_id = o.id AND i.commission_total_percent IS NOT NULL) AS comissao_ponderada_pct,
                (SELECT json_agg(json_build_object(
-                         'produto', pr.slug, 'qty', i.qty, 'paid_qty', i.paid_qty, 'bonus_qty', i.bonus_qty,
+                         'produto', pr.slug,
+                         'linha_do_pedido', CASE WHEN i.unit_price_cents = 0 THEN 'bonificado (preco 0)' ELSE 'pago' END,
+                         'qty', i.qty, 'unit_price_cents', i.unit_price_cents, 'paid_qty', i.paid_qty, 'bonus_qty', i.bonus_qty,
                          'promocao', i.promotion_name, 'base', i.commission_base_percent,
                          'extra', i.commission_extra_percent, 'total', i.commission_total_percent))
                   FROM order_items i JOIN products pr ON pr.id = i.product_id

@@ -52,6 +52,7 @@ export async function PATCH(
       .update(b2bPromotions)
       .set({
         name: parsed.value.name,
+        promoType: parsed.value.promoType,
         buyQuantity: parsed.value.buyQuantity,
         freeQuantity: parsed.value.freeQuantity,
         active: parsed.value.active,

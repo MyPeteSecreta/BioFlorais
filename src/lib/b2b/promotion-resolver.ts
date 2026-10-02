@@ -18,6 +18,7 @@ import {
   b2bPromotions,
 } from "@/lib/db/schema";
 import { calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
+import { loadOfferPromotionGate } from "@/lib/b2b/promotion-gate";
 import type { PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 
 export const B2B_SUPPORTED_PROMOTION_TYPE = "buy_x_get_y_auto_same_sku";
@@ -31,9 +32,12 @@ export type B2BPromotionBonusLine = {
 export async function resolveB2BPromotionBonusLines(
   offerId: string,
   offerProducts: readonly PublicB2BProduct[],
-  cartItems: ReadonlyArray<{ productId: string; qty: number }>
+  cartItems: ReadonlyArray<{ productId: string; qty: number }>,
+  clientId: string
 ): Promise<{ bonusLines: B2BPromotionBonusLine[]; promotionIdsUsed: string[] }> {
   const now = new Date();
+  // Porteiro (Rodada 2): abertura x recorrente por cliente e usos dinâmicos (R4/R5).
+  const gate = await loadOfferPromotionGate(offerId, clientId, now);
 
   const rows = await db
     .select({
@@ -64,7 +68,8 @@ export async function resolveB2BPromotionBonusLines(
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
       !(row.validUntil && now > row.validUntil) &&
-      !(row.maxUses !== null && row.usesCount >= row.maxUses)
+      !(row.maxUses !== null && (gate.get(row.promotionId)?.used ?? row.usesCount) >= row.maxUses) &&
+      (gate.get(row.promotionId)?.available ?? true)
   );
 
   if (eligible.length === 0) {
@@ -199,8 +204,12 @@ export type B2BOfferPromotionNotice = {
  * ("compre X, leve Y grátis"). O desconto de verdade continua sendo
  * calculado no servidor por resolveB2BPromotionBonusLines.
  */
-export async function listOfferPromotionNotices(offerId: string): Promise<B2BOfferPromotionNotice[]> {
+export async function listOfferPromotionNotices(
+  offerId: string,
+  clientId: string
+): Promise<B2BOfferPromotionNotice[]> {
   const now = new Date();
+  const gate = await loadOfferPromotionGate(offerId, clientId, now);
 
   const rows = await db
     .select({
@@ -231,7 +240,8 @@ export async function listOfferPromotionNotices(offerId: string): Promise<B2BOff
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
       !(row.validUntil && now > row.validUntil) &&
-      !(row.maxUses !== null && row.usesCount >= row.maxUses)
+      !(row.maxUses !== null && (gate.get(row.promotionId)?.used ?? row.usesCount) >= row.maxUses) &&
+      (gate.get(row.promotionId)?.available ?? true)
   );
 
   if (valid.length === 0) return [];
@@ -247,7 +257,8 @@ export async function listOfferPromotionNotices(offerId: string): Promise<B2BOff
     buyQuantity: row.buyQuantity!,
     freeQuantity: row.freeQuantity!,
     productIds: explicit.filter((item) => item.promotionId === row.promotionId).map((item) => item.productId),
-    usesRemaining: row.maxUses !== null ? Math.max(0, row.maxUses - row.usesCount) : null,
+    usesRemaining:
+      row.maxUses !== null ? Math.max(0, row.maxUses - (gate.get(row.promotionId)?.used ?? row.usesCount)) : null,
     validUntil: row.validUntil,
   }));
 }
