@@ -50,8 +50,8 @@ export default async function MyCommissionsPage({
       <h1 className="mt-3 font-serif text-4xl font-semibold text-[#55245f]">Minhas comissões</h1>
       <p className="mt-2 max-w-3xl text-sm text-[#746471]">
         Base = valor pago dos produtos (sem frete, depois de promoção, cupom e desconto Pix/cartão). A comissão
-        fica &quot;A receber&quot; no dia 10 do mês seguinte ao recebimento. No boleto, só depois da baixa da
-        parcela (nunca pelo vencimento).
+        fica &quot;A receber&quot; no dia 10 do mês seguinte ao recebimento. No boleto, cada parcela rende comissão
+        proporcional, pela data da BAIXA da parcela (nunca pelo vencimento).
       </p>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,7 +125,10 @@ export default async function MyCommissionsPage({
               <tr key={row.orderId}>
                 <td className="px-4 py-3">{date(row.createdAt)}</td>
                 <td className="px-4 py-3 font-semibold">{row.clientName || "—"}</td>
-                <td className="px-4 py-3">#{row.orderNumber}</td>
+                <td className="px-4 py-3">
+                  #{row.orderNumber}
+                  {row.installmentLabel && <span className="block text-xs text-[#8a7886]">parcela {row.installmentLabel}</span>}
+                </td>
                 <td className="px-4 py-3">{METHOD[row.paymentMethod ?? ""] ?? row.paymentMethod ?? "—"}</td>
                 <td className="px-4 py-3 text-right">{formatB2BCents(row.baseCents)}</td>
                 <td className="px-4 py-3 text-xs">
@@ -150,7 +153,7 @@ export default async function MyCommissionsPage({
                         : STATE_LABEL[row.state]}
                   </span>
                   {row.state === "aguardando" && row.paymentMethod === "boleto" && (
-                    <span className="mt-1 block text-[11px] text-[#8a7886]">Aguardando baixa do boleto</span>
+                    <span className="mt-1 block text-[11px] text-[#8a7886]">Aguardando a baixa da parcela</span>
                   )}
                 </td>
               </tr>

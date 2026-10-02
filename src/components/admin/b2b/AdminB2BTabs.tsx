@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import BoletosTab from "./BoletosTab";
 import CommissionsTab from "./CommissionsTab";
 import GroupsTab from "./GroupsTab";
 import PromotionsTab from "./PromotionsTab";
@@ -13,6 +14,7 @@ const TABS = [
   { id: "groups", label: "Linhas comerciais" },
   { id: "promotions", label: "Promoções" },
   { id: "tracking", label: "Acompanhamento" },
+  { id: "boletos", label: "Boletos a receber" },
   { id: "commissions", label: "Comissões" },
 ] as const;
 
@@ -47,6 +49,7 @@ export default function AdminB2BTabs() {
         {tab === "groups" && <GroupsTab />}
         {tab === "promotions" && <PromotionsTab />}
         {tab === "tracking" && <TrackingTab />}
+        {tab === "boletos" && <BoletosTab />}
         {tab === "commissions" && <CommissionsTab />}
       </div>
     </div>

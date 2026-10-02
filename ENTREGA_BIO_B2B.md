@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★ C10 baixa de boletos + ordem de cálculo (02/10/2026), sobre `f460524`
+
+Só local. **SQL `20b_boleto_baixa.sql` ANTES do deploy** (tabelas `b2b_boleto_payments`, `b2b_boleto_payment_log`; `b2b_commission_payouts` ganha `installment` e chave (pedido, parcela)).
+- Admin → aba "Boletos a receber": uma linha por parcela (pedido, cliente, vendedor, n/N, valor, vencimento, Em aberto/Vencido/Pago/Cancelado; vencidas em destaque; filtros), "Dar baixa" (data, valor; diferença exige observação) e "Desfazer baixa" (motivo; bloqueado se o pedido já avançou ou a comissão da parcela já foi paga). Log em `b2b_boleto_payment_log`.
+- Todas as parcelas baixadas = pedido "Pago" (+ separação); desfazer volta a "aguardando".
+- Comissão do boleto: uma linha por parcela, base proporcional, "A receber" no dia 10 do mês seguinte à DATA DA BAIXA, nunca pelo vencimento (painel do vendedor e aba Comissões; "Marcar paga" por parcela).
+- Central da My Pet (somente leitura): ler `b2b_boleto_requests.schedule` + `b2b_boleto_payments` (baixa) por pedido.
+- Ordem de cálculo confirmada por teste (código de `quote.ts` + números): promoção % → mínimo → cupom → Pix 7%/cartão 3% só em produtos → frete.
+- Testes: `b2b-boletos.test.mjs` (8) e o de ordem; `npm.cmd test` 104/104, `tsc` ok. Build e `git diff --check` não rodados nesta rodada (limite de uso).
+
+---
+
 ## ★★★★★★★★★ Rodada 3: C1–C9 e B1 (02/10/2026), sobre `481390c`
 
 Só local: sem push, deploy nem Neon. B2C: **nada de dados ou telas do B2C mudou**. Único toque em área compartilhada: nenhum arquivo do layout raiz; o rodapé do B2C é ocultado só dentro de `/b2b` por um `<style>` no layout B2B.

@@ -19,6 +19,7 @@
  */
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
+import { loadBoletoInstallments, type BoletoInstallment } from "@/lib/b2b/boleto-installments";
 import { isUuid } from "@/lib/b2b/admin-input";
 
 export type CommissionState = "aguardando" | "a_receber" | "paga" | "cancelada";
@@ -44,6 +45,9 @@ export type CommissionRow = {
   payableOn: Date | null;
   paidOutAt: Date | null;
   state: CommissionState;
+  /** Boleto: nº da parcela (a comissão é por parcela, pela data da BAIXA); 0 = pedido inteiro (Pix/cartão). */
+  installment: number;
+  installmentLabel: string | null;
 };
 
 const CANCELLED = new Set(["cancelled", "canceled", "failed", "expired", "refunded", "rejected"]);
@@ -67,10 +71,12 @@ export function commissionState(input: {
   paymentMethod: string | null;
   receivedAt: Date | null;
   paidOutAt: Date | null;
+  /** Boleto: a PARCELA foi baixada (o pedido só vira "paid" quando todas forem). */
+  parcelBaixada?: boolean;
 }): CommissionState {
   if (CANCELLED.has(input.orderStatus)) return "cancelada";
   if (input.paidOutAt) return "paga";
-  if (input.orderStatus !== "paid") return "aguardando";
+  if (input.orderStatus !== "paid" && !input.parcelBaixada) return "aguardando";
   // Boleto: sem baixa (receivedAt) não é "a receber", nunca pelo vencimento.
   if (!input.receivedAt) return "aguardando";
   return "a_receber";
@@ -112,11 +118,10 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
                  ELSE to_char(coalesce(
                         (SELECT min(p.created_at) FROM payments p WHERE p.order_id = o.id AND p.status = 'paid'),
                         o.created_at), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') END AS received_at,
-            to_char(po.paid_at, 'YYYY-MM-DD"T"12:00:00"Z"') AS paid_out_at
+            NULL::text AS paid_out_at
        FROM orders o
        LEFT JOIN b2b_responsibles r ON r.id = o.b2b_responsible_id
        LEFT JOIN b2b_clients c ON c.id = o.b2b_client_id
-       LEFT JOIN b2b_commission_payouts po ON po.order_id = o.id
        LEFT JOIN LATERAL (
          SELECT sum(i.unit_price_cents::numeric * i.qty * i.commission_base_percent) / nullif(sum(i.unit_price_cents::numeric * i.qty), 0) AS base_pct,
                 sum(i.unit_price_cents::numeric * i.qty * i.commission_extra_percent) / nullif(sum(i.unit_price_cents::numeric * i.qty), 0) AS extra_pct,
@@ -133,31 +138,67 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
       LIMIT 500`;
   const params = [responsibleId, clientId, month];
 
-  let rows: Awaited<ReturnType<SqlRunner>>;
+  const rows = await run(query, params);
 
-  try {
-    rows = await run(query, params);
-  } catch (error) {
-    // SQL 18b ainda não aplicado (tabela de pagamentos ausente): lista sem a coluna "Paga".
-    console.error("[b2b/commissions] sem b2b_commission_payouts", error);
-    rows = await run(
-      query.replace("LEFT JOIN b2b_commission_payouts po ON po.order_id = o.id", "LEFT JOIN (SELECT NULL::uuid AS order_id, NULL::date AS paid_at) po ON false"),
-      params
-    );
+  // Pagamentos da comissão ao vendedor (por pedido; boleto: por parcela). Tolera o SQL 18b/20b ausente.
+  const orderIds = rows.map((row) => String(row.id));
+  const payouts = new Map<string, Date>();
+
+  if (orderIds.length > 0) {
+    let payoutRows: Awaited<ReturnType<SqlRunner>> = [];
+
+    try {
+      payoutRows = await run(
+        `SELECT order_id, installment, to_char(paid_at, 'YYYY-MM-DD"T"12:00:00"Z"') AS paid_at
+           FROM b2b_commission_payouts WHERE order_id = ANY($1::uuid[])`,
+        [orderIds]
+      );
+    } catch {
+      try {
+        payoutRows = await run(
+          `SELECT order_id, 0 AS installment, to_char(paid_at, 'YYYY-MM-DD"T"12:00:00"Z"') AS paid_at
+             FROM b2b_commission_payouts WHERE order_id = ANY($1::uuid[])`,
+          [orderIds]
+        );
+      } catch (error) {
+        console.error("[b2b/commissions] sem b2b_commission_payouts", error);
+      }
+    }
+
+    for (const row of payoutRows) {
+      payouts.set(`${row.order_id}:${row.installment}`, new Date(String(row.paid_at)));
+    }
   }
 
-  return rows.map((row) => {
-    const receivedAt = row.received_at ? new Date(String(row.received_at)) : null;
-    const paidOutAt = row.paid_out_at ? new Date(String(row.paid_out_at)) : null;
+  // Boleto: cada PARCELA é uma linha, pela data da BAIXA (nunca pelo vencimento). Tolera o SQL 20b ausente.
+  const installmentsByOrder = new Map<string, BoletoInstallment[]>();
+
+  if (rows.some((row) => row.payment_method === "boleto")) {
+    try {
+      const all = await loadBoletoInstallments(run, { responsibleId, clientId });
+
+      for (const item of all) {
+        const list = installmentsByOrder.get(item.orderId) ?? [];
+        list.push(item);
+        installmentsByOrder.set(item.orderId, list);
+      }
+    } catch (error) {
+      console.error("[b2b/commissions] sem baixa de boleto (SQL 20b?)", error);
+    }
+  }
+
+  const result: CommissionRow[] = [];
+
+  for (const row of rows) {
+    const orderId = String(row.id);
     const orderStatus = String(row.status ?? "");
     const paymentMethod = (row.payment_method as string | null) ?? null;
-    const baseCents = Math.max(0, Number(row.total_cents ?? 0) - Number(row.shipping_cents ?? 0));
+    const orderBaseCents = Math.max(0, Number(row.total_cents ?? 0) - Number(row.shipping_cents ?? 0));
     const totalPercent = row.total_pct === null || row.total_pct === undefined ? null : Number(row.total_pct);
-    const state = commissionState({ orderStatus, paymentMethod, receivedAt, paidOutAt });
 
-    return {
-      orderId: String(row.id),
-      orderNumber: String(row.id).slice(0, 8).toUpperCase(),
+    const common = {
+      orderId,
+      orderNumber: orderId.slice(0, 8).toUpperCase(),
       createdAt: new Date(String(row.created_at)),
       responsibleId: String(row.b2b_responsible_id ?? ""),
       responsibleName: String(row.responsible_name ?? ""),
@@ -165,18 +206,62 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
       clientName: String(row.client_name ?? ""),
       paymentMethod,
       orderStatus,
-      baseCents,
       basePercent: row.base_pct === null || row.base_pct === undefined ? null : Math.round(Number(row.base_pct) * 100) / 100,
       extraPercent: row.extra_pct === null || row.extra_pct === undefined ? null : Math.round(Number(row.extra_pct) * 100) / 100,
       totalPercent: totalPercent === null ? null : Math.round(totalPercent * 100) / 100,
-      commissionCents: totalPercent === null ? null : Math.round((baseCents * totalPercent) / 100),
       basis: (row.basis as string | null) ?? null,
+    };
+
+    const parcels = paymentMethod === "boleto" ? installmentsByOrder.get(orderId) : undefined;
+
+    if (parcels && parcels.length > 0) {
+      const sum = parcels.reduce((total, parcel) => total + parcel.amountCents, 0) || 1;
+      let allocated = 0;
+
+      parcels.forEach((parcel, index) => {
+        // Base da parcela proporcional ao valor dela; a última absorve o arredondamento.
+        const baseCents =
+          index === parcels.length - 1 ? orderBaseCents - allocated : Math.round((orderBaseCents * parcel.amountCents) / sum);
+        allocated += baseCents;
+
+        const receivedAt = parcel.paidAt ? new Date(`${parcel.paidAt}T12:00:00Z`) : null;
+        const paidOutAt = payouts.get(`${orderId}:${parcel.installment}`) ?? null;
+        const state = commissionState({ orderStatus, paymentMethod, receivedAt, paidOutAt, parcelBaixada: Boolean(receivedAt) });
+
+        result.push({
+          ...common,
+          baseCents,
+          commissionCents: totalPercent === null ? null : Math.round((baseCents * totalPercent) / 100),
+          receivedAt,
+          payableOn: state === "a_receber" || state === "paga" ? (receivedAt ? payableOnFor(receivedAt) : null) : null,
+          paidOutAt,
+          state,
+          installment: parcel.installment,
+          installmentLabel: `${parcel.installment}/${parcel.installments}`,
+        });
+      });
+
+      continue;
+    }
+
+    const receivedAt = row.received_at ? new Date(String(row.received_at)) : null;
+    const paidOutAt = payouts.get(`${orderId}:0`) ?? null;
+    const state = commissionState({ orderStatus, paymentMethod, receivedAt, paidOutAt });
+
+    result.push({
+      ...common,
+      baseCents: orderBaseCents,
+      commissionCents: totalPercent === null ? null : Math.round((orderBaseCents * totalPercent) / 100),
       receivedAt,
       payableOn: state === "a_receber" || state === "paga" ? (receivedAt ? payableOnFor(receivedAt) : null) : null,
       paidOutAt,
       state,
-    };
-  });
+      installment: 0,
+      installmentLabel: null,
+    });
+  }
+
+  return result;
 }
 
 export type CommissionTotals = {

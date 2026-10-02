@@ -286,3 +286,26 @@ test("C4: selo do card da linha só nasce na linha da promoção e nomeia só pr
   assert.equal(lineBadge([notice], A, new Map()), null); // linha Adultos: sem aviso
   assert.match(lineBadge([notice], F, new Map([[SNACK, "Snack Floral Filhotes"]])), /promoção somente em Snack Floral Filhotes/);
 });
+
+test("ORDEM DE CÁLCULO única: promoção % → mínimo R$250 → cupom → Pix 7%/cartão 3% (só produtos) → frete", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../src/lib/b2b/quote.ts", import.meta.url), "utf8");
+  const at = (needle) => {
+    const i = src.indexOf(needle);
+    assert.ok(i > 0, needle);
+    return i;
+  };
+  // Na cotação autoritativa: promoção %, depois mínimo, depois cupom, depois totais por forma de pagamento (frete entra aqui).
+  assert.ok(at("applyB2BPercentDiscount(line.listUnitPriceCents") < at("isB2BOrderAboveMinimum(subtotalCents)"));
+  assert.ok(at("isB2BOrderAboveMinimum(subtotalCents)") < at("resolveB2BCouponDiscount("));
+  assert.ok(at("resolveB2BCouponDiscount(") < at("resolveB2BOrderTotalsByPaymentMethod("));
+
+  // Números: 10 un. a 30,00 com -10% = 270,00 (>= 250 mesmo que o preço cheio...); cupom depois; Pix só nos produtos.
+  const withPromo = 10 * applyB2BPercentDiscount(3000, 10);
+  assert.equal(withPromo, 27000);
+  const afterCoupon = withPromo - 2700; // cupom de 10% sobre o total já com a promoção
+  const totals = resolveB2BOrderTotalsByPaymentMethod(afterCoupon, 990); // frete 9,90 não leva desconto
+  assert.equal(totals.pix, Math.round(afterCoupon * 0.93) + 990);
+  assert.equal(totals.card, Math.round(afterCoupon * 0.97) + 990);
+  assert.equal(totals.boleto, afterCoupon + 990);
+});

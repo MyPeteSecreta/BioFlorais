@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       orderId?: string;
+      installment?: number;
       paidAt?: string;
       note?: string;
       undo?: boolean;
@@ -61,12 +62,14 @@ export async function POST(request: NextRequest) {
 
     const run = getAppSqlRunner();
     const note = body.note ? String(body.note).slice(0, 300) : null;
+    // 0 = pedido inteiro (Pix/cartão); 1..N = parcela do boleto (C10).
+    const installment = Number.isInteger(Number(body.installment)) && Number(body.installment) > 0 ? Number(body.installment) : 0;
 
     if (body.undo) {
-      await run(`DELETE FROM b2b_commission_payouts WHERE order_id = $1`, [orderId]);
+      await run(`DELETE FROM b2b_commission_payouts WHERE order_id = $1 AND installment = $2`, [orderId, installment]);
       await run(
         `INSERT INTO b2b_commission_payout_log (order_id, action, note, created_by) VALUES ($1, 'undone', $2, 'admin')`,
-        [orderId, note]
+        [orderId, installment > 0 ? `parcela ${installment}: ${note ?? ""}` : note]
       );
       return NextResponse.json({ ok: true });
     }
@@ -78,9 +81,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Só comissão de pedido B2B pago e não cancelado pode ser marcada como paga.
-    const [order] = await run(`SELECT status, b2b_offer_id FROM orders WHERE id = $1`, [orderId]);
+    const [order] = await run(`SELECT status, b2b_offer_id, payment_method FROM orders WHERE id = $1`, [orderId]);
 
-    if (!order || !order.b2b_offer_id || order.status !== "paid") {
+    if (!order || !order.b2b_offer_id) {
+      return NextResponse.json({ error: "Pedido B2B não encontrado." }, { status: 404 });
+    }
+
+    if (order.payment_method === "boleto") {
+      // Boleto: a comissão é por parcela e só existe depois da BAIXA dela (nunca pelo vencimento).
+      const [baixa] = await run(`SELECT 1 AS x FROM b2b_boleto_payments WHERE order_id = $1 AND installment = $2`, [orderId, installment]);
+
+      if (installment < 1 || !baixa) {
+        return NextResponse.json({ error: "A parcela do boleto ainda não tem baixa." }, { status: 409 });
+      }
+    } else if (order.status !== "paid") {
       return NextResponse.json(
         { error: "Só pedidos B2B pagos podem ter a comissão marcada como paga." },
         { status: 409 }
@@ -88,13 +102,13 @@ export async function POST(request: NextRequest) {
     }
 
     await run(
-      `INSERT INTO b2b_commission_payouts (order_id, paid_at, note, created_by) VALUES ($1, $2::date, $3, 'admin')
-       ON CONFLICT (order_id) DO UPDATE SET paid_at = EXCLUDED.paid_at, note = EXCLUDED.note`,
-      [orderId, paidAt, note]
+      `INSERT INTO b2b_commission_payouts (order_id, installment, paid_at, note, created_by) VALUES ($1, $2, $3::date, $4, 'admin')
+       ON CONFLICT (order_id, installment) DO UPDATE SET paid_at = EXCLUDED.paid_at, note = EXCLUDED.note`,
+      [orderId, installment, paidAt, note]
     );
     await run(
       `INSERT INTO b2b_commission_payout_log (order_id, action, paid_at, note, created_by) VALUES ($1, 'paid', $2::date, $3, 'admin')`,
-      [orderId, paidAt, note]
+      [orderId, paidAt, installment > 0 ? `parcela ${installment}${note ? `: ${note}` : ""}` : note]
     );
 
     return NextResponse.json({ ok: true });

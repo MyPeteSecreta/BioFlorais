@@ -10,6 +10,8 @@ import { useAdminApi } from "./useAdminApi";
 type Row = {
   orderId: string;
   orderNumber: string;
+  installment: number;
+  installmentLabel: string | null;
   createdAt: string;
   responsibleName: string;
   clientName: string;
@@ -71,7 +73,7 @@ export default function CommissionsTab() {
     const today = new Date().toISOString().slice(0, 10);
     const paidAt = window.prompt(`Data em que a comissão do pedido #${row.orderNumber} foi paga (AAAA-MM-DD):`, today);
     if (!paidAt) return;
-    const { ok, data } = await api("/api/admin/b2b/commissions", { method: "POST", body: { orderId: row.orderId, paidAt } });
+    const { ok, data } = await api("/api/admin/b2b/commissions", { method: "POST", body: { orderId: row.orderId, installment: row.installment, paidAt } });
     setMessage(ok ? "Comissão marcada como paga." : data.error ?? "Erro.");
     void load();
   }
@@ -81,7 +83,7 @@ export default function CommissionsTab() {
     if (note === null) return;
     const { ok, data } = await api("/api/admin/b2b/commissions", {
       method: "POST",
-      body: { orderId: row.orderId, undo: true, note },
+      body: { orderId: row.orderId, installment: row.installment, undo: true, note },
     });
     setMessage(ok ? "Pagamento desfeito." : data.error ?? "Erro.");
     void load();
@@ -150,6 +152,7 @@ export default function CommissionsTab() {
                 <td className="px-4 py-3">{row.clientName || "—"}</td>
                 <td className="px-4 py-3">
                   #{row.orderNumber} · {row.paymentMethod ?? "—"}
+                  {row.installmentLabel ? ` · parcela ${row.installmentLabel}` : ""}
                 </td>
                 <td className="px-4 py-3 text-right">{formatB2BCents(row.baseCents)}</td>
                 <td className="px-4 py-3 text-xs">
