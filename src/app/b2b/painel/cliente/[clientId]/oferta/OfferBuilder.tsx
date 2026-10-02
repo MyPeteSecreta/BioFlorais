@@ -18,6 +18,7 @@
  */
 
 import Image from "next/image";
+import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -52,6 +53,8 @@ type Props = {
   offerId: string | null;
   lines: BuilderLine[];
   matrix: CommissionMatrix;
+  /** Janela de 180 dias da comissão do preço normal (texto pronto). */
+  windowText: string | null;
   initialSelected: string[];
   initialChoices: Record<string, BuilderChoice>;
 };
@@ -109,6 +112,7 @@ export default function OfferBuilder({
   offerId,
   lines,
   matrix,
+  windowText,
   initialSelected,
   initialChoices,
 }: Props) {
@@ -237,6 +241,8 @@ export default function OfferBuilder({
           </span>
         </div>
       </div>
+
+      {windowText && <CommissionWindowNote text={windowText} />}
 
       {!matrix.configured && (
         <p className="mx-auto mt-6 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

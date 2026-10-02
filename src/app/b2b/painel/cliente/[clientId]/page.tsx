@@ -12,6 +12,9 @@ import {
   getAppSqlRunner,
   listOwnedOffersForClient,
 } from "@/lib/b2b/ownership";
+import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
+import { loadCommissionMatrix } from "@/lib/b2b/commission";
+import { describeCommissionWindow, loadClientCommissionWindow } from "@/lib/b2b/commission-window";
 import OfferLinkActions from "@/components/b2b/OfferLinkActions";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +43,11 @@ export default async function B2BClientPage({
     notFound();
   }
 
-  const offers = await listOwnedOffersForClient(run, responsible.id, client.id);
+  const [offers, matrix, window] = await Promise.all([
+    listOwnedOffersForClient(run, responsible.id, client.id),
+    loadCommissionMatrix(run, responsible.id, client.id),
+    loadClientCommissionWindow(run, client.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-10 lg:px-10">
@@ -62,6 +69,8 @@ export default async function B2BClientPage({
           Montar nova oferta →
         </Link>
       </div>
+
+      {matrix.configured && <CommissionWindowNote text={describeCommissionWindow(matrix, window)} />}
 
       <section className="mt-8 space-y-3">
         <h2 className="font-extrabold">Ofertas</h2>

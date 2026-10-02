@@ -457,6 +457,10 @@ export const orderItems = pgTable(
 
     commissionTotalPercent:
       numeric("commission_total_percent"),
+
+    /* sql/b2b/13b: promotion | normal_price | base_only (janela de 180 dias). */
+    commissionBasis:
+      text("commission_basis"),
   }
 );
 

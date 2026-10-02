@@ -16,6 +16,7 @@
  */
 
 import { commissionFor, type CommissionMatrix } from "./commission";
+import { resolveItemCommission, type CommissionBasis, type CommissionWindow } from "./commission-window";
 
 export type OfferPromotionTerms = {
   promotionId: string;
@@ -44,6 +45,8 @@ export type OrderItemSnapshot = {
   commissionBasePercent: string | null;
   commissionExtraPercent: string | null;
   commissionTotalPercent: string | null;
+  /** promotion | normal_price | base_only (janela de 180 dias). */
+  commissionBasis: CommissionBasis | null;
 };
 
 function percentText(value: number | null | undefined) {
@@ -55,14 +58,16 @@ export function buildOrderItemSnapshots(input: {
   offerPromotions: OfferPromotionTerms[];
   lines: QuoteLine[];
   bonusLines: BonusLine[];
+  /** Janela de 180 dias do cliente, avaliada na criação do pedido. */
+  window: CommissionWindow;
 }): OrderItemSnapshot[] {
   const termsById = new Map(input.offerPromotions.map((terms) => [terms.promotionId, terms]));
   const bonusByProduct = new Map(input.bonusLines.map((bonus) => [bonus.productId, bonus]));
-  const normal = commissionFor(input.matrix, { kind: "normal" });
-
   const commissionForProduct = (productId: string) => {
     const bonus = bonusByProduct.get(productId);
     const terms = bonus ? termsById.get(bonus.promotionId) : undefined;
+    let promotionExtraPercent: number | null = null;
+    let promotionTerms: OfferPromotionTerms | undefined;
 
     if (bonus && terms && (terms.eligibilityMode === "uses" || terms.eligibilityMode === "days")) {
       const promotional = commissionFor(input.matrix, {
@@ -73,10 +78,19 @@ export function buildOrderItemSnapshots(input: {
         durationDays: terms.eligibilityMode === "days" ? terms.durationDays : null,
       });
 
-      return { terms, commission: promotional ?? normal };
+      promotionTerms = terms; // snapshot da promoção mesmo sem regra de comissão
+      if (promotional) promotionExtraPercent = promotional.extraPercent;
     }
 
-    return { terms: undefined, commission: normal };
+    // Sem bonificação (ou promoção sem regra): preço normal, limitado à janela de 180 dias.
+    const commission = resolveItemCommission({
+      basePercent: input.matrix.basePercent,
+      normalExtraPercent: input.matrix.normalExtraPercent,
+      promotionExtraPercent,
+      window: input.window,
+    });
+
+    return { terms: promotionTerms, commission };
   };
 
   const snapshots: OrderItemSnapshot[] = [];
@@ -97,6 +111,7 @@ export function buildOrderItemSnapshots(input: {
       commissionBasePercent: percentText(configured?.basePercent),
       commissionExtraPercent: percentText(configured?.extraPercent),
       commissionTotalPercent: percentText(configured?.totalPercent),
+      commissionBasis: configured ? configured.basis : null,
     };
 
     snapshots.push({

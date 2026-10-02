@@ -13,6 +13,8 @@ import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/owne
 import { formatPercent, loadCommissionMatrix, promotionShortLabel } from "@/lib/b2b/commission";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
 import { describeEligibility, loadOfferReviewLines } from "@/lib/b2b/offer-review";
+import CommissionWindowNote from "@/components/b2b/CommissionWindowNote";
+import { describeCommissionWindow, loadClientCommissionWindow } from "@/lib/b2b/commission-window";
 import ReviewActions from "./ReviewActions";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +38,10 @@ export default async function OfferReviewPage({
     notFound();
   }
 
-  const [lines, matrix] = await Promise.all([
+  const [lines, matrix, window] = await Promise.all([
     loadBuilderLines(),
     loadCommissionMatrix(run, responsible.id, client.id),
+    loadClientCommissionWindow(run, client.id),
   ]);
 
   const reviewLines = await loadOfferReviewLines(offer.id, lines, matrix);
@@ -81,6 +84,8 @@ export default async function OfferReviewPage({
           </div>
         </div>
       </section>
+
+      {matrix.configured && <CommissionWindowNote text={describeCommissionWindow(matrix, window)} />}
 
       <section className="mt-8 space-y-5">
         {reviewLines.map((line) => {

@@ -129,6 +129,7 @@ test("pedido: comissão congelada por item (promoção que bonificou x preço no
       { productId: COLICA, qty: 3, unitPriceCents: 1990 },
     ],
     bonusLines: [{ productId: SONO, qty: 2, promotionId: P3 }],
+    window: { firstPaidAt: null, endsAt: null, open: true },
   });
 
   assert.equal(snapshots.length, 3);
@@ -161,6 +162,7 @@ test("pedido sem matriz configurada: snapshot sem comissão (nunca inventa perce
     offerPromotions: [],
     lines: [{ productId: COLICA, qty: 1, unitPriceCents: 1990 }],
     bonusLines: [],
+    window: { firstPaidAt: null, endsAt: null, open: true },
   });
 
   assert.equal(item.commissionTotalPercent, null);

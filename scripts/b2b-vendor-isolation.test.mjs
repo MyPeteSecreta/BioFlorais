@@ -484,3 +484,31 @@ test("12a/12b corrigem texto quebrado só em b2b_*, sem apagar", async () => {
   const rows = await run(`SELECT name FROM b2b_promotions WHERE name LIKE '3 por 2 —%'`);
   assert.equal(rows.length, 1);
 });
+
+test("janela: 1ª compra PAGA do cliente (created_at), independente do vendedor; pendente não conta", async () => {
+  const { loadFirstPaidOrderAt } = await import("@/lib/b2b/commission-window");
+  const [{ id: clientId }] = await run(`SELECT id FROM b2b_clients WHERE display_name = 'ClienteTesteB2'`);
+  const [{ id: offerId }] = await run(`SELECT id FROM b2b_offers LIMIT 1`);
+
+  await pg.exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS b2b_client_id uuid;`);
+  assert.equal(await loadFirstPaidOrderAt(run, clientId), null); // nunca comprou
+
+  await run(`INSERT INTO orders (status, b2b_client_id, b2b_offer_id, created_at) VALUES
+    ('pending', $1, $2, '2026-01-01 10:00:00'),
+    ('paid',    $1, $2, '2026-03-10 12:00:00'),
+    ('paid',    $1, $2, '2026-05-01 12:00:00')`, [clientId, offerId]);
+
+  const found = await loadFirstPaidOrderAt(run, clientId);
+  assert.equal(found.toISOString(), "2026-03-10T12:00:00.000Z"); // o pendente de janeiro não conta
+  assert.equal(await loadFirstPaidOrderAt(run, "não-é-uuid"), null);
+});
+
+test("13b (commission_basis) idempotente e 13a (contador de usos) roda", async () => {
+  await pg.exec(sqlFile("13b_commission_basis.sql"));
+  await pg.exec(sqlFile("13b_commission_basis.sql"));
+  const cols = await run(`SELECT 1 FROM information_schema.columns WHERE table_name='order_items' AND column_name='commission_basis'`);
+  assert.equal(cols.length, 1);
+
+  const [row] = await run(sqlFile("13a_conferencia_contador_de_usos.sql"));
+  assert.ok(Array.isArray(row.conferencia_contador_de_usos.promocoes_das_ofertas));
+});

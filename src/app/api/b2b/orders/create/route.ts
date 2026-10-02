@@ -27,6 +27,7 @@ import { computeB2BQuote } from "@/lib/b2b/quote";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { buildOrderItemSnapshots } from "@/lib/b2b/order-commission";
+import { loadClientCommissionWindow } from "@/lib/b2b/commission-window";
 import {
   isB2BInstallmentCountValid,
   isB2BPaymentMethod,
@@ -242,8 +243,10 @@ export async function POST(request: NextRequest) {
 
     // Snapshot imutável por item: promoção aplicada e comissão do vendedor
     // (base + extra = total) congeladas no pedido. O cliente não vê isso.
-    const [matrix, offerPromotionTerms] = await Promise.all([
+    const [matrix, window, offerPromotionTerms] = await Promise.all([
       loadCommissionMatrix(getAppSqlRunner(), context.responsibleId, context.clientId),
+      // Janela de 180 dias do CLIENTE (1ª compra paga), avaliada agora e congelada no item.
+      loadClientCommissionWindow(getAppSqlRunner(), context.clientId),
       db
         .select({
           promotionId: b2bOfferPromotions.promotionId,
@@ -264,11 +267,22 @@ export async function POST(request: NextRequest) {
       offerPromotions: offerPromotionTerms,
       lines: quote.lines,
       bonusLines: quote.bonusLines,
+      window,
     });
 
-    await db
-      .insert(orderItems)
-      .values(itemSnapshots.map((item) => ({ orderId: order.id, ...item })));
+    try {
+      await db
+        .insert(orderItems)
+        .values(itemSnapshots.map((item) => ({ orderId: order.id, ...item })));
+    } catch (error) {
+      // SQL 13b ainda não aplicado (coluna commission_basis ausente): grava sem a base.
+      console.error("[b2b/orders/create] sem commission_basis, gravando sem a base", error);
+      await db
+        .insert(orderItems)
+        .values(
+          itemSnapshots.map(({ commissionBasis: _basis, ...item }) => ({ orderId: order.id, ...item }))
+        );
+    }
 
     for (const promotionId of quote.promotionIdsUsed) {
       await db

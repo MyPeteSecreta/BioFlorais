@@ -9,6 +9,24 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★ P2: comissão com janela de 180 dias (02/10/2026), sobre `847dda2`
+
+Só local: sem push, deploy nem Neon.
+
+**Regra (confirmada pelo Luis):** 180 dias, por CLIENTE nesta marca (não reinicia se trocar de vendedor), contados do `created_at` do 1º pedido B2B do cliente com `status='paid'` (`orders.b2b_client_id`; pedido pendente/cancelado não conta). Adaptado de `commission-window.ts` da My Pet (sem a tabela de janela: a 1ª compra paga sai de `min(created_at)` dos pedidos pagos, consulta única e sempre coerente com o status real, inclusive boleto baixado pelo admin).
+- Item bonificado por promoção da oferta = base + extra da promoção (`promotion`), a janela não limita.
+- Demais itens (sem bonificação, promoção esgotada, outras linhas): dentro da janela base + extra do preço normal (`normal_price`, 10+15=25); depois dos 180 dias só a base (`base_only`, 10). No dia 180 ainda vale 25. Sem compra paga anterior: a janela ainda não começou e a própria 1ª compra recebe o extra.
+- Avaliada **na criação do pedido** e congelada por item: `order_items.commission_base/extra/total_percent` + **`commission_basis`** (coluna nova).
+- **Vendedor vê** (Offer Builder, revisão e página do cliente, nunca o cliente): "10% + 15% = 25% até dd/mm/aaaa (180 dias após a 1ª compra); depois 10%"; antes da 1ª compra: "10% + 15% = 25% · válido por 180 dias a partir da 1ª compra paga; depois 10%"; janela encerrada: "Janela de 180 dias encerrada em dd/mm/aaaa: preço normal rende só 10%".
+
+**SQL (Neon `bio-florais`):** `13b_commission_basis.sql` (aditivo: `order_items.commission_basis text`). Sem ele o pedido é criado normalmente, só sem a base (o app tenta com a coluna e, se faltar, grava sem ela). Pedidos antigos ficam NULL. Leitura: `13a_conferencia_contador_de_usos.sql`.
+
+**Contador de usos 2x/3x (a pergunta do Luis):** na Bio ele SOBE, mas na **criação** do pedido (+1 por pedido que realmente recebeu bonificação, nunca +1 por item e nunca em pedido sem bonificação), não no pagamento. Logo a 1ª compra conta 1 de N (com "2x" a promoção continua para a 2ª compra e esgota na 3ª; com "1x" esgota depois da 1ª, como deve) — o problema da My Pet (nunca subir) não existe aqui. Efeito colateral a decidir: pedido criado e **não pago** (Pix expirado, cancelado) também consome 1 uso. `13a` mostra por promoção `uses_count` x pedidos com bonificação (pagos e não pagos) e marca `divergente`. Se houver consumo indevido, o conserto de dado é por UPDATE do `uses_count` (eu preparo depois de ver o 13a); mudar para "contar só pago" é decisão de regra (o risco é dois pedidos abertos aproveitarem a mesma promoção "1x").
+
+**Testes:** `scripts/b2b-commission-window.test.mjs` (os 4 casos: sem compra anterior; dentro da promoção com janela fechada; promoção esgotada dentro dos 180 dias; depois de 180 dias, mais o dia 180 e o texto ao vendedor) e, no Postgres em memória, a consulta da 1ª compra paga (pendente de janeiro não conta, vendedor irrelevante), o 13b idempotente e o 13a. **Verificações:** `npm.cmd test` 61/61, `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio.
+
+---
+
 ## ★★★★★★ Rodada comum 01/10 (noite), sobre `3dc6d5d`
 
 Só local: sem push, deploy nem Neon. Commits: `4207cf0` (volumes) e o commit desta rodada (hash no fim da resposta).
