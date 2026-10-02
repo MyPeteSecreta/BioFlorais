@@ -12,6 +12,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import {
+  b2bCommercialGroupProducts,
   b2bCommercialGroups,
   b2bPromotionCommercialGroups,
   b2bPromotionProducts,
@@ -19,6 +20,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
+import { promotionScopeForGroup, type GroupMembership } from "@/lib/b2b/promotion-scope";
 import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import {
@@ -84,9 +86,10 @@ export async function loadBuilderLines(
 
   if (groups.length === 0) return [];
 
-  const links = await db
+  // Todas as promoções ativas e selecionáveis (C1/C4): o alcance por linha vem de
+  // promotion-scope.ts (linhas ligadas e/ou produtos explícitos), não só do vínculo com a linha.
+  const candidates = await db
     .select({
-      groupId: b2bPromotionCommercialGroups.commercialGroupId,
       id: b2bPromotions.id,
       name: b2bPromotions.name,
       type: b2bPromotions.type,
@@ -99,12 +102,10 @@ export async function loadBuilderLines(
       percentage: b2bPromotions.percentage,
       promoType: b2bPromotions.promoType,
     })
-    .from(b2bPromotionCommercialGroups)
-    .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bPromotionCommercialGroups.promotionId))
-    .where(inArray(b2bPromotionCommercialGroups.commercialGroupId, groups.map((group) => group.id)))
+    .from(b2bPromotions)
     .orderBy(asc(b2bPromotions.freeQuantity), asc(b2bPromotions.name));
 
-  const usable = links.filter(
+  const usable = candidates.filter(
     (row) =>
       isB2BPromotionComplete(row) &&
       row.active &&
@@ -113,24 +114,51 @@ export async function loadBuilderLines(
       !(row.endsAt && now > row.endsAt)
   );
 
-  const promotionIds = Array.from(new Set(usable.map((row) => row.id)));
+  const promotionIds = usable.map((row) => row.id);
+
+  const [groupLinkRows, productRows] = promotionIds.length
+    ? await Promise.all([
+        db
+          .select({
+            promotionId: b2bPromotionCommercialGroups.promotionId,
+            groupId: b2bPromotionCommercialGroups.commercialGroupId,
+          })
+          .from(b2bPromotionCommercialGroups)
+          .where(inArray(b2bPromotionCommercialGroups.promotionId, promotionIds)),
+        db
+          .select({
+            promotionId: b2bPromotionProducts.promotionId,
+            id: products.id,
+            name: products.name,
+          })
+          .from(b2bPromotionProducts)
+          .innerJoin(products, eq(products.id, b2bPromotionProducts.productId))
+          .where(inArray(b2bPromotionProducts.promotionId, promotionIds)),
+      ])
+    : [[], []];
+
+  const explicitProductIds = Array.from(new Set(productRows.map((row) => row.id)));
+  const membershipRows = explicitProductIds.length
+    ? await db
+        .select({
+          groupId: b2bCommercialGroupProducts.commercialGroupId,
+          productId: b2bCommercialGroupProducts.productId,
+        })
+        .from(b2bCommercialGroupProducts)
+        .where(inArray(b2bCommercialGroupProducts.productId, explicitProductIds))
+    : [];
+
+  const membership: GroupMembership = new Map();
+  for (const row of membershipRows) {
+    const set = membership.get(row.groupId) ?? new Set<string>();
+    set.add(row.productId);
+    membership.set(row.groupId, set);
+  }
 
   const run = getAppSqlRunner();
   const [purchases, months] = clientId
     ? await Promise.all([loadClientPurchases(run, clientId, excludeOfferId), loadReconquistaMonths(run)])
     : [[], 6];
-
-  const productRows = promotionIds.length
-    ? await db
-        .select({
-          promotionId: b2bPromotionProducts.promotionId,
-          id: products.id,
-          name: products.name,
-        })
-        .from(b2bPromotionProducts)
-        .innerJoin(products, eq(products.id, b2bPromotionProducts.productId))
-        .where(inArray(b2bPromotionProducts.promotionId, promotionIds))
-    : [];
 
   return groups.map((group) => ({
     id: group.id,
@@ -138,8 +166,19 @@ export async function loadBuilderLines(
     name: group.name,
     image: homeLineImage(group.slug),
     promotions: usable
-      .filter((row) => row.groupId === group.id)
       .map((row) => ({
+        row,
+        scope: promotionScopeForGroup(
+          {
+            linkedGroupIds: groupLinkRows.filter((link) => link.promotionId === row.id).map((link) => link.groupId),
+            productIds: productRows.filter((product) => product.promotionId === row.id).map((product) => product.id),
+          },
+          group.id,
+          membership
+        ),
+      }))
+      .filter((item) => item.scope.applies)
+      .map(({ row, scope }) => ({
         id: row.id,
         name: row.name,
         buyQuantity: row.buyQuantity ?? 0,
@@ -150,8 +189,9 @@ export async function loadBuilderLines(
           if (!clientId) return { promoType, available: true, reason: "" };
           return { promoType, ...promotionAvailability(promoType, historyForGroup(purchases, group.id, now, months)) };
         })(),
+        // Só os produtos DESTA linha (C4): o aviso "somente X" não vaza para outras linhas.
         onlyProducts: productRows
-          .filter((product) => product.promotionId === row.id)
+          .filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))
           .map((product) => ({ id: product.id, name: product.name })),
       })),
   }));

@@ -57,7 +57,13 @@ export default async function B2BOfferPage({
     loadOtherB2BLines(context),
   ]);
 
-  const productNameById = new Map(context.products.map((product) => [product.id, product.name]));
+  // C4: o aviso "somente X" lista só os produtos da PRÓPRIA linha do card.
+  const productNamesOfLine = (lineId: string) =>
+    new Map(
+      context.products
+        .filter((product) => product.commercialGroupIds.includes(lineId))
+        .map((product) => [product.id, product.name])
+    );
   const lineHref = (slug: string) => `/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(slug)}`;
 
   // Linha da oferta sem nenhum produto liberado não vira card.
@@ -103,7 +109,7 @@ export default async function B2BOfferPage({
                   name={line.name}
                   image={homeLineImage(line.slug)}
                   highlight
-                  badge={lineBadge(notices, line.id, productNameById) ?? "Preço B2B"}
+                  badge={lineBadge(notices, line.id, productNamesOfLine(line.id)) ?? "Preço B2B"}
                   caption={lineEligibilityCaption(notices, line.id) ?? undefined}
                 />
               ))}

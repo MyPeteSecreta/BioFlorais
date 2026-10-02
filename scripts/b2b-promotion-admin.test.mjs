@@ -253,3 +253,36 @@ test("17b é idempotente", async () => {
   const cols = await run(`SELECT column_name FROM information_schema.columns WHERE table_name='order_items' AND column_name LIKE 'promotion_%' ORDER BY 1`);
   assert.deepEqual(cols.map((c) => c.column_name), ["promotion_discount_cents", "promotion_id", "promotion_percent", "promotion_type"]);
 });
+
+// ---------------------------------------------------------------------------
+// C4: alcance por linha
+// ---------------------------------------------------------------------------
+const { promotionScopeForGroup } = await import("../src/lib/b2b/promotion-scope.ts");
+const { lineBadge } = await import("../src/lib/b2b/offer-notices.ts");
+
+test("C4: promoção de SKU único só aparece na linha que tem o produto; 'somente X' lista só os produtos da linha", () => {
+  const FILHOTES = UUID(70), ADULTOS = UUID(71), SNACK = UUID(72), OUTRO = UUID(73);
+  const membership = new Map([[FILHOTES, new Set([SNACK])], [ADULTOS, new Set([OUTRO])]]);
+
+  // Admin ligou a promoção às DUAS linhas, mas o produto só está em Filhotes: o bug era aparecer nas duas.
+  const promo = { linkedGroupIds: [FILHOTES, ADULTOS], productIds: [SNACK] };
+  assert.deepEqual(promotionScopeForGroup(promo, FILHOTES, membership), { applies: true, onlyProductIds: [SNACK] });
+  assert.equal(promotionScopeForGroup(promo, ADULTOS, membership).applies, false);
+
+  // Só produto, sem linha ligada: aparece na linha do produto (antes não aparecia em lugar nenhum).
+  assert.equal(promotionScopeForGroup({ linkedGroupIds: [], productIds: [SNACK] }, FILHOTES, membership).applies, true);
+  assert.equal(promotionScopeForGroup({ linkedGroupIds: [], productIds: [SNACK] }, ADULTOS, membership).applies, false);
+
+  // Linha inteira ligada: só nas ligadas. Sem nada ligado: vale em qualquer linha.
+  assert.equal(promotionScopeForGroup({ linkedGroupIds: [ADULTOS], productIds: [] }, FILHOTES, membership).applies, false);
+  assert.equal(promotionScopeForGroup({ linkedGroupIds: [ADULTOS], productIds: [] }, ADULTOS, membership).applies, true);
+  assert.equal(promotionScopeForGroup({ linkedGroupIds: [], productIds: [] }, FILHOTES, membership).applies, true);
+});
+
+test("C4: selo do card da linha só nasce na linha da promoção e nomeia só produtos dessa linha", () => {
+  const A = UUID(71), F = UUID(70), SNACK = UUID(72);
+  const notice = { promotionId: UUID(1), commercialGroupId: F, percent: null, buyQuantity: 2, freeQuantity: 1, productIds: [SNACK], usesRemaining: null, validUntil: null };
+
+  assert.equal(lineBadge([notice], A, new Map()), null); // linha Adultos: sem aviso
+  assert.match(lineBadge([notice], F, new Map([[SNACK, "Snack Floral Filhotes"]])), /promoção somente em Snack Floral Filhotes/);
+});

@@ -75,6 +75,7 @@ export async function resolveB2BPromotionBonusLines(
   const rows = await db
     .select({
       promotionId: b2bOfferPromotions.promotionId,
+      commercialGroupId: b2bOfferPromotions.commercialGroupId,
       promotionTermId: b2bOfferPromotions.promotionTermId,
       maxUses: b2bOfferPromotions.maxUses,
       usesCount: b2bOfferPromotions.usesCount,
@@ -164,10 +165,20 @@ export async function resolveB2BPromotionBonusLines(
    * comerciais da promoção > qualquer produto da oferta. Em todos os
    * casos o produto precisa pertencer à oferta.
    */
+  const chosenGroupByPromotion = new Map(active.map((row) => [row.promotionId, row.commercialGroupId]));
+
   function isEligible(promotionId: string, productId: string) {
     const product = productsById.get(productId);
 
     if (!product) {
+      return false;
+    }
+
+    // C4: a promoção vale só na LINHA em que o vendedor a escolheu (o SKU/linha da promoção
+    // continua limitando dentro dela).
+    const chosenGroup = chosenGroupByPromotion.get(promotionId);
+
+    if (chosenGroup && !product.commercialGroupIds.includes(chosenGroup)) {
       return false;
     }
 
