@@ -1,0 +1,218 @@
+/**
+ * BIO FLORAIS B2B — "Minhas comissões" do vendedor e baixa pelo admin (C9).
+ *
+ * PADRÃO (o Luis confirma):
+ *  - base = valor PAGO dos produtos (total do pedido menos o frete, ou seja,
+ *    depois de promoção, cupom e desconto Pix/cartão);
+ *  - % = média ponderada pelo valor de cada item do snapshot congelado no
+ *    pedido (base + extra = total); comissão = base x %;
+ *  - a comissão fica "A receber" no dia 10 do mês seguinte ao RECEBIMENTO do
+ *    dinheiro; pedido cancelado/estornado zera;
+ *  - boleto: NUNCA pela data de vencimento. Só depois da BAIXA da parcela
+ *    (C10). Enquanto não houver baixa, fica "Aguardando pagamento".
+ *
+ * A data de recebimento de Pix/cartão é a do pagamento confirmado
+ * (payments.created_at do pagamento "paid"; a Bio ainda não guarda paid_at —
+ * o webhook/finalizador é compartilhado com o B2C e não foi alterado).
+ * Só leitura sobre pedidos; o único dado novo é b2b_commission_payouts
+ * (sql/b2b/18b), com a data em que o admin pagou a comissão ao vendedor.
+ */
+
+import type { SqlRunner } from "@/lib/b2b/ownership";
+import { isUuid } from "@/lib/b2b/admin-input";
+
+export type CommissionState = "aguardando" | "a_receber" | "paga" | "cancelada";
+
+export type CommissionRow = {
+  orderId: string;
+  orderNumber: string;
+  createdAt: Date;
+  responsibleId: string;
+  responsibleName: string;
+  clientId: string | null;
+  clientName: string;
+  paymentMethod: string | null;
+  orderStatus: string;
+  baseCents: number;
+  /** Média ponderada pelo valor dos itens; null = pedido sem snapshot de comissão. */
+  basePercent: number | null;
+  extraPercent: number | null;
+  totalPercent: number | null;
+  commissionCents: number | null;
+  basis: string | null;
+  receivedAt: Date | null;
+  payableOn: Date | null;
+  paidOutAt: Date | null;
+  state: CommissionState;
+};
+
+const CANCELLED = new Set(["cancelled", "canceled", "failed", "expired", "refunded", "rejected"]);
+
+/** Dia 10 do mês seguinte ao recebimento (data civil de São Paulo, devolvida às 12:00 UTC). */
+export function payableOnFor(receivedAt: Date): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+  })
+    .format(receivedAt)
+    .split("-")
+    .map(Number);
+
+  return new Date(Date.UTC(parts[0], parts[1] /* mês seguinte (0-based = parts[1]) */, 10, 12, 0, 0));
+}
+
+export function commissionState(input: {
+  orderStatus: string;
+  paymentMethod: string | null;
+  receivedAt: Date | null;
+  paidOutAt: Date | null;
+}): CommissionState {
+  if (CANCELLED.has(input.orderStatus)) return "cancelada";
+  if (input.paidOutAt) return "paga";
+  if (input.orderStatus !== "paid") return "aguardando";
+  // Boleto: sem baixa (receivedAt) não é "a receber", nunca pelo vencimento.
+  if (!input.receivedAt) return "aguardando";
+  return "a_receber";
+}
+
+export const STATE_LABEL: Record<CommissionState, string> = {
+  aguardando: "Aguardando pagamento",
+  a_receber: "A receber",
+  paga: "Paga",
+  cancelada: "Cancelada",
+};
+
+export type CommissionFilters = {
+  /** Vendedor da sessão (painel) ou, no admin, opcional. */
+  responsibleId?: string | null;
+  clientId?: string | null;
+  /** AAAA-MM do mês do PEDIDO. */
+  month?: string | null;
+};
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * Pedidos B2B com a comissão calculada. `responsibleId` filtra NO SQL: o
+ * vendedor só enxerga os próprios pedidos (b2b_responsible_id do pedido).
+ */
+export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilters): Promise<CommissionRow[]> {
+  const responsibleId = filters.responsibleId && isUuid(filters.responsibleId) ? filters.responsibleId : null;
+  const clientId = filters.clientId && isUuid(filters.clientId) ? filters.clientId : null;
+  const month = filters.month && MONTH_RE.test(filters.month) ? filters.month : null;
+
+  const query = `SELECT o.id, o.status, o.payment_method, o.total_cents, o.shipping_cents,
+            o.b2b_responsible_id, o.b2b_client_id,
+            to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+            coalesce(o.b2b_responsible_name, r.name, '') AS responsible_name,
+            coalesce(c.display_name, '') AS client_name,
+            w.base_pct, w.extra_pct, w.total_pct, w.basis,
+            CASE WHEN o.payment_method = 'boleto' THEN NULL
+                 ELSE to_char(coalesce(
+                        (SELECT min(p.created_at) FROM payments p WHERE p.order_id = o.id AND p.status = 'paid'),
+                        o.created_at), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') END AS received_at,
+            to_char(po.paid_at, 'YYYY-MM-DD"T"12:00:00"Z"') AS paid_out_at
+       FROM orders o
+       LEFT JOIN b2b_responsibles r ON r.id = o.b2b_responsible_id
+       LEFT JOIN b2b_clients c ON c.id = o.b2b_client_id
+       LEFT JOIN b2b_commission_payouts po ON po.order_id = o.id
+       LEFT JOIN LATERAL (
+         SELECT sum(i.unit_price_cents::numeric * i.qty * i.commission_base_percent) / nullif(sum(i.unit_price_cents::numeric * i.qty), 0) AS base_pct,
+                sum(i.unit_price_cents::numeric * i.qty * i.commission_extra_percent) / nullif(sum(i.unit_price_cents::numeric * i.qty), 0) AS extra_pct,
+                sum(i.unit_price_cents::numeric * i.qty * i.commission_total_percent) / nullif(sum(i.unit_price_cents::numeric * i.qty), 0) AS total_pct,
+                string_agg(DISTINCT i.commission_basis, ', ') AS basis
+           FROM order_items i
+          WHERE i.order_id = o.id AND i.unit_price_cents > 0 AND i.commission_total_percent IS NOT NULL
+       ) w ON true
+      WHERE o.b2b_offer_id IS NOT NULL
+        AND ($1::uuid IS NULL OR o.b2b_responsible_id = $1::uuid)
+        AND ($2::uuid IS NULL OR o.b2b_client_id = $2::uuid)
+        AND ($3::text IS NULL OR to_char(o.created_at, 'YYYY-MM') = $3::text)
+      ORDER BY o.created_at DESC
+      LIMIT 500`;
+  const params = [responsibleId, clientId, month];
+
+  let rows: Awaited<ReturnType<SqlRunner>>;
+
+  try {
+    rows = await run(query, params);
+  } catch (error) {
+    // SQL 18b ainda não aplicado (tabela de pagamentos ausente): lista sem a coluna "Paga".
+    console.error("[b2b/commissions] sem b2b_commission_payouts", error);
+    rows = await run(
+      query.replace("LEFT JOIN b2b_commission_payouts po ON po.order_id = o.id", "LEFT JOIN (SELECT NULL::uuid AS order_id, NULL::date AS paid_at) po ON false"),
+      params
+    );
+  }
+
+  return rows.map((row) => {
+    const receivedAt = row.received_at ? new Date(String(row.received_at)) : null;
+    const paidOutAt = row.paid_out_at ? new Date(String(row.paid_out_at)) : null;
+    const orderStatus = String(row.status ?? "");
+    const paymentMethod = (row.payment_method as string | null) ?? null;
+    const baseCents = Math.max(0, Number(row.total_cents ?? 0) - Number(row.shipping_cents ?? 0));
+    const totalPercent = row.total_pct === null || row.total_pct === undefined ? null : Number(row.total_pct);
+    const state = commissionState({ orderStatus, paymentMethod, receivedAt, paidOutAt });
+
+    return {
+      orderId: String(row.id),
+      orderNumber: String(row.id).slice(0, 8).toUpperCase(),
+      createdAt: new Date(String(row.created_at)),
+      responsibleId: String(row.b2b_responsible_id ?? ""),
+      responsibleName: String(row.responsible_name ?? ""),
+      clientId: row.b2b_client_id ? String(row.b2b_client_id) : null,
+      clientName: String(row.client_name ?? ""),
+      paymentMethod,
+      orderStatus,
+      baseCents,
+      basePercent: row.base_pct === null || row.base_pct === undefined ? null : Math.round(Number(row.base_pct) * 100) / 100,
+      extraPercent: row.extra_pct === null || row.extra_pct === undefined ? null : Math.round(Number(row.extra_pct) * 100) / 100,
+      totalPercent: totalPercent === null ? null : Math.round(totalPercent * 100) / 100,
+      commissionCents: totalPercent === null ? null : Math.round((baseCents * totalPercent) / 100),
+      basis: (row.basis as string | null) ?? null,
+      receivedAt,
+      payableOn: state === "a_receber" || state === "paga" ? (receivedAt ? payableOnFor(receivedAt) : null) : null,
+      paidOutAt,
+      state,
+    };
+  });
+}
+
+export type CommissionTotals = {
+  /** A receber no próximo dia 10 (inclui o que já venceu e não foi pago). */
+  nextTenthCents: number;
+  nextTenthDate: Date | null;
+  /** A receber nos meses seguintes. */
+  laterCents: number;
+  /** Já pago ao vendedor. */
+  receivedCents: number;
+  /** Aguardando pagamento do pedido (ainda não é "a receber"). */
+  waitingCents: number;
+};
+
+/** Totais (só linhas com comissão calculada). `now` define qual é o "próximo dia 10". */
+export function totalsFor(rows: CommissionRow[], now = new Date()): CommissionTotals {
+  const totals: CommissionTotals = { nextTenthCents: 0, nextTenthDate: null, laterCents: 0, receivedCents: 0, waitingCents: 0 };
+  const open = rows.filter((row) => row.state === "a_receber" && row.payableOn && row.commissionCents !== null);
+
+  // Próximo dia 10 = a menor data de pagamento ainda não passada; vencidas entram nele.
+  const upcoming = open
+    .map((row) => row.payableOn!.getTime())
+    .filter((time) => time >= now.getTime() - 24 * 60 * 60 * 1000);
+  const next = upcoming.length > 0 ? Math.min(...upcoming) : null;
+  totals.nextTenthDate = next === null ? null : new Date(next);
+
+  for (const row of rows) {
+    if (row.commissionCents === null) continue;
+
+    if (row.state === "paga") totals.receivedCents += row.commissionCents;
+    else if (row.state === "aguardando") totals.waitingCents += row.commissionCents;
+    else if (row.state === "a_receber" && row.payableOn) {
+      if (next !== null && row.payableOn.getTime() > next) totals.laterCents += row.commissionCents;
+      else totals.nextTenthCents += row.commissionCents;
+    }
+  }
+
+  return totals;
+}

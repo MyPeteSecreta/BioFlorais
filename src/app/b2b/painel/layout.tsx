@@ -21,6 +21,12 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
             <span className="block text-lg font-extrabold text-[#55245f]">Meus clientes</span>
           </Link>
           <div className="flex items-center gap-4 text-sm">
+            <Link href="/b2b/painel" className="font-bold text-[#63326d] underline underline-offset-4">
+              Clientes
+            </Link>
+            <Link href="/b2b/painel/comissoes" className="font-bold text-[#63326d] underline underline-offset-4">
+              Minhas comissões
+            </Link>
             <span className="font-semibold">{responsible.name}</span>
             <LogoutButton />
           </div>
