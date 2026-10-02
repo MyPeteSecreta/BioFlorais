@@ -147,3 +147,11 @@ test("totais: próximo dia 10, meses seguintes, já recebido e aguardando", asyn
   assert.ok(totals.waitingCents > 0); // pendente/boleto
   assert.equal(totals.laterCents >= 0, true);
 });
+
+test("19b (convite com token cifrado) é idempotente", async () => {
+  await pg.exec(`CREATE TABLE b2b_responsible_invites (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text)`);
+  await pg.exec(sqlFile("19b_convite_copia_cifrada.sql"));
+  await pg.exec(sqlFile("19b_convite_copia_cifrada.sql"));
+  const cols = await run(`SELECT 1 FROM information_schema.columns WHERE table_name='b2b_responsible_invites' AND column_name='token_ciphertext'`);
+  assert.equal(cols.length, 1);
+});

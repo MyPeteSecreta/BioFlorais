@@ -9,6 +9,45 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★ Rodada 3: C1–C9 e B1 (02/10/2026), sobre `481390c`
+
+Só local: sem push, deploy nem Neon. B2C: **nada de dados ou telas do B2C mudou**. Único toque em área compartilhada: nenhum arquivo do layout raiz; o rodapé do B2C é ocultado só dentro de `/b2b` por um `<style>` no layout B2B.
+
+**ORDEM: SQL 19b → publicar → (opcionais, em qualquer momento) 16a/16b, 17b, 18b.**
+- `19b_convite_copia_cifrada.sql` é **obrigatório antes do deploy**: o app faz `select` completo de `b2b_responsible_invites` (aceite do convite e admin), então precisa da coluna.
+- `17b_promocao_percentual_snapshot.sql` e `18b_comissoes_pagas.sql`: o app tolera a falta (grava o pedido sem o snapshot do desconto %; lista as comissões sem a coluna "Paga"), mas rode antes de usar o desconto % e o "Marcar paga".
+- `16a_promocoes_sem_elegibilidade.sql` (leitura) → `16b_elegibilidade_padrao_promocoes_sem_regra.sql` (aditivo): dá as 7 elegibilidades padrão às promoções ativas 3 por 2 / 4 por 2 que ficaram sem regra (a que o Luis criou no admin).
+
+**C1 (promoção nova não clicável): causa real e correção.**
+1. Promoção criada no admin não gravava nenhuma regra em `b2b_commission_rules`; sem regra não há opções 1x/2x/3x/30/60/90/180 e o botão da promoção fica `disabled` (`!hasRules`). Corrigido pelo C2.
+2. Achado extra: o Offer Builder só listava promoção que tivesse **linha ligada** (`b2b_promotion_commercial_groups`). Promoção do admin só com produtos, ou sem produtos nem linhas ("vale para todos"), não aparecia em linha nenhuma. Agora o alcance por linha vem de `promotion-scope.ts` (linhas ligadas e/ou linha que contém o produto; sem nada = qualquer linha).
+3. O servidor limita a promoção à **linha em que o vendedor a escolheu** (antes valia para qualquer produto da oferta).
+Teste "promoção criada pelo admin → vendedor seleciona → escolhe 2x → rascunho → pedido" em `scripts/b2b-promotion-admin.test.mjs` (admin define elegibilidades → matriz do vendedor → rascunho aceito → snapshot 10+8=18; elegibilidade não marcada é recusada). Não dá para testar o link/checkout reais sem o banco da Bio.
+
+**C2 admin.** Na aba Promoções: tipo (abertura/reconquista ou recorrente), tipo de benefício, e a seção "Elegibilidades e comissão extra" com as 7 opções (marcar/desmarcar + % extra), já preenchida com a tabela fechada para 3 por 2 (paga 2, +1) e 4 por 2 (paga 2, +2). Gravado em `b2b_commission_rules` (regras gerais; desmarcada = inativa, sem DELETE; regras por vendedor/cliente não são tocadas). Promoção ativa sem nenhuma elegibilidade é recusada (API e tela).
+
+**C3 desconto percentual.** Novo tipo `percentage_discount` (campo `percentage` que já existia; sem coluna nova em promoções). Mesmos campos/tipo/elegibilidade/comissão extra do C2. Cliente vê preço B2B riscado, preço com desconto e "−X%" no card, na sacola e no checkout (valores do servidor). Ordem de cálculo (padrão): promoção % → pedido mínimo R$250 → cupom → desconto Pix 7% / cartão 3% sobre o preço já com a promoção → frete (R$450). Snapshot por item (SQL 17b): `promotion_type`, `promotion_percent`, `promotion_discount_cents`; `unit_price_cents` é o preço efetivo cobrado (é o que o Omie lê). Pedido com desconto % conta como uso da promoção (R5) e como item "promotion" na comissão (extra da elegibilidade).
+
+**C4 alcance por linha.** Aviso/selo "somente em X" só nasce na linha da promoção e lista só os produtos daquela linha (`promotion-scope.ts`, testado: SKU ligado a duas linhas aparece só na que tem o produto).
+
+**C5.** Cards do link (a Bio não tem página de produto no B2B): "4 pagas + 2 grátis = 6 unidades" ao vivo (mesma função do servidor) ou preço com −X%.
+
+**C6 navegação.** O rodapé institucional (único elemento do layout raiz com links do B2C: /linha/*, /sobre, /atendimento, políticas, Instagram) fica oculto em `/b2b/*` (verificado no navegador: `display:none` no B2B e visível em `/atendimento`). Não existe logo/menu do site nas páginas B2B. Links verificados (todos dentro do token): oferta → `/b2b/oferta/<token>/linha/<slug>`; linha → "Voltar às linhas" `/b2b/oferta/<token>`, "Ver pedido" `/b2b/carrinho?b2b=<token>`; carrinho → "Voltar" `/b2b/oferta/<token>`, "Ir para o checkout" `/b2b/checkout?b2b=<token>`; checkout → "Voltar à oferta", "Voltar ao carrinho", pedido concluído → "Voltar à oferta"; WhatsApp do representante (wa.me).
+
+**C7.** "Fique atento às campanhas. Pergunte ao seu representante." em "Outras linhas"; removido "Os demais produtos seguem pelo preço B2B normal" do aviso de promoção pontual. Nenhum "preço normal"/"sem promoção" restou no que o cliente vê (o badge sem promoção é só "Preço B2B").
+
+**C8.** Admin → Vendedores: nos convites pendentes, "Copiar link de acesso / WhatsApp" (painel de compartilhamento já existente). O token do convite passa a ser guardado cifrado (AES-256-GCM, mesma chave do link da oferta) em `b2b_responsible_invites.token_ciphertext` (SQL 19b); convites antigos não têm cópia: "Gerar novo link" (o anterior deixa de valer, com aviso).
+
+**C9 Minhas comissões** (`/b2b/painel/comissoes`, link no topo do painel; só os pedidos do vendedor, filtro no SQL por `b2b_responsible_id`). Por pedido: data, cliente, nº, pagamento, base, base + extra = total (média ponderada do snapshot), valor, situação (Aguardando pagamento · A receber em 10/mm/aaaa · Paga · Cancelada); totais (próximo dia 10, meses seguintes, já recebido, aguardando); filtros mês e cliente. Admin → aba "Comissões": lista por vendedor/mês, "Marcar paga" (data) e "Desfazer" (com motivo), com log (SQL 18b: `b2b_commission_payouts`, `b2b_commission_payout_log`). **Padrão aplicado (Luis confirma):** base = total do pedido − frete; a receber no dia 10 do mês seguinte ao **recebimento**; cancelado/estornado/expirado zera. **Limites:** (1) a Bio não grava `paid_at`; o recebimento de Pix/cartão usa a data do pagamento confirmado (`payments.created_at` do pagamento "paid"; o finalizador é compartilhado com o B2C e não foi alterado). (2) **Boleto: nunca pelo vencimento**; sem baixa da parcela fica "Aguardando pagamento (aguardando baixa do boleto)". Como a baixa por parcela é o C10 (ainda não feito), **a comissão de boleto só passa a "A receber" quando o C10 existir**. Hoje o único ponto de "pago" do boleto é o status do pedido, sem data de recebimento.
+
+**B1 (boleto Bio na central da My Pet).** Como a Bio grava um pedido B2B por boleto: `orders.status = 'pending'` (e `fulfillment_status = 'awaiting_payment'`) **mesmo depois do boleto gerado**; `payment_method = 'boleto'`; a solicitação fica em `b2b_boleto_requests` (1 linha por pedido, `status = 'pending_request'`, `installments`, `schedule` = [{installment, dueDate, amountCents}] com 28/42/56 dias); os itens ficam em `order_items` com **duas linhas por item bonificado**: a paga (`unit_price_cents` > 0) e a bonificada (`unit_price_cents` = 0, `qty` = grátis); as duas carregam `paid_qty/bonus_qty/physical_qty` iguais. Portanto: (a) o "Aguardando pagamento" vem de `orders.status='pending'`, que é o estado real da Bio; para a central mostrar "Boleto emitido – a receber" ela deve usar `payment_method='boleto'` + existência de `b2b_boleto_requests` (e `b2b_offer_id IS NOT NULL`), **não** o status; mudar o status do pedido na Bio afetaria o B2C/Omie e não é necessário. (b) "Sem os itens bonificados": os itens bonificados **existem** no banco da Bio (linha com preço 0); se a central não os mostra, o filtro está do lado dela (provável: ignorar `unit_price_cents = 0` ou agrupar por produto e somar só `paid_qty`). Do lado da Bio não há o que corrigir. Consulta de conferência (leitura, Neon `bio-florais`) para a janela My Pet comparar com o que a central mostra: `sql/b2b/10a_conferencia_comissao_pedidos_b2b.sql` (traz `linha_do_pedido` pago/bonificado, `unit_price_cents`, status e forma) e, para o boleto, `SELECT o.id, o.status, o.payment_method, b.status, b.installments, b.schedule FROM orders o JOIN b2b_boleto_requests b ON b.order_id = o.id WHERE o.id::text LIKE 'f084d862%';`.
+
+**Pendente/fora desta entrega:** C10 (baixa de boletos por parcela). Não toquei na central da My Pet.
+
+**Testes (novos):** `b2b-promotion-admin.test.mjs` (C1/C2/C3/C4, SQL 16a/16b/17b), `b2b-commissions.test.mjs` (C9: base sem frete, ponderada, dia 10, boleto sem baixa, cancelada, paga, isolamento por vendedor, filtros, totais, 18b e 19b). **Verificações:** `npm.cmd test` 95/95, `tsc` exit 0, `npm.cmd run build` exit 0, `git diff --check` vazio. Telas novas (admin, painel de comissões, cards com desconto %) não foram abertas com dados reais: o navegador não alcança o Neon.
+
+---
+
 ## ★★★★★★★★ Rodada 2: tipos de promoção, ciclo por linha e contagem (02/10/2026), sobre `dca7d8b`
 
 Só local: sem push, deploy nem Neon. B2C intocado. **Ordem: SQL 14b → publicar.** (O app lê `b2b_promotions.promo_type`; sem o 14b o "porteiro" falha aberto e registra erro, mas o admin e o Offer Builder não funcionam.)

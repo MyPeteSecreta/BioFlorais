@@ -15,6 +15,7 @@ import {
   buildInviteUrl,
   buildWhatsAppUrl,
   createResponsibleInvite,
+  readInviteToken,
   type InvitePurpose,
 } from "@/lib/b2b/invites";
 
@@ -60,6 +61,28 @@ export async function POST(
         .where(and(eq(b2bResponsibleInvites.id, id), eq(b2bResponsibleInvites.status, "pending")));
 
       return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "show_link") {
+      // C8: copiar/reenviar o MESMO link de acesso (token guardado cifrado).
+      const token = readInviteToken(invite.tokenCiphertext);
+
+      if (!token) {
+        return NextResponse.json(
+          { error: "Este convite foi criado antes da cópia guardada. Use \"Gerar novo link\" (o anterior deixa de funcionar)." },
+          { status: 404 }
+        );
+      }
+
+      const purpose = (invite.purpose === "password_reset" ? "password_reset" : "onboarding") as InvitePurpose;
+      const url = buildInviteUrl(token);
+
+      return NextResponse.json({
+        ok: true,
+        url,
+        expiresAt: invite.expiresAt,
+        whatsappUrl: buildWhatsAppUrl(body.whatsapp, buildInviteMessage({ name: invite.name, url, purpose })),
+      });
     }
 
     if (body.action === "regenerate") {

@@ -150,7 +150,9 @@ export default function ResponsiblesTab() {
           title:
             action === "reset_access"
               ? `Link para ${row.name} definir nova senha`
-              : `Novo link de convite para ${row.name}`,
+              : action === "show_link"
+                ? `Link de acesso de ${row.name}`
+                : `Novo link de convite para ${row.name}`,
           url: data.url,
           whatsappUrl: data.whatsappUrl,
           expiresAt: data.expiresAt,
@@ -256,6 +258,9 @@ export default function ResponsiblesTab() {
                     <div className="flex flex-wrap gap-1.5">
                       {row.kind === "invite" && (
                         <>
+                          <button type="button" disabled={busy} onClick={() => act(row, "show_link")} className={`${actionButton} border-[#1f6b3a] text-[#1f6b3a]`}>
+                            Copiar link de acesso / WhatsApp
+                          </button>
                           <button type="button" disabled={busy} onClick={() => act(row, "regenerate", "Gerar um novo link? O link anterior deixa de funcionar.")} className={`${actionButton} border-[#342737] text-[#342737]`}>
                             Gerar novo link
                           </button>

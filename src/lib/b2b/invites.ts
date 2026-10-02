@@ -13,7 +13,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bResponsibleInvites } from "@/lib/db/schema";
-import { generateOpaqueToken, hashToken } from "@/lib/b2b/token";
+import { decryptOfferToken, encryptOfferToken, generateOpaqueToken, hashToken } from "@/lib/b2b/token";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import type { B2BResponsibleType, InvitePurpose } from "@/lib/b2b/invite-links";
 
@@ -62,20 +62,34 @@ export async function createResponsibleInvite(input: {
 
   const token = generateOpaqueToken();
 
-  const [invite] = await db
-    .insert(b2bResponsibleInvites)
-    .values({
-      name: input.name,
-      email: input.email,
-      responsibleType: input.responsibleType,
-      tokenHash: hashToken(token),
-      status: "pending",
-      expiresAt: new Date(now.getTime() + INVITE_TTL_MS),
-      sentAt: now,
-      purpose: input.purpose,
-      responsibleId: input.responsibleId ?? null,
-    })
-    .returning({ id: b2bResponsibleInvites.id, expiresAt: b2bResponsibleInvites.expiresAt });
+  const baseValues = {
+    name: input.name,
+    email: input.email,
+    responsibleType: input.responsibleType,
+    tokenHash: hashToken(token),
+    status: "pending",
+    expiresAt: new Date(now.getTime() + INVITE_TTL_MS),
+    sentAt: now,
+    purpose: input.purpose,
+    responsibleId: input.responsibleId ?? null,
+  };
+
+  let invite: { id: string; expiresAt: Date };
+
+  try {
+    // Token cifrado (sql/b2b/19b) para o admin poder COPIAR o link de novo.
+    [invite] = await db
+      .insert(b2bResponsibleInvites)
+      .values({ ...baseValues, tokenCiphertext: encryptOfferToken(token) })
+      .returning({ id: b2bResponsibleInvites.id, expiresAt: b2bResponsibleInvites.expiresAt });
+  } catch (error) {
+    // SQL 19b ainda não aplicado: grava o convite sem a cópia cifrada.
+    console.error("[b2b/invites] sem token_ciphertext, gravando sem cópia", error);
+    [invite] = await db
+      .insert(b2bResponsibleInvites)
+      .values(baseValues)
+      .returning({ id: b2bResponsibleInvites.id, expiresAt: b2bResponsibleInvites.expiresAt });
+  }
 
   return { inviteId: invite.id, expiresAt: invite.expiresAt, token };
 }
@@ -106,4 +120,9 @@ export async function loadInviteByToken(rawToken: string): Promise<InviteLookup>
   if (invite.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
 
   return { ok: true, invite };
+}
+
+/** Token do convite pendente (cifrado) para copiar o link de novo; null = convite criado antes do SQL 19b. */
+export function readInviteToken(ciphertext: string | null | undefined) {
+  return decryptOfferToken(ciphertext);
 }

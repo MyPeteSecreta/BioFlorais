@@ -846,6 +846,8 @@ export const b2bResponsibleInvites = pgTable(
      * de acesso de um responsável já existente (responsible_id).
      */
     purpose: text("purpose").notNull().default("onboarding"),
+    /* sql/b2b/19b: token cifrado (AES-GCM) para o admin copiar o link de acesso de novo. */
+    tokenCiphertext: text("token_ciphertext"),
     responsibleId: uuid("responsible_id"),
   }
 );
