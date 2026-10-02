@@ -13,6 +13,7 @@ import { isUuid } from "@/lib/b2b/admin-input";
 import {
   B2B_SUPPORTED_PROMOTION_TYPE,
   parsePromotionBody,
+  replacePromotionEligibilities,
   replacePromotionLinks,
   validatePromotionLinks,
 } from "@/lib/b2b/admin-promotions";
@@ -72,6 +73,7 @@ export async function PATCH(
     }
 
     await replacePromotionLinks(id, parsed.value);
+    await replacePromotionEligibilities(id, parsed.value);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

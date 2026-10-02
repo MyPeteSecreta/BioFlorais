@@ -464,7 +464,7 @@ export default function OfferBuilder({
                         </p>
                       )}
                       {!hasRules && (
-                        <p className="mt-2 text-xs font-bold text-[#b33]">Sem regra de comissão configurada.</p>
+                        <p className="mt-2 text-xs font-bold text-[#b33]">Sem elegibilidade configurada pelo admin (aba Promoções).</p>
                       )}
                     </button>
                   );

@@ -11,6 +11,11 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toSaoPauloDateInput } from "@/lib/b2b/admin-input";
 import ProductPicker, { type PickerProduct } from "./ProductPicker";
 import { useAdminApi } from "./useAdminApi";
+import {
+  defaultEligibilityRows,
+  rowsFromSaved,
+  type EligibilityRow,
+} from "@/lib/b2b/promotion-eligibility-defaults";
 
 type Promotion = {
   id: string;
@@ -26,6 +31,7 @@ type Promotion = {
   endsAt: string | null;
   groupIds: string[];
   productIds: string[];
+  eligibilities: Array<{ mode: "uses" | "days"; value: number; extraPercent: number }>;
   offers: number;
   uses: number;
 };
@@ -44,13 +50,16 @@ type Draft = {
   endsAt: string;
   groupIds: string[];
   productIds: string[];
+  /** Elegibilidades que o vendedor pode escolher + comissão EXTRA (%) de cada uma. */
+  eligibilities: EligibilityRow[];
+  eligibilityTouched: boolean;
 };
 
 const EMPTY: Draft = {
   id: null,
   name: "",
   promoType: "",
-  buyQuantity: 3,
+  buyQuantity: 2,
   freeQuantity: 1,
   active: true,
   sellerSelectable: true,
@@ -58,6 +67,8 @@ const EMPTY: Draft = {
   endsAt: "",
   groupIds: [],
   productIds: [],
+  eligibilities: defaultEligibilityRows(2, 1),
+  eligibilityTouched: false,
 };
 
 const field = "w-full rounded-xl border border-[#eadfd9] bg-white px-3 py-2 text-sm";
@@ -103,6 +114,20 @@ export default function PromotionsTab() {
     void load();
   }, [load]);
 
+  // Promoção nova: ao mudar 'paga/grátis', refaz os valores padrão (3 por 2 e 4 por 2) se o admin ainda não mexeu.
+  function changeQuantities(buyQuantity: number, freeQuantity: number) {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            buyQuantity,
+            freeQuantity,
+            eligibilities: current.eligibilityTouched ? current.eligibilities : defaultEligibilityRows(buyQuantity, freeQuantity),
+          }
+        : current
+    );
+  }
+
   async function saveMonths() {
     const { ok, data } = await api("/api/admin/b2b/settings", { method: "PUT", body: { reconquistaMeses } });
     setMessage(ok ? `Reconquista: ${data.reconquistaMeses} meses sem comprar a linha.` : data.error ?? "Erro ao salvar.");
@@ -131,6 +156,9 @@ export default function PromotionsTab() {
             endsAt: draft.endsAt,
             groupIds: draft.groupIds,
             productIds: draft.productIds,
+            eligibilities: draft.eligibilities
+              .filter((row) => row.enabled)
+              .map((row) => ({ mode: row.mode, value: row.value, extraPercent: row.extraPercent })),
           },
         }
       );
@@ -198,11 +226,11 @@ export default function PromotionsTab() {
             </label>
             <label className="text-xs font-bold text-[#7b6a77]">
               A cada (pagas)
-              <input className={field} type="number" min={1} value={draft.buyQuantity} onChange={(e) => setDraft({ ...draft, buyQuantity: Number(e.target.value) })} />
+              <input className={field} type="number" min={1} value={draft.buyQuantity} onChange={(e) => changeQuantities(Number(e.target.value), draft.freeQuantity)} />
             </label>
             <label className="text-xs font-bold text-[#7b6a77]">
               Ganha (grátis)
-              <input className={field} type="number" min={1} value={draft.freeQuantity} onChange={(e) => setDraft({ ...draft, freeQuantity: Number(e.target.value) })} />
+              <input className={field} type="number" min={1} value={draft.freeQuantity} onChange={(e) => changeQuantities(draft.buyQuantity, Number(e.target.value))} />
             </label>
           </div>
           <p className="text-xs text-[#7b6a77]">
@@ -228,6 +256,49 @@ export default function PromotionsTab() {
               <input type="checkbox" checked={draft.sellerSelectable} onChange={(e) => setDraft({ ...draft, sellerSelectable: e.target.checked })} />
               Selecionável pelo vendedor
             </label>
+          </div>
+          <div className="rounded-xl border border-[#eadfd9] p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#9b6c24]">Elegibilidades e comissão extra</p>
+            <p className="mt-1 text-xs text-[#7b6a77]">
+              Marque o que o vendedor pode escolher e a comissão EXTRA (%) de cada opção, somada à base do vendedor.
+              Sem nenhuma marcada, a promoção não pode ser ativada.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {draft.eligibilities.map((row, index) => (
+                <label key={`${row.mode}-${row.value}`} className="flex items-center gap-3 rounded-lg border border-[#eadfd9] px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        eligibilityTouched: true,
+                        eligibilities: draft.eligibilities.map((item, i) => (i === index ? { ...item, enabled: e.target.checked } : item)),
+                      })
+                    }
+                  />
+                  <span className="flex-1 font-bold">{row.mode === "uses" ? `${row.value}x compra${row.value === 1 ? "" : "s"}` : `${row.value} dias`}</span>
+                  <span className="text-xs text-[#7b6a77]">extra</span>
+                  <input
+                    className="w-20 rounded-lg border border-[#eadfd9] px-2 py-1 text-right text-sm"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={row.extraPercent}
+                    disabled={!row.enabled}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        eligibilityTouched: true,
+                        eligibilities: draft.eligibilities.map((item, i) => (i === index ? { ...item, extraPercent: Number(e.target.value) } : item)),
+                      })
+                    }
+                  />
+                  <span className="text-xs">%</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <p className="mb-2 text-xs font-bold text-[#7b6a77]">Linhas (opcional)</p>
@@ -324,6 +395,8 @@ export default function PromotionsTab() {
                           endsAt: toSaoPauloDateInput(promotion.endsAt),
                           groupIds: promotion.groupIds,
                           productIds: promotion.productIds,
+                          eligibilities: rowsFromSaved(promotion.eligibilities ?? []),
+                          eligibilityTouched: true,
                         })
                       }
                       className="rounded-full border border-[#342737] px-3 py-1 text-xs font-extrabold"

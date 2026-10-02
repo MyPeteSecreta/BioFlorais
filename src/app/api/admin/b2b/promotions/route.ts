@@ -20,6 +20,8 @@ import { countsAsPurchaseSql } from "@/lib/b2b/purchase-history";
 import {
   B2B_SUPPORTED_PROMOTION_TYPE,
   parsePromotionBody,
+  loadPromotionEligibilities,
+  replacePromotionEligibilities,
   replacePromotionLinks,
   validatePromotionLinks,
 } from "@/lib/b2b/admin-promotions";
@@ -72,6 +74,7 @@ export async function GET(request: NextRequest) {
       .from(b2bOfferPromotions)
       .groupBy(b2bOfferPromotions.promotionId);
 
+    const eligibilityBy = await loadPromotionEligibilities(promotions.map((promotion) => promotion.id));
     const countsBy = new Map(offerCounts.map((row) => [row.promotionId, row]));
 
     // Usos = pedidos que receberam a bonificação e contam como compra (R4), não o contador antigo.
@@ -89,6 +92,7 @@ export async function GET(request: NextRequest) {
         supported: promotion.type === B2B_SUPPORTED_PROMOTION_TYPE,
         groupIds: groupLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.groupId),
         productIds: productLinks.filter((row) => row.promotionId === promotion.id).map((row) => row.productId),
+        eligibilities: eligibilityBy.get(promotion.id) ?? [],
         offers: Number(countsBy.get(promotion.id)?.offers ?? 0),
         uses: usesBy.get(promotion.id) ?? 0,
       })),
@@ -110,6 +114,14 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    // Promoção nova ativa sem elegibilidade não seria selecionável pelo vendedor (C1).
+    if (parsed.value.active && parsed.value.eligibilities.length === 0) {
+      return NextResponse.json(
+        { error: "Marque ao menos uma elegibilidade (1x/2x/3x compras ou 30/60/90/180 dias) para ativar a promoção." },
+        { status: 400 }
+      );
     }
 
     const linkError = await validatePromotionLinks(parsed.value);
@@ -135,6 +147,7 @@ export async function POST(request: NextRequest) {
       .returning({ id: b2bPromotions.id });
 
     await replacePromotionLinks(promotion.id, parsed.value);
+    await replacePromotionEligibilities(promotion.id, parsed.value);
 
     return NextResponse.json({ ok: true, id: promotion.id });
   } catch (error) {
