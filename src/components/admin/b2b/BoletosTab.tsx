@@ -5,9 +5,10 @@
  * em destaque, filtros e "Dar baixa" / "Desfazer baixa".
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { formatB2BCents } from "@/lib/b2b/format";
+import { todaySaoPaulo } from "@/lib/b2b/boleto-installments";
 import { useAdminApi } from "./useAdminApi";
 
 type Installment = {
@@ -72,38 +73,93 @@ export default function BoletosTab() {
     void load();
   }, [load]);
 
-  async function baixa(row: Installment) {
-    const today = new Date().toISOString().slice(0, 10);
-    const paidAt = window.prompt(`Data do pagamento da parcela ${row.installment}/${row.installments} (#${row.orderNumber}) — AAAA-MM-DD:`, today);
-    if (!paidAt) return;
-    const value = window.prompt("Valor pago (R$):", (row.amountCents / 100).toFixed(2).replace(".", ","));
-    if (value === null) return;
-    const paidCents = Math.round(Number(value.replace(/\./g, "").replace(",", ".")) * 100);
-    let note: string | null = null;
+  // Modal na própria tela (substitui os window.prompt, que passavam despercebidos).
+  const [modal, setModal] = useState<{
+    kind: "baixa" | "undo";
+    row: Installment;
+    paidAt: string;
+    value: string;
+    note: string;
+    busy: boolean;
+    result: { ok: boolean; text: string } | null;
+  } | null>(null);
 
-    if (paidCents !== row.amountCents) {
-      note = window.prompt("O valor é diferente do da parcela. Observação (obrigatória):");
-      if (!note) return;
+  function openBaixa(row: Installment) {
+    setModal({
+      kind: "baixa",
+      row,
+      // Hoje em São Paulo (não em UTC: à noite o dia UTC já é o seguinte e a baixa seria recusada).
+      paidAt: todaySaoPaulo(),
+      value: (row.amountCents / 100).toFixed(2).replace(".", ","),
+      note: "",
+      busy: false,
+      result: null,
+    });
+  }
+
+  function openUndo(row: Installment) {
+    setModal({ kind: "undo", row, paidAt: "", value: "", note: "", busy: false, result: null });
+  }
+
+  const parseCents = (value: string) => Math.round(Number(value.replace(/\./g, "").replace(",", ".")) * 100);
+
+  async function confirmModal(event: FormEvent) {
+    event.preventDefault();
+    if (!modal || modal.busy || modal.result?.ok) return;
+
+    const { row } = modal;
+    setModal({ ...modal, busy: true, result: null });
+
+    const body =
+      modal.kind === "baixa"
+        ? {
+            action: "baixa",
+            orderId: row.orderId,
+            installment: row.installment,
+            paidAt: modal.paidAt,
+            paidCents: parseCents(modal.value),
+            note: modal.note,
+          }
+        : { action: "undo", orderId: row.orderId, installment: row.installment, reason: modal.note };
+
+    const { ok, data } = await api("/api/admin/b2b/boletos", { method: "POST", body });
+
+    setModal((current) =>
+      current
+        ? {
+            ...current,
+            busy: false,
+            result: ok
+              ? {
+                  ok: true,
+                  text:
+                    modal.kind === "baixa"
+                      ? data.orderPaid
+                        ? "Baixa registrada. Todas as parcelas pagas: pedido marcado como Pago."
+                        : "Baixa registrada."
+                      : "Baixa desfeita.",
+                }
+              : { ok: false, text: data.error ?? "Não foi possível salvar." },
+          }
+        : current
+    );
+
+    if (ok) {
+      // A linha muda na hora (sem esperar a recarga).
+      setRows((current) =>
+        current.map((item) =>
+          item.orderId === row.orderId && item.installment === row.installment
+            ? modal.kind === "baixa"
+              ? { ...item, status: "pago", paidAt: modal.paidAt, paidCents: parseCents(modal.value), note: modal.note || null }
+              : { ...item, status: "aberto", paidAt: null, paidCents: null, note: null }
+            : item
+        )
+      );
+      void load();
     }
-
-    const { ok, data } = await api("/api/admin/b2b/boletos", {
-      method: "POST",
-      body: { action: "baixa", orderId: row.orderId, installment: row.installment, paidAt, paidCents, note },
-    });
-    setMessage(ok ? (data.orderPaid ? "Baixa registrada. Todas as parcelas pagas: pedido marcado como Pago." : "Baixa registrada.") : data.error ?? "Erro.");
-    void load();
   }
 
-  async function undo(row: Installment) {
-    const reason = window.prompt("Motivo para desfazer a baixa (obrigatório):");
-    if (!reason) return;
-    const { ok, data } = await api("/api/admin/b2b/boletos", {
-      method: "POST",
-      body: { action: "undo", orderId: row.orderId, installment: row.installment, reason },
-    });
-    setMessage(ok ? "Baixa desfeita." : data.error ?? "Erro.");
-    void load();
-  }
+  const valueDiffers = modal?.kind === "baixa" && parseCents(modal.value) !== modal.row.amountCents;
 
   return (
     <div className="space-y-5">
@@ -190,12 +246,12 @@ export default function BoletosTab() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {(row.status === "aberto" || row.status === "vencido") && (
-                    <button type="button" onClick={() => baixa(row)} className="rounded-full bg-[#342737] px-3 py-1 text-xs font-extrabold text-white">
+                    <button type="button" onClick={() => openBaixa(row)} className="rounded-full bg-[#342737] px-3 py-1 text-xs font-extrabold text-white">
                       Dar baixa
                     </button>
                   )}
                   {row.status === "pago" && (
-                    <button type="button" onClick={() => undo(row)} className="rounded-full border border-[#b33] px-3 py-1 text-xs font-extrabold text-[#b33]">
+                    <button type="button" onClick={() => openUndo(row)} className="rounded-full border border-[#b33] px-3 py-1 text-xs font-extrabold text-[#b33]">
                       Desfazer baixa
                     </button>
                   )}
@@ -205,6 +261,85 @@ export default function BoletosTab() {
           </tbody>
         </table>
       </div>
+
+      {modal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#342737]/55 p-4" role="dialog" aria-modal="true">
+          <form onSubmit={confirmModal} className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-extrabold">
+              {modal.kind === "baixa" ? "Dar baixa" : "Desfazer baixa"} · parcela {modal.row.installment}/{modal.row.installments}
+            </h2>
+            <p className="text-sm text-[#7b6a77]">
+              Pedido #{modal.row.orderNumber} · {modal.row.clientName || "—"} · {formatB2BCents(modal.row.amountCents)} · vence em {fmt(modal.row.dueDate)}
+            </p>
+
+            {modal.kind === "baixa" ? (
+              <>
+                <label className="block text-xs font-bold text-[#7b6a77]">
+                  Data do pagamento
+                  <input
+                    className={`${field} mt-1 block w-full`}
+                    type="date"
+                    required
+                    max={todaySaoPaulo()}
+                    value={modal.paidAt}
+                    onChange={(e) => setModal({ ...modal, paidAt: e.target.value, result: null })}
+                  />
+                </label>
+                <label className="block text-xs font-bold text-[#7b6a77]">
+                  Valor pago (R$)
+                  <input
+                    className={`${field} mt-1 block w-full`}
+                    inputMode="decimal"
+                    required
+                    value={modal.value}
+                    onChange={(e) => setModal({ ...modal, value: e.target.value, result: null })}
+                  />
+                </label>
+                <label className="block text-xs font-bold text-[#7b6a77]">
+                  Observação {valueDiffers ? "(obrigatória: o valor é diferente do da parcela)" : "(opcional)"}
+                  <input
+                    className={`${field} mt-1 block w-full`}
+                    required={Boolean(valueDiffers)}
+                    value={modal.note}
+                    onChange={(e) => setModal({ ...modal, note: e.target.value, result: null })}
+                  />
+                </label>
+              </>
+            ) : (
+              <label className="block text-xs font-bold text-[#7b6a77]">
+                Motivo para desfazer a baixa (obrigatório)
+                <input
+                  className={`${field} mt-1 block w-full`}
+                  required
+                  value={modal.note}
+                  onChange={(e) => setModal({ ...modal, note: e.target.value, result: null })}
+                />
+              </label>
+            )}
+
+            {modal.result && (
+              <p
+                role="alert"
+                className={`rounded-xl p-3 text-sm font-bold ${modal.result.ok ? "bg-[#e3f5e9] text-[#1f6b3a]" : "bg-red-100 text-red-800"}`}
+              >
+                {modal.result.ok ? "✓ " : "✕ "}
+                {modal.result.text}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setModal(null)} className="rounded-full border border-[#342737] px-5 py-2 text-sm font-extrabold">
+                {modal.result?.ok ? "Fechar" : "Cancelar"}
+              </button>
+              {!modal.result?.ok && (
+                <button type="submit" disabled={modal.busy} className="rounded-full bg-[#342737] px-5 py-2 text-sm font-extrabold text-white disabled:opacity-50">
+                  {modal.busy ? "Salvando…" : "Confirmar"}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

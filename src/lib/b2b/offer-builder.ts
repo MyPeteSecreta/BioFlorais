@@ -20,6 +20,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
+import { isTestCommercialGroup } from "@/lib/b2b/test-groups";
 import { promotionScopeForGroup, type GroupMembership } from "@/lib/b2b/promotion-scope";
 import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
@@ -56,13 +57,7 @@ export type BuilderLine = {
   promotions: BuilderPromotion[];
 };
 
-/**
- * Dado de teste que vazou para produção ("BIO-B2B TEST GROUP <hex>") nunca
- * vira card, mesmo que esteja ativo no banco. O SQL 08b o desativa de vez.
- */
-export function isTestCommercialGroup(group: { slug: string; name: string }) {
-  return /^\s*bio-b2b[\s-]*test/i.test(group.name) || /^bio-b2b-test/i.test(group.slug);
-}
+export { isTestCommercialGroup };
 
 /**
  * `clientId`: avalia, para ESSE cliente, quais promoções estão disponíveis

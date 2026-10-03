@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { applyB2BPercentDiscount } from "@/lib/b2b/promotion-engine";
+import { effectiveUnitPriceCents } from "@/lib/b2b/promotion-engine";
 
 export type B2BCartLine = {
   productId: string;
@@ -30,7 +30,7 @@ export type B2BCartLine = {
 
 /** Preço unitário efetivo exibido (com o desconto %, se houver). */
 export function cartLineUnitCents(line: Pick<B2BCartLine, "priceCents" | "discountPercent">) {
-  return applyB2BPercentDiscount(line.priceCents, line.discountPercent ?? 0);
+  return effectiveUnitPriceCents(line);
 }
 
 type B2BCartState = {

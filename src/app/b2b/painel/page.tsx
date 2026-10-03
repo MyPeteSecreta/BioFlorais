@@ -83,14 +83,11 @@ export default async function B2BPanelPage() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white p-3"
                 >
                   <span>
-                    <strong>{interest.clientName}</strong> visualizou a linha{" "}
-                    <strong>{interest.lineName}</strong> (fora da oferta)
-                    {Number(interest.views) > 1 ? ` · ${interest.views} vezes` : ""}
-                    <span className="ml-2 text-xs text-[#8a7886]">
-                      {new Date(interest.lastViewedAt).toLocaleString("pt-BR", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
+                    <strong>{interest.clientName}</strong> visualizou a linha <strong>{interest.lineName}</strong> fora da
+                    oferta ({Number(interest.views)} {Number(interest.views) === 1 ? "vez" : "vezes"}), em{" "}
+                    {new Date(interest.lastViewedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.
+                    <span className="mt-1 block text-xs font-bold text-blue-900">
+                      Que tal mandar uma nova oferta com essa linha?
                     </span>
                   </span>
                   <Link

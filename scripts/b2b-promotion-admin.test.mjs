@@ -309,3 +309,56 @@ test("ORDEM DE CÁLCULO única: promoção % → mínimo R$250 → cupom → Pix
   assert.equal(totals.card, Math.round(afterCoupon * 0.97) + 990);
   assert.equal(totals.boleto, afterCoupon + 990);
 });
+
+test("PONTA A PONTA % : admin cria → vendedor seleciona → link (riscado e −X%) → sacola → pedido", async () => {
+  const { effectiveUnitPriceCents: cartLineUnitCents } = await import("../src/lib/b2b/promotion-engine.ts");
+  const { productPromotionRule, productPromotionText } = await import("../src/lib/b2b/offer-notices.ts");
+  const PCT = UUID(80), LINE2 = UUID(81), PROD = UUID(82), VEND = UUID(83), CLI = UUID(84);
+
+  // 1) Admin cria (tipo %, recorrente) com a tabela do 3 por 2 como padrão editável.
+  const parsed = parsePromotionBody({
+    name: "Black Friday 10%", promoType: "recorrente", kind: "percentage", percentage: 10, active: true,
+    eligibilities: defaultEligibilityRows(2, 1).map((r) => ({ mode: r.mode, value: r.value, extraPercent: r.extraPercent })),
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.value.eligibilities.length, 7);
+  await run(`INSERT INTO b2b_promotions (id, name, buy_quantity, free_quantity) VALUES ($1, 'Black Friday 10%', NULL, NULL)`, [PCT]);
+  for (const e of parsed.value.eligibilities) {
+    await run(
+      `INSERT INTO b2b_commission_rules (scope, promotion_id, eligibility_mode, max_uses, duration_days, extra_percent) VALUES ('promotion_eligibility', $1, $2, $3, $4, $5)`,
+      [PCT, e.mode, e.mode === "uses" ? e.value : null, e.mode === "days" ? e.value : null, e.extraPercent]
+    );
+  }
+
+  // 2) Vendedor: vê as opções e escolhe "2 compras".
+  const matrixE2E = await loadCommissionMatrix(run, VEND, CLI);
+  assert.deepEqual(eligibilityOptions(matrixE2E, PCT).uses.map((r) => r.extraPercent), [10, 8, 6]);
+  const lines = [{ id: LINE2, name: "Adulto", promotions: [{ id: PCT, available: true }] }];
+  assert.equal(
+    validateDraftInput({ commercialGroupIds: [LINE2], promotions: [{ commercialGroupId: LINE2, promotionId: PCT, eligibilityMode: "uses", maxUses: 2 }] }, lines, matrixE2E).ok,
+    true
+  );
+
+  // 3) Link: selo e preço riscado/−X% vêm do aviso da oferta.
+  const notice = { promotionId: PCT, commercialGroupId: LINE2, percent: 10, buyQuantity: 0, freeQuantity: 0, productIds: [], usesRemaining: 2, validUntil: null };
+  assert.equal(lineBadge([notice], LINE2, new Map()), "10% OFF");
+  assert.match(productPromotionText([notice], LINE2, PROD), /−10% neste produto/);
+  const rule = productPromotionRule([notice], LINE2, PROD);
+  assert.equal(rule.percent, 10);
+  const listPrice = 3000;
+  assert.equal(applyB2BPercentDiscount(listPrice, rule.percent), 2700); // preço efetivo exibido ao lado do riscado (30,00)
+
+  // 4) Sacola: usa o preço com desconto no subtotal.
+  assert.equal(cartLineUnitCents({ priceCents: listPrice, discountPercent: rule.percent }) * 10, 27000);
+
+  // 5) Pedido: item com preço efetivo, desconto e comissão da promoção (10 base + 8 extra, 2 compras).
+  const [item] = buildOrderItemSnapshots({
+    matrix: matrixE2E,
+    offerPromotions: [{ promotionId: PCT, name: "Black Friday 10%", buyQuantity: null, freeQuantity: null, eligibilityMode: "uses", maxUses: 2, durationDays: null }],
+    lines: [{ productId: PROD, qty: 10, unitPriceCents: 2700, listUnitPriceCents: listPrice }],
+    bonusLines: [],
+    discountLines: [{ productId: PROD, percent: 10, promotionId: PCT }],
+    window: { firstPaidAt: null, endsAt: null, open: true },
+  });
+  assert.deepEqual([item.unitPriceCents, item.promotionType, item.promotionDiscountCents, item.commissionTotalPercent], [2700, "percentage_discount", 3000, "18"]);
+});

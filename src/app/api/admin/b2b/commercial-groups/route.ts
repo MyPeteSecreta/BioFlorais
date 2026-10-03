@@ -13,6 +13,7 @@ import {
   b2bOfferCommercialGroups,
 } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
+import { isTestCommercialGroup } from "@/lib/b2b/test-groups";
 import {
   parseCommercialGroupBody,
   replaceGroupProducts,
@@ -41,6 +42,9 @@ export async function GET(request: NextRequest) {
       .from(b2bCommercialGroups)
       .orderBy(asc(b2bCommercialGroups.sortOrder), asc(b2bCommercialGroups.name));
 
+    // Dado de teste vazado em produção não aparece na lista de linhas do admin.
+    const visibleGroups = groups.filter((group) => !isTestCommercialGroup(group));
+
     const links = await db
       .select({
         groupId: b2bCommercialGroupProducts.commercialGroupId,
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
     const offersBy = new Map(offerCounts.map((row) => [row.groupId, Number(row.total)]));
 
     return NextResponse.json({
-      groups: groups.map((group) => ({
+      groups: visibleGroups.map((group) => ({
         ...group,
         productIds: links.filter((link) => link.groupId === group.id).map((link) => link.productId),
         offers: offersBy.get(group.id) ?? 0,

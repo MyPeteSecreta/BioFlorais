@@ -199,3 +199,18 @@ test("não desfaz baixa se o pedido já avançou na separação ou se a comissã
   assert.equal(blocked.status, 409);
   assert.match(blocked.error, /comissão desta parcela já foi paga/);
 });
+
+test("BUG da baixa às 23h em São Paulo: a data padrão é a de SP (não a de UTC, que já é amanhã e seria recusada)", async () => {
+  const id = await boletoOrder();
+  const at2330 = new Date("2026-10-21T02:30:00Z"); // 23:30 de 20/10 em São Paulo
+
+  const utcDate = at2330.toISOString().slice(0, 10); // o que o prompt antigo preenchia: 2026-10-21
+  assert.equal(utcDate, "2026-10-21");
+  const old = await giveBaixa(run, { orderId: id, installment: 1, paidAt: utcDate, paidCents: null, note: null }, at2330);
+  assert.equal(old.ok, false);
+  assert.match(old.error, /futura/);
+
+  const spDate = todaySaoPaulo(at2330);
+  assert.equal(spDate, "2026-10-20");
+  assert.deepEqual(await giveBaixa(run, { orderId: id, installment: 1, paidAt: spDate, paidCents: null, note: null }, at2330), { ok: true, orderPaid: false });
+});

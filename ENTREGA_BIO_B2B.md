@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★ Ajustes pós-teste (03/10/2026), sobre `b45a203`
+
+Só local, sem SQL novo. `npm.cmd test` 106/106, `tsc` e `build` exit 0, `git diff --check` vazio.
+1. **Baixa de boleto "não acontece nada":** causa = data padrão em UTC (`toISOString`): à noite em SP já era o dia seguinte e o servidor recusava ("data futura") com a mensagem num `prompt`. Agora: data padrão de São Paulo (`todaySaoPaulo`), modal na tela com input de data, valor em R$ pré-preenchido, observação (obrigatória só se o valor difere), resultado verde/vermelho no próprio modal e a linha vira "Pago" na hora; mesmo modal para "Desfazer baixa" (motivo obrigatório). Teste às 23h30 de SP: a data UTC é recusada e a de SP é aceita.
+2. **Admin → Promoções:** removido o texto antigo; "Tipo de benefício" virou 2 botões grandes ("Compre X, leve Y grátis" | "X% de desconto"); desconto % pré-preenche a tabela do 3 por 2 (editável); "BIO-B2B TEST GROUP…" some da lista de linhas (filtro `isTestCommercialGroup`, agora em `test-groups.ts`); a lista de produtos mostra a LINHA de cada produto e filtra por linha.
+3. **Ponta a ponta do desconto %** (teste): admin cria → vendedor vê as 7 elegibilidades e escolhe 2 compras → link (selo "10% OFF", "−10% neste produto", preço riscado 30,00 → 27,00) → sacola (subtotal 270,00) → pedido (preço efetivo, tipo, valor descontado e comissão 10+8=18).
+4. **Aviso ao vendedor:** "<cliente> visualizou a linha <X> fora da oferta (N vezes), em dd/mm/aaaa. Que tal mandar uma nova oferta com essa linha?" (data em São Paulo).
+
+---
+
 ## ★★★★★★★★★★ C10 baixa de boletos + ordem de cálculo (02/10/2026), sobre `f460524`
 
 Só local. **SQL `20b_boleto_baixa.sql` ANTES do deploy** (tabelas `b2b_boleto_payments`, `b2b_boleto_payment_log`; `b2b_commission_payouts` ganha `installment` e chave (pedido, parcela)).

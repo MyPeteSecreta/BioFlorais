@@ -134,6 +134,23 @@ export default function PromotionsTab() {
     );
   }
 
+  // Troca o tipo de benefício. Desconto % começa com a tabela do 3 por 2 (editável); X+Y, com a tabela de X/Y.
+  function chooseKind(kind: Draft["kind"]) {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            kind,
+            eligibilities: current.eligibilityTouched
+              ? current.eligibilities
+              : kind === "percentage"
+                ? defaultEligibilityRows(2, 1)
+                : defaultEligibilityRows(current.buyQuantity, current.freeQuantity),
+          }
+        : current
+    );
+  }
+
   async function saveMonths() {
     const { ok, data } = await api("/api/admin/b2b/settings", { method: "PUT", body: { reconquistaMeses } });
     setMessage(ok ? `Reconquista: ${data.reconquistaMeses} meses sem comprar a linha.` : data.error ?? "Erro ao salvar.");
@@ -190,9 +207,8 @@ export default function PromotionsTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-[#7b6a77]">
-          Tipo disponível: <strong>compre X, leve Y grátis</strong> (mesmo produto), o único com
-          efeito real no cálculo do servidor. Sem produtos nem linhas selecionados, a promoção
-          vale para todos os produtos da oferta.
+          Promoções por quantidade (compre X, leve Y grátis) ou por desconto percentual. Sem produtos nem linhas
+          selecionados, a promoção vale para todos os produtos da oferta.
         </p>
         {!draft && (
           <button type="button" onClick={() => setDraft({ ...EMPTY })} className="rounded-full bg-[#342737] px-5 py-2.5 text-sm font-extrabold text-white">
@@ -227,21 +243,33 @@ export default function PromotionsTab() {
               <option value="recorrente">Recorrente: qualquer cliente B2B (ex.: Black Friday)</option>
             </select>
           </label>
-          <label className="block text-xs font-bold text-[#7b6a77]">
-            Tipo de benefício
-            <select className={field} value={draft.kind} onChange={(e) => {
-              const kind = e.target.value as Draft["kind"];
-              // Desconto % não tem tabela padrão de comissão extra: o admin define (começa tudo desmarcado).
-              setDraft({
-                ...draft,
-                kind,
-                eligibilities: draft.eligibilityTouched ? draft.eligibilities : kind === "percentage" ? defaultEligibilityRows(0, 0) : defaultEligibilityRows(draft.buyQuantity, draft.freeQuantity),
-              });
-            }}>
-              <option value="bonus">Compre X, leve Y grátis (mesmo produto)</option>
-              <option value="percentage">X% de desconto sobre os produtos do alcance</option>
-            </select>
-          </label>
+          <div>
+            <p className="text-xs font-bold text-[#7b6a77]">Tipo de benefício</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de benefício">
+              {(
+                [
+                  { kind: "bonus", title: "Compre X, leve Y grátis", hint: "Bonificação do mesmo produto" },
+                  { kind: "percentage", title: "X% de desconto", hint: "Desconto no preço B2B (preço riscado para o cliente)" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={draft.kind === option.kind}
+                  onClick={() => chooseKind(option.kind)}
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
+                    draft.kind === option.kind
+                      ? "border-[#342737] bg-[#342737] text-white"
+                      : "border-[#eadfd9] bg-white text-[#342737] hover:border-[#c9a8cf]"
+                  }`}
+                >
+                  <span className="block text-lg font-black">{draft.kind === option.kind ? "✓ " : ""}{option.title}</span>
+                  <span className={`mt-1 block text-xs ${draft.kind === option.kind ? "text-white/80" : "text-[#7b6a77]"}`}>{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid gap-3 md:grid-cols-[1fr_140px_140px]">
             <label className="text-xs font-bold text-[#7b6a77]">
               Nome

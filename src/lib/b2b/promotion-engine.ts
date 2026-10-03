@@ -34,3 +34,8 @@ export function applyB2BPercentDiscount(unitPriceCents: number, percent: number)
 
   return Math.round((unitPriceCents * (100 - percent)) / 100);
 }
+
+/** Preço unitário efetivo da linha da sacola (com o desconto %, se houver). */
+export function effectiveUnitPriceCents(line: { priceCents: number; discountPercent?: number | null }) {
+  return applyB2BPercentDiscount(line.priceCents, line.discountPercent ?? 0);
+}

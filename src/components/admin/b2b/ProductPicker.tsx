@@ -7,9 +7,30 @@ export type PickerProduct = {
   slug: string;
   name: string;
   category: string | null;
+  /** Linha do site (products.line_slug): adulto, pet, infantil... */
+  lineSlug?: string | null;
   priceCents: number;
   active: boolean;
 };
+
+const LINE_LABELS: Record<string, string> = {
+  adulto: "Adulto",
+  pet: "Pet",
+  infantil: "Infantil",
+  baby: "Baby",
+  kids: "Kids",
+  teen: "Teen",
+  "dose-unica": "Dose Única",
+  "virtudes-divinas": "Virtudes Divinas",
+  cosmeticos: "Cosméticos",
+  "cosmeticos-pet": "Cosméticos Pet",
+  "home-care": "Home Care",
+};
+
+function lineLabel(slug: string | null | undefined) {
+  if (!slug) return "Sem linha";
+  return LINE_LABELS[slug] ?? slug;
+}
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -26,6 +47,7 @@ export default function ProductPicker({
   onChange: (ids: string[]) => void;
 }) {
   const [category, setCategory] = useState("");
+  const [line, setLine] = useState("");
   const [query, setQuery] = useState("");
   const [onlySelected, setOnlySelected] = useState(false);
 
@@ -39,16 +61,25 @@ export default function ProductPicker({
     [products]
   );
 
+  const lines = useMemo(
+    () =>
+      Array.from(new Set(products.map((product) => product.lineSlug ?? ""))).sort((a, b) =>
+        lineLabel(a).localeCompare(lineLabel(b), "pt-BR")
+      ),
+    [products]
+  );
+
   const filtered = useMemo(() => {
     const term = normalize(query.trim());
 
     return products.filter(
       (product) =>
         (!category || (product.category ?? "Sem categoria") === category) &&
+        (!line || (product.lineSlug ?? "") === line) &&
         (!term || normalize(`${product.name} ${product.slug}`).includes(term)) &&
         (!onlySelected || selected.has(product.id))
     );
-  }, [products, category, query, onlySelected, selected]);
+  }, [products, category, line, query, onlySelected, selected]);
 
   function toggle(id: string) {
     onChange(selected.has(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
@@ -66,6 +97,17 @@ export default function ProductPicker({
   return (
     <div className="rounded-xl border border-[#eadfd9]">
       <div className="flex flex-wrap items-center gap-2 border-b border-[#eadfd9] bg-[#fbf7f4] p-3">
+        <select
+          value={line}
+          onChange={(event) => setLine(event.target.value)}
+          className="rounded-lg border border-[#eadfd9] bg-white px-2 py-1.5 text-sm"
+          aria-label="Filtrar por linha"
+        >
+          <option value="">Todas as linhas</option>
+          {lines.map((item) => (
+            <option key={item || "none"} value={item}>{lineLabel(item)}</option>
+          ))}
+        </select>
         <select
           value={category}
           onChange={(event) => setCategory(event.target.value)}
@@ -105,6 +147,7 @@ export default function ProductPicker({
                 {product.name}
                 {!product.active && <span className="ml-2 text-xs font-bold text-[#b33]">(inativo)</span>}
               </span>
+              <span className="text-xs font-bold text-[#55245f]">{lineLabel(product.lineSlug)}</span>
               <span className="text-xs text-[#7b6a77]">{product.category ?? "Sem categoria"}</span>
             </label>
           </li>
