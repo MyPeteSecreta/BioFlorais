@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { db } from "@/lib/db/client";
@@ -14,6 +14,7 @@ import {
 
 import FulfillmentControls from "@/components/admin/FulfillmentControls";
 import ShippingControls from "@/components/admin/ShippingControls";
+import OrderEventsPanel from "@/components/admin/OrderEventsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,8 @@ function fulfillmentLabel(status: string) {
       return "Enviado";
     case "completed":
       return "Concluído";
+    case "delivered":
+      return "Entregue";
     case "cancelled":
       return "Cancelado";
     default:
@@ -121,6 +124,8 @@ export default async function PedidoDetalhePage({
         qty: orderItems.qty,
         unitPriceCents: orderItems.unitPriceCents,
         productName: products.name,
+        // Nome completo dos itens B2B (product_name_snapshot, SQL 21b). Pedido B2C: nulo = igual a antes.
+        productNameSnapshot: sql<string | null>`to_jsonb("order_items") ->> 'product_name_snapshot'`,
         productSlug: products.slug,
         productLineSlug: products.lineSlug,
         category: products.category,
@@ -270,9 +275,11 @@ export default async function PedidoDetalhePage({
                   className="rounded-2xl bg-[#faf8f3] p-4"
                 >
                   <p className="font-bold text-stone-900">
-                    {item.category
-                      ? `${item.category} — ${item.productName ?? "Produto"}`
-                      : item.productName ?? "Produto"}
+                    {item.productNameSnapshot
+                      ? item.productNameSnapshot
+                      : item.category
+                        ? `${item.category} — ${item.productName ?? "Produto"}`
+                        : item.productName ?? "Produto"}
                   </p>
 
                   {item.productLineSlug && (
@@ -432,6 +439,14 @@ export default async function PedidoDetalhePage({
             orderId={order.id}
             currentStatus={order.fulfillmentStatus}
             paymentApproved={paymentApproved}
+          />
+
+          <OrderEventsPanel
+            orderId={order.id}
+            paymentApproved={paymentApproved}
+            fulfillmentStatus={order.fulfillmentStatus}
+            initialCarrier={order.shippingServiceName ?? ""}
+            initialTracking={order.trackingCode ?? ""}
           />
 
           <ShippingControls

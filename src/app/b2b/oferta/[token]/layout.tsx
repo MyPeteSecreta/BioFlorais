@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import RetailerMessages from "@/components/b2b/RetailerMessages";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
-import { hasSeenPopup, loadActiveMessages } from "@/lib/b2b/retailer-messages";
+import { hasSeenPopup, loadActiveMessages, loadRotation } from "@/lib/b2b/retailer-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +26,15 @@ export default async function OfferLayout({
   if (!resolution.ok) return <>{children}</>;
 
   const run = getAppSqlRunner();
-  const [messages, seen] = await Promise.all([loadActiveMessages(run), hasSeenPopup(run, resolution.context.clientId)]);
+  const [messages, seen, rotation] = await Promise.all([
+    loadActiveMessages(run),
+    hasSeenPopup(run, resolution.context.clientId),
+    loadRotation(run),
+  ]);
 
   return (
     <>
-      <RetailerMessages token={token} messages={messages} showPopup={!seen} />
+      <RetailerMessages token={token} messages={messages} showPopup={!seen} rotation={rotation} />
       {children}
     </>
   );

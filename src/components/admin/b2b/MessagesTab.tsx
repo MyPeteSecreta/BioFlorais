@@ -6,9 +6,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { useAdminApi } from "./useAdminApi";
 
-type Message = { id: string | null; title: string; body: string; active: boolean; sortOrder: number };
+type Message = { id: string | null; title: string; body: string; shortCall: string; active: boolean; sortOrder: number };
 
-const EMPTY: Message = { id: null, title: "", body: "", active: true, sortOrder: 10 };
+const EMPTY: Message = { id: null, title: "", body: "", shortCall: "", active: true, sortOrder: 10 };
 const field = "w-full rounded-xl border border-[#eadfd9] bg-white px-3 py-2 text-sm";
 
 export default function MessagesTab() {
@@ -17,12 +17,15 @@ export default function MessagesTab() {
   const [draft, setDraft] = useState<Message | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [rotation, setRotation] = useState({ bannerSeconds: 60, buttonSeconds: 60 });
 
   const load = useCallback(async () => {
     const { ok, data } = await api("/api/admin/b2b/messages");
 
-    if (ok) setMessages(data.messages ?? []);
-    else setMessage(data.error ?? "Erro ao carregar.");
+    if (ok) {
+      setMessages(data.messages ?? []);
+      if (data.rotation) setRotation(data.rotation);
+    } else setMessage(data.error ?? "Erro ao carregar.");
   }, [api]);
 
   useEffect(() => {
@@ -30,6 +33,11 @@ export default function MessagesTab() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  async function saveRotation() {
+    const { ok, data } = await api("/api/admin/b2b/messages/settings", { method: "PUT", body: rotation });
+    setMessage(ok ? "Tempos de troca salvos." : data.error ?? "Erro ao salvar os tempos.");
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -69,6 +77,21 @@ export default function MessagesTab() {
         )}
       </div>
 
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#eadfd9] bg-white p-4">
+        <label className="text-xs font-bold text-[#7b6a77]">
+          Faixa do topo: trocar a cada (segundos)
+          <input className={`${field} w-32`} type="number" min={5} max={3600} value={rotation.bannerSeconds} onChange={(e) => setRotation({ ...rotation, bannerSeconds: Number(e.target.value) })} />
+        </label>
+        <label className="text-xs font-bold text-[#7b6a77]">
+          Botão flutuante: trocar a cada (segundos)
+          <input className={`${field} w-32`} type="number" min={5} max={3600} value={rotation.buttonSeconds} onChange={(e) => setRotation({ ...rotation, buttonSeconds: Number(e.target.value) })} />
+        </label>
+        <button type="button" onClick={saveRotation} className="rounded-full border border-[#342737] px-4 py-2 text-xs font-extrabold">
+          Salvar tempos
+        </button>
+        <p className="max-w-md text-xs text-[#7b6a77]">Padrão: 60 s. Ambos giram pelas mensagens ativas, cada um no seu tempo. O pop-up do 1º acesso usa a 1ª mensagem ativa pela ordem.</p>
+      </div>
+
       {message && <p className="rounded-xl bg-[#f6eef7] p-3 text-sm font-semibold">{message}</p>}
 
       {draft && (
@@ -77,6 +100,10 @@ export default function MessagesTab() {
           <label className="block text-xs font-bold text-[#7b6a77]">
             Título
             <input className={field} maxLength={120} required value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          </label>
+          <label className="block text-xs font-bold text-[#7b6a77]">
+            Chamada curta (botão flutuante, até 30 caracteres)
+            <input className={field} maxLength={30} value={draft.shortCall} onChange={(e) => setDraft({ ...draft, shortCall: e.target.value })} placeholder="Ex.: Novidades para você" />
           </label>
           <label className="block text-xs font-bold text-[#7b6a77]">
             Texto
@@ -104,12 +131,13 @@ export default function MessagesTab() {
       )}
 
       <ul className="space-y-3">
-        {messages.length === 0 && <li className="rounded-2xl border border-dashed border-[#d9c7dc] bg-white p-6 text-sm text-[#7b6a77]">Nenhuma mensagem (o SQL 22b cria a inicial).</li>}
+        {messages.length === 0 && <li className="rounded-2xl border border-dashed border-[#d9c7dc] bg-white p-6 text-sm text-[#7b6a77]">Nenhuma mensagem (cadastre as suas).</li>}
         {messages.map((item) => (
           <li key={item.id} className={`rounded-2xl border bg-white p-4 ${item.active ? "border-[#eadfd9]" : "border-[#eadfd9] opacity-60"}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="max-w-3xl">
                 <p className="font-extrabold">{item.title}</p>
+                {item.shortCall && <p className="mt-1 text-xs font-bold text-[#8a5f12]">Botão: {item.shortCall}</p>}
                 <p className="mt-1 text-sm text-[#6c5b69]">{item.body}</p>
                 <p className="mt-2 text-xs font-bold text-[#8a7886]">
                   {item.active ? "Ativa" : "Inativa"} · ordem {item.sortOrder}

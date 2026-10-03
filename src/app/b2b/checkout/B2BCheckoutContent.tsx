@@ -16,6 +16,7 @@
 
 import Link from "next/link";
 import ReorderLink from "@/components/b2b/ReorderLink";
+import TrackOrderCard from "@/components/TrackOrderCard";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -370,6 +371,7 @@ export default function B2BCheckoutContent() {
             Pedido {order.id.slice(0, 8).toUpperCase()} · {formatB2BCents(order.totalCents)}
           </p>
         )}
+        {order && <TrackOrderCard orderId={order.id} />}
         <ReorderLink token={token} />
         <Link
           href={`/b2b/oferta/${encodeURIComponent(token)}`}
@@ -390,6 +392,8 @@ export default function B2BCheckoutContent() {
             Pedido {order.id.slice(0, 8).toUpperCase()} · {METHOD_LABELS[order.paymentMethod]} ·{" "}
             {formatB2BCents(order.totalCents)}
           </p>
+
+          <TrackOrderCard orderId={order.id} />
 
           {error && (
             <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-900">

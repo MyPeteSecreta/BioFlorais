@@ -11,7 +11,13 @@ import type { ReactNode } from "react";
 export default function HideOnB2B({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/b2b" || pathname?.startsWith("/b2b/")) {
+  // Só o B2C público mostra estes elementos: nem o B2B nem o admin.
+  if (
+    pathname === "/b2b" ||
+    pathname?.startsWith("/b2b/") ||
+    pathname === "/admin" ||
+    pathname?.startsWith("/admin/")
+  ) {
     return null;
   }
 

@@ -9,6 +9,8 @@
  * Clicar numa linha abre os produtos em /b2b/oferta/<token>/linha/<slug>.
  */
 
+import Link from "next/link";
+
 import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
@@ -89,6 +91,12 @@ export default async function B2BOfferPage({
           <p className="mt-2 text-sm font-semibold text-[#6c5b69]">
             Atendido por {context.responsibleName}
           </p>
+          <Link
+            href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}
+            className="mt-3 mr-2 inline-block rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white"
+          >
+            Meus pedidos
+          </Link>
           <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
             Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
           </p>

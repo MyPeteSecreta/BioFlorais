@@ -98,7 +98,7 @@ export default async function ProtectedAdminLayout({
               </a>
             ) : (
               <span
-                className="rounded-full bg-[#e8e0e5] px-5 py-2.5 text-sm font-extrabold text-[#8f7d8b]"
+                className="rounded-full bg-[#e8e0e5] px-5 py-2.5 text-sm font-extrabold text-[#4f3f4b]"
                 title="CENTRAL_OMIE_URL ainda não configurada"
               >
                 Central Omie

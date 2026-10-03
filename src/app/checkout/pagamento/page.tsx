@@ -2,6 +2,8 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+
+import TrackOrderCard from "@/components/TrackOrderCard";
 import { useSearchParams } from "next/navigation";
 
 function CheckoutPagamentoContent() {
@@ -53,6 +55,9 @@ function CheckoutPagamentoContent() {
               Nenhuma cobranca foi realizada ate este momento.
             </p>
           </div>
+
+          {orderId && <TrackOrderCard orderId={orderId} />}
+
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Link

@@ -63,6 +63,13 @@ export default function SiteFooter() {
               Descubra seu floral
             </Link>
 
+            <Link href="/acompanhe-seu-pedido" className="hover:text-[#63326d]">
+
+              Acompanhe seu pedido
+
+            </Link>
+
+
             <Link href="/atendimento" className="hover:text-[#63326d]">
               Atendimento
             </Link>

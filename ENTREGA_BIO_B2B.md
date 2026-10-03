@@ -9,6 +9,33 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★ Rodada 4: acompanhamento do pedido (B2C e B2B) — 03/10/2026, sobre `a75d228`
+
+Só local, sem push. `npm.cmd test` 125/125, `tsc` e `build` exit 0, `git diff --check` vazio.
+**SQL (Neon `bio-florais`), aditivos e idempotentes, qualquer ordem, antes ou depois do deploy:** `23b_acompanhamento_pedido.sql` (tabelas `order_events` e `order_tracking_attempts`) e `25b_mensagens_chamada_e_rodizio.sql` (`short_call` + tempos de troca; não cria mensagens). Sem o 23b a página funciona (limite de tentativas em memória, sem histórico de andamento); sem o 25b o botão usa o título como chamada.
+
+**A1 diagnóstico:** ver resposta da janela (status de `orders` e `fulfillment_status`, quem altera, ausência de entregue, Melhor Envio só cota frete, sem "meus pedidos" nem e-mail).
+
+**O QUE MUDA NO B2C (aprovado pelo Luis) — só adições, nada do checkout/pagamento/preço mudou:**
+- Rota nova pública `/acompanhe-seu-pedido` (busca) e `/acompanhe/<link assinado>` (pedido), mais `POST /api/orders/track` e `GET /api/orders/track-link`.
+- Link "Acompanhe seu pedido" no rodapé do site (`SiteFooter`, 1 `<Link>` novo).
+- Bloco novo "Acompanhe seu pedido" (componente `TrackOrderCard`: link assinado, copiar, WhatsApp) na tela de pedido criado/pago do checkout (`checkout/page.tsx`, 1 linha que renderiza o componente quando já existe `pendingOrderId`) e em `/checkout/pagamento`.
+- `HideOnB2B` (A7) agora também esconde carrinho flutuante, convite "Seja uma criadora" e barra de linhas em `/admin/*` (antes só em `/b2b/*`). Nas páginas públicas do B2C continuam iguais (conferido no navegador).
+- Admin do pedido (`/admin/pedidos/[id]`): painel novo "Andamento para o cliente"; os nomes dos itens passam a usar `product_name_snapshot` quando existe (pedidos B2C: nulo, iguais a antes); `delivered` ganhou o rótulo "Entregue". Impressão da separação idem.
+
+**A2 página "Acompanhe seu pedido".** Busca por número (8 primeiros caracteres do id, como o cliente vê) + e-mail OU CPF/CNPJ; resposta genérica igual para qualquer erro; 5 tentativas a cada 10 min por IP (hash do IP, tabela `order_tracking_attempts`; sem a tabela, memória). Link direto assinado (HMAC com `ADMIN_SESSION_SECRET`, `<orderId>.<assinatura>`, sem e-mail/CPF/nome). Conteúdo: linha do tempo (recebido → pagamento → em separação → enviado com transportadora e rastreio clicável → entregue), cancelado com texto claro e o que fazer, Pix pendente (< 25 min) com copia-e-cola de novo (lido de `payments.raw_payload` quando o código está lá), boleto B2B com parcelas, vencimento e situação, itens com NOME COMPLETO (snapshot ou tipo · nome · linha · volume), bonificados, valores, frete, total, endereço parcial (cidade/UF e início do CEP, sem rua), SAC. Prazo de entrega: o pedido não guarda o prazo da cotação; a tela remete a "Frete e entrega" (limite honesto; gravar o prazo exigiria mexer na criação do pedido B2C). Mobile-first (conferido a 375px).
+**A3** `/b2b/oferta/<token>/pedidos` ("Meus pedidos" no topo do link): só os pedidos do cliente do token, cada um abre o mesmo acompanhamento; "Acompanhar meu pedido" também no pedido concluído do B2B.
+**A4** Admin: "Marcar em separação", "Marcar enviado" (transportadora + código + link opcional), "Marcar entregue", com data, quem fez e histórico (`order_events`); exige pagamento confirmado; "entregue" só depois de "enviado". A data de entregue fica gravada; nada é enviado à Academia. Melhor Envio não devolve rastreio (só cota), então o código segue manual.
+**A5** Confirmado: `discounts_shipping` só é lido no resolvedor do B2B, que só aceita cupom `scope='b2b'` (comercial, cadastrado no admin) e recusa `couponType='partner'` (Partner/UGC); o B2C nunca lê o campo. Teste estático trava isso.
+**A6** Varredura automática de todo `.tsx` (fundo escuro preenchido sem texto claro, em hex e em nomes do Tailwind): nada encontrado além de barras de progresso sem texto. Corrigidos: botão "Central Omie" desativado do admin (texto 2,9:1 → 8:1) e o botão flutuante das mensagens (fundo `#8a5f12`, branco 5,9:1). Não há componente compartilhado a mexer na Bio.
+**A7** Feito (ver "O que muda no B2C").
+**A8** Cada mensagem tem "Chamada curta" (até 30) usada no botão flutuante; a faixa mostra o texto completo; admin define "trocar a cada N segundos" separado para faixa e botão (padrão 60, 5–3600); ambos giram pelas ativas; o pop-up usa a 1ª ativa pela ordem; nenhuma mensagem nova semeada.
+**Extra:** admin B2B aceita `?aba=boletos|promotions|commissions|messages|...` (a Central abre direto em "Boletos a receber").
+
+**Testes novos:** `scripts/b2b-tracking.test.mjs` (link assinado e adulteração, busca com acerto/erro/documento, limite de 5 por 10 min, linha do tempo, itens e nome completo, boleto, Pix, isolamento entre clientes no "Meus pedidos", A5, A8, 23b e 25b).
+
+---
+
 ## ★★★★★★★★★★★★ Comissão por item, nome completo e marketing ao lojista (03/10/2026), sobre `df04670`
 
 Só local, sem push. `npm.cmd test` 115/115, `tsc` e `build` exit 0, `git diff --check` vazio.

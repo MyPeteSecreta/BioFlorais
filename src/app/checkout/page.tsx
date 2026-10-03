@@ -1,5 +1,7 @@
 "use client";
 
+import TrackOrderCard from "@/components/TrackOrderCard";
+
 import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
 
 import Link from "next/link";
@@ -2601,8 +2603,13 @@ export default function CheckoutPage() {
               </strong>
             </div>
 
+            {pendingOrderId && <TrackOrderCard orderId={pendingOrderId} />}
+
+
             {pendingOrderId ? (
+
               <div
+
                 id="bio-payment-pending-state"
                 className="mt-6 rounded-2xl border border-[#46644f]/20 bg-[#f5f7f2] p-5"
               >

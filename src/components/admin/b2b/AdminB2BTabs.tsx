@@ -22,8 +22,10 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-export default function AdminB2BTabs() {
-  const [tab, setTab] = useState<TabId>("responsibles");
+/** `initialTab` vem de ?aba=boletos (a Central de pedidos abre o admin direto na aba). */
+export default function AdminB2BTabs({ initialTab }: { initialTab?: string }) {
+  const start = TABS.find((item) => item.id === initialTab)?.id ?? "responsibles";
+  const [tab, setTab] = useState<TabId>(start);
 
   return (
     <div className="mt-6">

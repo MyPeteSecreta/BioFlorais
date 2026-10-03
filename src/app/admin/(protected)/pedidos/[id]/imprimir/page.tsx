@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import {
@@ -60,6 +60,8 @@ export default async function ImprimirPedidoPage({
     .select({
       qty: orderItems.qty,
       productName: products.name,
+      // Nome completo dos itens B2B (SQL 21b); pedido B2C: nulo = igual a antes.
+      productNameSnapshot: sql<string | null>`to_jsonb("order_items") ->> 'product_name_snapshot'`,
       productLineSlug: products.lineSlug,
       category: products.category,
 
@@ -137,9 +139,11 @@ export default async function ImprimirPedidoPage({
               </span>
 
               <span className="pr-3 text-sm font-bold">
-                ☐ {item.category
-                  ? `${item.category} — ${item.productName || "Produto"}`
-                  : item.productName || "Produto"}
+                ☐ {item.productNameSnapshot
+                  ? item.productNameSnapshot
+                  : item.category
+                    ? `${item.category} — ${item.productName || "Produto"}`
+                    : item.productName || "Produto"}
                 {item.productLineSlug
                   ? ` · Linha: ${item.productLineSlug}`
                   : ""}
