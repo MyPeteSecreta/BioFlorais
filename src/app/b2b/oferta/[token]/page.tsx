@@ -12,6 +12,7 @@
 import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
+import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { lineBadge, lineEligibilityCaption } from "@/lib/b2b/offer-notices";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
@@ -62,7 +63,7 @@ export default async function B2BOfferPage({
     new Map(
       context.products
         .filter((product) => product.commercialGroupIds.includes(lineId))
-        .map((product) => [product.id, product.name])
+        .map((product) => [product.id, b2bProductLabel(product).full])
     );
   const lineHref = (slug: string) => `/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(slug)}`;
 

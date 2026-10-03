@@ -19,6 +19,7 @@ import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext, type PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 import { getProduct } from "@/lib/catalog/bio-products";
+import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
 import B2BOfferCatalog, { type B2BCatalogProduct } from "@/components/b2b/B2BOfferCatalog";
 import RecordLineView from "./RecordLineView";
@@ -32,12 +33,16 @@ function toCatalogProduct(
   promotion: { buyQuantity: number; freeQuantity: number; percent: number | null } | null = null
 ): B2BCatalogProduct {
   const catalogProduct = getProduct(product.slug);
+  const label = b2bProductLabel({ slug: product.slug, name: product.name, category: product.category });
 
   return {
     id: product.id,
     slug: product.slug,
-    name: product.name,
-    content: b2bProductContent(catalogProduct),
+    name: label.title,
+    typeLabel: label.type || null,
+    lineLabel: label.line || null,
+    fullName: label.full,
+    content: label.volume || b2bProductContent(catalogProduct),
     image: catalogProduct ? getProductMainImage(catalogProduct) || null : null,
     priceCents: resolveB2BUnitPriceCents(product.b2cPriceCents, product.category),
     promotionText,

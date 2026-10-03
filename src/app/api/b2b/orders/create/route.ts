@@ -28,6 +28,7 @@ import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { buildOrderItemSnapshots } from "@/lib/b2b/order-commission";
 import { commissionWindowForItem, loadClientPurchases, loadReconquistaMonths } from "@/lib/b2b/purchase-history";
+import { b2bProductLabel } from "@/lib/b2b/product-label";
 import {
   isB2BInstallmentCountValid,
   isB2BPaymentMethod,
@@ -287,7 +288,15 @@ export async function POST(request: NextRequest) {
 
     // Colunas novas são opcionais: se um SQL (13b commission_basis, 17b desconto %) ainda não
     // foi aplicado, o pedido é gravado sem elas em vez de falhar.
+    // Nome COMPLETO do produto no item (product_name_snapshot, SQL 21b): é o que a central/Omie leem.
+    const nameById = new Map(context.products.map((product) => [product.id, b2bProductLabel(product).full]));
+    const withName = (item: (typeof itemSnapshots)[number]) => ({
+      ...item,
+      productNameSnapshot: nameById.get(item.productId) ?? null,
+    });
+
     const attempts: Array<(item: (typeof itemSnapshots)[number]) => Record<string, unknown>> = [
+      (item) => ({ orderId: order.id, ...withName(item) }),
       (item) => ({ orderId: order.id, ...item }),
       ({ promotionType: _t, promotionPercent: _p, promotionDiscountCents: _d, ...item }) => ({ orderId: order.id, ...item }),
       ({ promotionType: _t, promotionPercent: _p, promotionDiscountCents: _d, commissionBasis: _b, ...item }) => ({

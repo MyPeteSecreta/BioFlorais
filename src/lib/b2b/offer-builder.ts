@@ -20,6 +20,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
+import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { isTestCommercialGroup } from "@/lib/b2b/test-groups";
 import { promotionScopeForGroup, type GroupMembership } from "@/lib/b2b/promotion-scope";
 import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
@@ -125,6 +126,9 @@ export async function loadBuilderLines(
             promotionId: b2bPromotionProducts.promotionId,
             id: products.id,
             name: products.name,
+            slug: products.slug,
+            category: products.category,
+            lineSlug: products.lineSlug,
           })
           .from(b2bPromotionProducts)
           .innerJoin(products, eq(products.id, b2bPromotionProducts.productId))
@@ -187,7 +191,8 @@ export async function loadBuilderLines(
         // Só os produtos DESTA linha (C4): o aviso "somente X" não vaza para outras linhas.
         onlyProducts: productRows
           .filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))
-          .map((product) => ({ id: product.id, name: product.name })),
+          // Nome completo (tipo, linha e volume): "Shampoo Agressividade · Cosméticos Pet · 500 ml".
+          .map((product) => ({ id: product.id, name: b2bProductLabel(product).full })),
       })),
   }));
 }

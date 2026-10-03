@@ -19,12 +19,30 @@
  */
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
+import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { loadBoletoInstallments, type BoletoInstallment } from "@/lib/b2b/boleto-installments";
 import { isUuid } from "@/lib/b2b/admin-input";
 
 export type CommissionState = "aguardando" | "a_receber" | "paga" | "cancelada";
 
+/** Um item do pedido na abertura da comissão (base R$, % e comissão R$ do item). */
+export type CommissionItem = {
+  /** Nome completo: "Shampoo Agressividade · Cosméticos Pet · 500 ml". */
+  name: string;
+  qty: number;
+  /** Item bonificado (valor 0): aparece como "bonificado", sem base nem comissão. */
+  bonified: boolean;
+  basePercent: number | null;
+  extraPercent: number | null;
+  totalPercent: number | null;
+  /** Base de cálculo do item em R$ (parte do valor pago dos produtos, sem frete). */
+  baseCents: number;
+  commissionCents: number | null;
+};
+
 export type CommissionRow = {
+  /** Itens do pedido (na parcela do boleto, proporcionais ao valor da parcela). */
+  items: CommissionItem[];
   orderId: string;
   orderNumber: string;
   createdAt: Date;
@@ -187,6 +205,57 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
     }
   }
 
+  // Itens de cada pedido (produto, snapshot de comissão), para abrir o pedido na tela.
+  const itemsByOrder = new Map<string, Array<Record<string, unknown>>>();
+
+  if (orderIds.length > 0) {
+    const itemRows = await run(
+      `SELECT i.order_id, i.qty, i.unit_price_cents, i.commission_base_percent, i.commission_extra_percent,
+              i.commission_total_percent, p.slug, p.name, p.category, p.line_slug
+         FROM order_items i LEFT JOIN products p ON p.id = i.product_id
+        WHERE i.order_id = ANY($1::uuid[])
+        ORDER BY i.unit_price_cents DESC, p.name`,
+      [orderIds]
+    );
+
+    for (const item of itemRows) {
+      const list = itemsByOrder.get(String(item.order_id)) ?? [];
+      list.push(item);
+      itemsByOrder.set(String(item.order_id), list);
+    }
+  }
+
+  /** Itens com a base repartida proporcionalmente ao valor; `rowBase` = base da linha (pedido ou parcela). */
+  const buildItems = (orderId: string, rowBase: number): CommissionItem[] => {
+    const raw = itemsByOrder.get(orderId) ?? [];
+    const sum = raw.reduce((total, item) => total + Number(item.unit_price_cents ?? 0) * Number(item.qty ?? 0), 0);
+
+    return raw.map((item) => {
+      const value = Number(item.unit_price_cents ?? 0) * Number(item.qty ?? 0);
+      const pct = (field: string) =>
+        item[field] === null || item[field] === undefined ? null : Math.round(Number(item[field]) * 100) / 100;
+      const totalPercent = pct("commission_total_percent");
+      const bonified = value === 0;
+      const baseCents = bonified || sum === 0 ? 0 : Math.round((rowBase * value) / sum);
+
+      return {
+        name: b2bProductLabel({
+          slug: String(item.slug ?? ""),
+          name: String(item.name ?? "Produto"),
+          category: (item.category as string | null) ?? null,
+          lineSlug: (item.line_slug as string | null) ?? null,
+        }).full,
+        qty: Number(item.qty ?? 0),
+        bonified,
+        basePercent: pct("commission_base_percent"),
+        extraPercent: pct("commission_extra_percent"),
+        totalPercent,
+        baseCents,
+        commissionCents: bonified || totalPercent === null ? null : Math.round((baseCents * totalPercent) / 100),
+      };
+    });
+  };
+
   const result: CommissionRow[] = [];
 
   for (const row of rows) {
@@ -230,6 +299,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
 
         result.push({
           ...common,
+          items: buildItems(orderId, baseCents),
           baseCents,
           commissionCents: totalPercent === null ? null : Math.round((baseCents * totalPercent) / 100),
           receivedAt,
@@ -250,6 +320,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
 
     result.push({
       ...common,
+      items: buildItems(orderId, orderBaseCents),
       baseCents: orderBaseCents,
       commissionCents: totalPercent === null ? null : Math.round((orderBaseCents * totalPercent) / 100),
       receivedAt,

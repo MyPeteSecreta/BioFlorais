@@ -471,6 +471,10 @@ export const orderItems = pgTable(
 
     promotionDiscountCents:
       integer("promotion_discount_cents"),
+
+    /* sql/b2b/21b: nome completo do produto no momento do pedido (central/Omie leem este campo). */
+    productNameSnapshot:
+      text("product_name_snapshot"),
   }
 );
 

@@ -12,6 +12,11 @@ export type B2BCatalogProduct = {
   slug: string;
   name: string;
   content: string | null;
+  /** Selo do tipo sobre a imagem (Shampoo, Condicionador, Floral, Snack...). */
+  typeLabel?: string | null;
+  lineLabel?: string | null;
+  /** "<Tipo> <Nome> · <Linha> · <volume>" (sacola, checkout, pedido). */
+  fullName?: string | null;
   image: string | null;
   priceCents: number;
   /** Aviso da promoção da oferta (ex.: "Compre 2 e leve +1 grátis"). */
@@ -40,7 +45,12 @@ function ProductCard({
 
   return (
     <li className="flex flex-col rounded-[20px] border border-[#eadfd9] bg-white p-4 shadow-sm">
-      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-[#fbf5f1]">
+      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-[#fbf5f1]">
+        {product.typeLabel && (
+          <span className="absolute left-2 top-2 z-10 rounded-full bg-[#55245f] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white shadow">
+            {product.typeLabel}
+          </span>
+        )}
         {product.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
@@ -50,7 +60,12 @@ function ProductCard({
       </div>
 
       <h3 className="mt-3 text-sm font-bold leading-snug text-[#422347]">{product.name}</h3>
-      {product.content && <p className="mt-1 text-xs text-[#8a7886]">{product.content}</p>}
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6c5b69]">
+        {product.lineLabel && <span className="font-semibold">{product.lineLabel}</span>}
+        {product.content && (
+          <span className="rounded-md bg-[#f6eef7] px-2 py-0.5 text-sm font-extrabold text-[#55245f]">{product.content}</span>
+        )}
+      </p>
 
       {product.promotionText && (
         <p className="mt-2 inline-flex self-start rounded-full bg-blue-600 px-3 py-1 text-[11px] font-extrabold text-white">
@@ -178,7 +193,7 @@ export default function B2BOfferCatalog({
                       {
                         productId: product.id,
                         slug: product.slug,
-                        name: product.name,
+                        name: product.fullName ?? product.name,
                         image: product.image,
                         priceCents: product.priceCents,
                         discountPercent: product.promotion?.percent ?? null,

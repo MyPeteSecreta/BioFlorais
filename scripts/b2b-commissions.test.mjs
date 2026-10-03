@@ -49,6 +49,8 @@ before(async () => {
   await pg.exec(`
     CREATE TABLE b2b_responsibles (id uuid PRIMARY KEY, name text);
     CREATE TABLE b2b_clients (id uuid PRIMARY KEY, display_name text);
+    CREATE TABLE products (id uuid PRIMARY KEY, slug text, name text, category text, line_slug text);
+    INSERT INTO products VALUES ('${PRODUCT}', 'cosmeticos-pet-shampoo-agressividade', 'Agressividade', 'Shampoo', 'cosmeticos-pet');
     CREATE TABLE orders (id uuid PRIMARY KEY, status text, payment_method text, total_cents int, shipping_cents int,
       b2b_responsible_id uuid, b2b_responsible_name text, b2b_client_id uuid, b2b_offer_id uuid, created_at timestamp DEFAULT now());
     CREATE TABLE order_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, product_id uuid, qty int, unit_price_cents int,
@@ -154,4 +156,23 @@ test("19b (convite com token cifrado) é idempotente", async () => {
   await pg.exec(sqlFile("19b_convite_copia_cifrada.sql"));
   const cols = await run(`SELECT 1 FROM information_schema.columns WHERE table_name='b2b_responsible_invites' AND column_name='token_ciphertext'`);
   assert.equal(cols.length, 1);
+});
+
+test("abrir o pedido: itens com NOME COMPLETO, base + extra = total, base R$ e comissão R$; bonificado sem valor", async () => {
+  const id = await order({ paidAt: "2026-10-15 15:00:00", createdAt: "2026-10-05 12:00:00" });
+  const row = (await loadCommissionRows(run, { responsibleId: VENDOR_A })).find((item) => item.orderId === id);
+
+  assert.equal(row.items.length, 3); // 2 pagos + 1 bonificado
+  const [first, second, bonus] = row.items;
+
+  assert.equal(first.name, "Shampoo Agressividade · Cosméticos Pet · 500 ml");
+  assert.deepEqual([first.basePercent, first.extraPercent, first.totalPercent], [10, 15, 25]);
+  assert.deepEqual([second.basePercent, second.extraPercent, second.totalPercent], [10, 8, 18]);
+
+  // Base repartida proporcionalmente ao valor: 9000 (sem frete) x 5000/9000 e x 4000/9000.
+  assert.deepEqual([first.baseCents, second.baseCents], [5000, 4000]);
+  assert.deepEqual([first.commissionCents, second.commissionCents], [1250, 720]); // 25% de 50,00 e 18% de 40,00
+  assert.equal(first.commissionCents + second.commissionCents, 1970); // = comissão do pedido
+
+  assert.deepEqual([bonus.bonified, bonus.baseCents, bonus.commissionCents], [true, 0, null]);
 });

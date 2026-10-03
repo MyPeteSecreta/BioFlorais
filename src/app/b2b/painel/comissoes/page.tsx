@@ -6,6 +6,7 @@
  */
 
 import Link from "next/link";
+import { Fragment } from "react";
 
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { formatB2BCents } from "@/lib/b2b/format";
@@ -108,7 +109,6 @@ export default async function MyCommissionsPage({
               <th className="px-4 py-3">Pedido</th>
               <th className="px-4 py-3">Pagamento</th>
               <th className="px-4 py-3 text-right">Base</th>
-              <th className="px-4 py-3">Base + extra = total</th>
               <th className="px-4 py-3 text-right">Comissão</th>
               <th className="px-4 py-3">Situação</th>
             </tr>
@@ -116,47 +116,81 @@ export default async function MyCommissionsPage({
           <tbody className="divide-y divide-[#f1e8e4]">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-[#8a7886]">
+                <td colSpan={7} className="px-4 py-8 text-center text-[#8a7886]">
                   Nenhum pedido encontrado.
                 </td>
               </tr>
             )}
             {rows.map((row) => (
-              <tr key={row.orderId}>
-                <td className="px-4 py-3">{date(row.createdAt)}</td>
-                <td className="px-4 py-3 font-semibold">{row.clientName || "—"}</td>
-                <td className="px-4 py-3">
-                  #{row.orderNumber}
-                  {row.installmentLabel && <span className="block text-xs text-[#8a7886]">parcela {row.installmentLabel}</span>}
-                </td>
-                <td className="px-4 py-3">{METHOD[row.paymentMethod ?? ""] ?? row.paymentMethod ?? "—"}</td>
-                <td className="px-4 py-3 text-right">{formatB2BCents(row.baseCents)}</td>
-                <td className="px-4 py-3 text-xs">
-                  {row.totalPercent === null ? (
-                    "sem snapshot"
-                  ) : (
-                    <>
-                      {pct(row.basePercent)} + {pct(row.extraPercent)} = <strong>{pct(row.totalPercent)}</strong>
-                      {row.basis && <span className="block text-[#8a7886]">{row.basis}</span>}
-                    </>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right font-extrabold">
-                  {row.commissionCents === null ? "—" : formatB2BCents(row.commissionCents)}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${STATE_CLASS[row.state]}`}>
-                    {row.state === "a_receber" && row.payableOn
-                      ? `A receber em ${date(row.payableOn)}`
-                      : row.state === "paga"
-                        ? `Paga em ${date(row.paidOutAt)}`
-                        : STATE_LABEL[row.state]}
-                  </span>
-                  {row.state === "aguardando" && row.paymentMethod === "boleto" && (
-                    <span className="mt-1 block text-[11px] text-[#8a7886]">Aguardando a baixa da parcela</span>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={`${row.orderId}-${row.installment}`}>
+                <tr>
+                  <td className="px-4 py-3">{date(row.createdAt)}</td>
+                  <td className="px-4 py-3 font-semibold">{row.clientName || "—"}</td>
+                  <td className="px-4 py-3">
+                    #{row.orderNumber}
+                    {row.installmentLabel && <span className="block text-xs text-[#8a7886]">parcela {row.installmentLabel}</span>}
+                  </td>
+                  <td className="px-4 py-3">{METHOD[row.paymentMethod ?? ""] ?? row.paymentMethod ?? "—"}</td>
+                  <td className="px-4 py-3 text-right">{formatB2BCents(row.baseCents)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="block text-lg font-black text-[#55245f]">
+                      {row.commissionCents === null ? "—" : formatB2BCents(row.commissionCents)}
+                    </span>
+                    {row.totalPercent !== null && (
+                      <span className="block text-[11px] text-[#8a7886]">média {pct(row.totalPercent)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${STATE_CLASS[row.state]}`}>
+                      {row.state === "a_receber" && row.payableOn
+                        ? `A receber em ${date(row.payableOn)}`
+                        : row.state === "paga"
+                          ? `Paga em ${date(row.paidOutAt)}`
+                          : STATE_LABEL[row.state]}
+                    </span>
+                    {row.state === "aguardando" && row.paymentMethod === "boleto" && (
+                      <span className="mt-1 block text-[11px] text-[#8a7886]">Aguardando a baixa da parcela</span>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={7} className="px-4 pb-3 pt-0">
+                    <details className="text-xs">
+                      <summary className="cursor-pointer font-bold text-[#63326d]">Ver itens do pedido</summary>
+                      <table className="mt-2 w-full text-left">
+                        <thead className="text-[11px] uppercase tracking-[0.06em] text-[#8a7886]">
+                          <tr>
+                            <th className="py-1 pr-3">Produto</th>
+                            <th className="py-1 pr-3 text-right">Qtd.</th>
+                            <th className="py-1 pr-3">Base + extra = total</th>
+                            <th className="py-1 pr-3 text-right">Base de cálculo</th>
+                            <th className="py-1 text-right">Comissão</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.items.map((item, index) => (
+                            <tr key={index} className="border-t border-[#f1e8e4]">
+                              <td className="py-1.5 pr-3 font-semibold">{item.name}</td>
+                              <td className="py-1.5 pr-3 text-right">{item.qty}</td>
+                              <td className="py-1.5 pr-3">
+                                {item.bonified
+                                  ? "—"
+                                  : item.totalPercent === null
+                                    ? "sem snapshot"
+                                    : `${pct(item.basePercent)} + ${pct(item.extraPercent)} = ${pct(item.totalPercent)}`}
+                              </td>
+                              <td className="py-1.5 pr-3 text-right">{item.bonified ? "bonificado" : formatB2BCents(item.baseCents)}</td>
+                              <td className="py-1.5 text-right font-bold">
+                                {item.bonified ? "bonificado" : item.commissionCents === null ? "—" : formatB2BCents(item.commissionCents)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </details>
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

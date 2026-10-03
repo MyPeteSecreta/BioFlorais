@@ -52,6 +52,8 @@ before(async () => {
   await pg.exec(`
     CREATE TABLE b2b_responsibles (id uuid PRIMARY KEY, name text);
     CREATE TABLE b2b_clients (id uuid PRIMARY KEY, display_name text);
+    CREATE TABLE products (id uuid PRIMARY KEY, slug text, name text, category text, line_slug text);
+    INSERT INTO products VALUES ('${PRODUCT}', 'cosmeticos-pet-shampoo-agressividade', 'Agressividade', 'Shampoo', 'cosmeticos-pet');
     CREATE TABLE orders (id uuid PRIMARY KEY, status text, fulfillment_status text, payment_method text, total_cents int, shipping_cents int,
       b2b_responsible_id uuid, b2b_responsible_name text, b2b_client_id uuid, b2b_offer_id uuid, created_at timestamp DEFAULT now());
     CREATE TABLE order_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, product_id uuid, qty int, unit_price_cents int,
