@@ -9,6 +9,19 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★ Comissão por item, nome completo e marketing ao lojista (03/10/2026), sobre `df04670`
+
+Só local, sem push. `npm.cmd test` 115/115, `tsc` e `build` exit 0, `git diff --check` vazio.
+**SQL (Neon `bio-florais`):** `21b_nome_completo_produto_item.sql` (aditivo; coluna `order_items.product_name_snapshot`, opcional: sem ela o pedido é gravado normalmente) e `22b_mensagens_lojista.sql` (aditivo; tabelas das mensagens + seed; sem ele o link funciona sem marketing e sem pop-up). Qualquer ordem, antes ou depois do deploy.
+
+**1. Comissão confusa.** "Minhas comissões" e aba Comissões do admin: o VALOR em R$ da comissão ficou em destaque e o percentual virou "média 20,28%" em texto pequeno. "Ver itens do pedido" abre a lista por item: produto (nome completo), qtd., base + extra = total %, base de cálculo R$ (valor pago dos produtos sem frete, repartido pelo valor de cada item; no boleto, proporcional à parcela) e comissão R$; item de valor 0 aparece como "bonificado". A soma dos itens fecha com a comissão do pedido.
+
+**2. Nome completo no B2B:** `"<Tipo> <Nome> · <Linha> · <volume>"` (ex.: "Shampoo Agressividade · Cosméticos Pet · 500 ml"; 5 L e 500 ml se distinguem) via `product-label.ts` (só LÊ o catálogo; B2C intocado). Aplicado: cards da linha (título com o tipo, selo do tipo sobre a imagem, linha e volume em destaque), sacola, checkout e pedido concluído (a sacola grava o nome completo ao adicionar), aviso "somente em X" do vendedor/revisão, itens na abertura da comissão e **exportação Omie/central**: novos pedidos B2B gravam o nome completo em `order_items.product_name_snapshot` (campo que a exportação já lê com fallback para `products.name`; SQL 21b). Pedidos antigos continuam com o nome curto. **Não alterado (compartilhado com o B2C): o admin de pedidos de `/admin/pedidos`** — se mostrar nome curto, aviso aqui. Carrinhos já guardados no navegador mantêm o nome antigo até serem refeitos.
+
+**3. C11 Mensagens ao lojista.** Admin → B2B → "Mensagens ao lojista": título, texto, ativa e ordem (sem exclusão; "frete grátis" é recusado). No link do cliente (`/b2b/oferta/<token>` e linhas): (a) pop-up no 1º acesso de cada cliente (uma vez; "Entendi" grava em `b2b_retailer_popup_views`); (b) faixa no topo alternando as ativas a cada 8 s; (c) botão "Novidades para você" fixo no canto no computador; no celular o botão fica DENTRO da faixa (não flutua), então nada cobre "Adicionar" nem "Ver pedido" (conferido no navegador a 375px). Seed inicial editável: "Cliente gosta de novidade!". Só no B2B.
+
+---
+
 ## ★★★★★★★★★★★ Ajustes pós-teste (03/10/2026), sobre `b45a203`
 
 Só local, sem SQL novo. `npm.cmd test` 106/106, `tsc` e `build` exit 0, `git diff --check` vazio.
