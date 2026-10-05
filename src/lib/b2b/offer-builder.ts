@@ -20,7 +20,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { homeLineImage } from "@/lib/b2b/line-images";
-import { b2bProductLabel } from "@/lib/b2b/product-label";
+import { b2bProductLabel, describeScope } from "@/lib/b2b/product-label";
 import { isTestCommercialGroup } from "@/lib/b2b/test-groups";
 import { promotionScopeForGroup, type GroupMembership } from "@/lib/b2b/promotion-scope";
 import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
@@ -48,6 +48,8 @@ export type BuilderPromotion = {
   reason: string;
   /** Produtos da promoção pontual; vazio = linha inteira. */
   onlyProducts: Array<{ id: string; name: string }>;
+  /** Aviso único do alcance ("os sabonetes líquidos"): mostrado como "Oferta válida para ...". */
+  scopeText: string | null;
 };
 
 export type BuilderLine = {
@@ -188,6 +190,9 @@ export async function loadBuilderLines(
           if (!clientId) return { promoType, available: true, reason: "" };
           return { promoType, ...promotionAvailability(promoType, historyForGroup(purchases, group.id, now, months)) };
         })(),
+        scopeText: describeScope(
+          productRows.filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))
+        ),
         // Só os produtos DESTA linha (C4): o aviso "somente X" não vaza para outras linhas.
         onlyProducts: productRows
           .filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))

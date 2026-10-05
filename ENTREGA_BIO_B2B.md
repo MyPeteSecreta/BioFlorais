@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★ Promoções reais de outubro/26 (B1 a B11), sobre `beb4659`
+
+Só local, sem push. `npm.cmd test` 149/149, `tsc` e `build` exit 0, `git diff --check` vazio. Nada mais do site muda (preços, B2C, checkout, frete, cupons, comissão base e janela de 180 dias).
+**SQL (Neon `bio-florais`), nesta ordem:** `29a_promocoes_out26_preflight_one_shot.sql` (leitura, uma linha JSON; **só siga se `pode_prosseguir` = true**) → `29b_promocoes_out26.sql` (BEGIN/COMMIT, idempotente, sem DELETE; trava com erro se alguma linha ou SKU da B9 não existir; termina com UMA linha de conferência por promoção: código, tipo, mecânica, alcance, 1x/2x/3x/30d/60d/90d/180d) → publicar o código.
+**O que o 29b faz:** (a) desativa (`active=false`, `seller_selectable=false`) TODA promoção que não é da tabela (as de teste do 06b e qualquer uma criada no admin, ex.: "Black Friday…"); ofertas antigas continuam abrindo, só sem a promoção (preço B2B normal), pedidos não mudam; (b) cria/atualiza B1..B11 (chave = nome; sem a palavra "teste"; sem data de fim); (c) liga o alcance (linhas; na B9 também os SKUs); (d) grava as 7 elegibilidades como a tabela (desmarcada = regra inativa); vínculos de promoções antigas não são removidos.
+**Nomes:** B1 "Compre 3 pague 2 · Florais" · B2 "10% de desconto · Florais" · B3 "Compre 4 pague 2 · Florais" · B4 "15% de desconto · Florais" · B5 "Compre 3 pague 1 · Florais Kids, Teen, Dose Única e Virtudes" · B6 "15%…" · B7 "Compre 1 ganhe mais 1 …" · B8 "20%…" (mesmas linhas) · B9 "Compre 3 ganhe mais 1 · Sabonetes, Spray para Hálito e Aromatizadores" · B10 "8% de desconto · Cosméticos, Cosméticos Pet e Home Care" · B11 "10% de desconto · Cosméticos, Cosméticos Pet e Home Care". Mecânicas: 3 pague 2 = a cada 2 pagas +1; 4 pague 2 = 2 pagas +2; 3 pague 1 = 1 paga +2; 1 ganhe mais 1 = 1 paga +1; 3 ganhe mais 1 = 3 pagas +1 (todas já existiam; nenhuma mecânica nova).
+**B9: SKUs exatos** (por `products.slug`, só ativos): **Cosméticos → sabonetes líquidos (`cosmeticos-sabonete-liquido-%`, 9 no catálogo):** alegria, ansiedade, energizante, hidratante, harmonia-interior, reequilibrio-dos-chakras, refrescante, relaxante, rescue-sos. **Cosméticos Pet → 1 SKU:** `cosmeticos-pet-higiene-oral-spray-para-halito-menta` (Spray para Hálito – Menta). **Home Care → aromatizadores (`home-care-aromatizador-spray-%`, 5):** bem-estar, harmonia, limpeza-e-protecao, reequilibrio-do-ambiente, serenidade. **Ficam de fora:** os sabonetes líquidos do Home Care e todo o resto. O `29a` lista os SKUs achados no banco para você conferir (esperado 9 + 1 + 5 = 15).
+**Código (mínimo, só o aviso único da B9):** nos cards e no Offer Builder o alcance por produto deixa de listar item por item e mostra "Oferta válida para os sabonetes líquidos" (Cosméticos), "…para o Spray para Hálito – Menta" (Cosméticos Pet) e "…para os aromatizadores de ambiente" (Home Care); o selo "Compre 3 e leve +1 grátis" continua nos produtos elegíveis (`describeScope` em `product-label.ts`).
+**Testes (`scripts/b2b-promocoes-out26.test.mjs`):** o seed gera exatamente a tabela (tipo, mecânica, alcance, 7 elegibilidades de cada B1..B11); idempotente e sem apagar; só as 11 ativas/selecionáveis (as antigas ficam desativadas, a oferta antiga permanece); B9 liga só os 15 SKUs; o vendedor vê só as elegibilidades marcadas (ex.: B5 sem 3x e sem 180 dias); cada mecânica calcula certo (bonificação e 8/10/15/20%); 29a/29b param quando falta linha.
+
+---
+
 ## ★★★★★★★★★★★★★★★★ BUG do cadastro rápido do vendedor (05/10/2026), sobre `8b0c388`
 
 Só local, sem push. `npm.cmd test` 141/141, `tsc` e `build` exit 0, `git diff --check` vazio.

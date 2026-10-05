@@ -121,7 +121,9 @@ export default async function OfferReviewPage({
                     <p className="mt-2 text-sm font-semibold text-[#746471]">{describeEligibility(line.condition)}</p>
                     {line.promotion && line.promotion.onlyProducts.length > 0 && (
                       <p className="mt-3 inline-flex rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-950">
-                        Somente {line.promotion.onlyProducts.map((product) => product.name).join(", ")}
+                        {line.promotion.scopeText
+                          ? `Oferta válida para ${line.promotion.scopeText}`
+                          : `Somente ${line.promotion.onlyProducts.map((product) => product.name).join(", ")}`}
                       </p>
                     )}
                     {line.promotionUnavailable && (

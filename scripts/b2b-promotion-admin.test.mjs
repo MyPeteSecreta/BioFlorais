@@ -283,8 +283,8 @@ test("C4: selo do card da linha só nasce na linha da promoção e nomeia só pr
   const A = UUID(71), F = UUID(70), SNACK = UUID(72);
   const notice = { promotionId: UUID(1), commercialGroupId: F, percent: null, buyQuantity: 2, freeQuantity: 1, productIds: [SNACK], usesRemaining: null, validUntil: null };
 
-  assert.equal(lineBadge([notice], A, new Map()), null); // linha Adultos: sem aviso
-  assert.match(lineBadge([notice], F, new Map([[SNACK, "Snack Floral Filhotes"]])), /promoção somente em Snack Floral Filhotes/);
+  assert.equal(lineBadge([notice], A, null), null); // linha Adultos: sem aviso
+  assert.match(lineBadge([notice], F, "o Snack Floral Filhotes"), /Oferta válida para o Snack Floral Filhotes/);
 });
 
 test("ORDEM DE CÁLCULO única: promoção % → mínimo R$250 → cupom → Pix 7%/cartão 3% (só produtos) → frete", async () => {

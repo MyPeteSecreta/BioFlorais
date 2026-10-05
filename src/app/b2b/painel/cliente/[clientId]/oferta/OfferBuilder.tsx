@@ -102,7 +102,9 @@ function promoLabel(promotion: BuilderPromotion) {
 
 function promotionScopeText(promotion: BuilderPromotion) {
   return promotion.onlyProducts.length > 0
-    ? `Somente ${promotion.onlyProducts.map((product) => product.name).join(", ")}`
+    ? promotion.scopeText
+      ? `Oferta válida para ${promotion.scopeText}`
+      : `Somente ${promotion.onlyProducts.map((product) => product.name).join(", ")}`
     : "Linha inteira";
 }
 
@@ -339,7 +341,9 @@ export default function OfferBuilder({
                 {!promotionSaved && pointPromotion && (
                   <div className="pointer-events-none absolute bottom-4 right-4 z-20 max-w-[280px] rounded-2xl border border-white/70 bg-amber-50/95 px-4 py-2 text-right shadow-lg">
                     <p className="text-[11px] font-extrabold leading-tight text-amber-950">
-                      Promoções somente em {pointPromotion.onlyProducts.map((product) => product.name).join(", ")}
+                      {pointPromotion.scopeText
+                        ? `Oferta válida para ${pointPromotion.scopeText}`
+                        : `Promoções somente em ${pointPromotion.onlyProducts.map((product) => product.name).join(", ")}`}
                     </p>
                   </div>
                 )}

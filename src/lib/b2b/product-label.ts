@@ -75,3 +75,32 @@ export function b2bProductLabel(product: {
     full: [title, line, volume].filter(Boolean).join(" · "),
   };
 }
+
+const PLURAL_SCOPE: Record<string, string> = {
+  "Sabonete Líquido": "os sabonetes líquidos",
+  "Aromatizador Spray": "os aromatizadores de ambiente",
+};
+
+/**
+ * Aviso ÚNICO do alcance de uma promoção por produtos (B9): em vez de listar item por item,
+ * "os sabonetes líquidos", "o Spray para Hálito – Menta", "os aromatizadores de ambiente".
+ * Exibido como "Oferta válida para <isto>".
+ */
+export function describeScope(products: Array<{ slug: string; name: string; category?: string | null; lineSlug?: string | null }>): string | null {
+  if (products.length === 0) return null;
+
+  const labels = products.map((product) => b2bProductLabel(product));
+
+  if (products.length === 1) return `o ${labels[0].baseName.replace(" - ", " – ")}`;
+
+  const types = new Set(
+    products.map((product, index) => getProduct(product.slug)?.category ?? product.category ?? labels[index].type)
+  );
+
+  if (types.size === 1) {
+    const category = Array.from(types)[0] ?? "";
+    return PLURAL_SCOPE[category] ?? `os produtos da categoria ${category}`;
+  }
+
+  return products.length <= 3 ? labels.map((label) => label.title).join(", ") : `${products.length} produtos selecionados`;
+}

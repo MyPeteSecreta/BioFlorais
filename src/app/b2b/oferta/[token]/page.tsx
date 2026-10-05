@@ -14,7 +14,7 @@ import Link from "next/link";
 import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
-import { b2bProductLabel } from "@/lib/b2b/product-label";
+import { describeScope } from "@/lib/b2b/product-label";
 import { lineBadge, lineEligibilityCaption } from "@/lib/b2b/offer-notices";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
@@ -60,13 +60,13 @@ export default async function B2BOfferPage({
     loadOtherB2BLines(context),
   ]);
 
-  // C4: o aviso "somente X" lista só os produtos da PRÓPRIA linha do card.
-  const productNamesOfLine = (lineId: string) =>
-    new Map(
-      context.products
-        .filter((product) => product.commercialGroupIds.includes(lineId))
-        .map((product) => [product.id, b2bProductLabel(product).full])
+  // Aviso ÚNICO do alcance por produto, por linha ("Oferta válida para os sabonetes líquidos").
+  const scopeTextOfLine = (lineId: string) => {
+    const ids = new Set(notices.filter((item) => item.commercialGroupId === lineId).flatMap((item) => item.productIds));
+    return describeScope(
+      context.products.filter((product) => product.commercialGroupIds.includes(lineId) && ids.has(product.id))
     );
+  };
   const lineHref = (slug: string) => `/b2b/oferta/${encodeURIComponent(token)}/linha/${encodeURIComponent(slug)}`;
 
   // Linha da oferta sem nenhum produto liberado não vira card.
@@ -118,7 +118,7 @@ export default async function B2BOfferPage({
                   name={line.name}
                   image={homeLineImage(line.slug)}
                   highlight
-                  badge={lineBadge(notices, line.id, productNamesOfLine(line.id)) ?? "Preço B2B"}
+                  badge={lineBadge(notices, line.id, scopeTextOfLine(line.id)) ?? "Preço B2B"}
                   caption={lineEligibilityCaption(notices, line.id) ?? undefined}
                 />
               ))}

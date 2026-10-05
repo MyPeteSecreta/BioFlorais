@@ -19,7 +19,7 @@ import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
 import { loadPublicB2BOfferContext, type PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 import { getProduct } from "@/lib/catalog/bio-products";
-import { b2bProductLabel } from "@/lib/b2b/product-label";
+import { b2bProductLabel, describeScope } from "@/lib/b2b/product-label";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
 import B2BOfferCatalog, { type B2BCatalogProduct } from "@/components/b2b/B2BOfferCatalog";
 import RecordLineView from "./RecordLineView";
@@ -107,7 +107,11 @@ export default async function B2BLinePage({
     const pointed = notices.filter((item) => item.commercialGroupId === offerLine.id && item.productIds.length > 0);
     if (!promotionNote && pointed.length > 0) {
       const names = catalogProducts.filter((product) => product.promotionText).map((product) => product.name);
-      promotionNote = `Promoção somente em ${names.join(", ")}.`;
+      promotionNote = `Oferta válida para ${
+        describeScope(
+          context.products.filter((product) => pointed.some((item) => item.productIds.includes(product.id)) && product.commercialGroupIds.includes(offerLine.id))
+        ) ?? names.join(", ")
+      }.`;
     }
   } else {
     const lineProducts = await loadOtherLineProducts(context, line.id);

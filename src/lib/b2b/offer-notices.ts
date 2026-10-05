@@ -23,7 +23,8 @@ export function percentText(percent: number) {
 export function lineBadge(
   notices: B2BOfferPromotionNotice[],
   groupId: string,
-  productNameById: Map<string, string>
+  /** Aviso único do alcance ("os sabonetes líquidos"), calculado pela página. */
+  scopeText: string | null
 ) {
   const own = notices.filter((item) => item.commercialGroupId === groupId);
 
@@ -33,13 +34,9 @@ export function lineBadge(
 
   if (wide) return promotionBadgeLabel(wide);
 
-  const names = Array.from(
-    new Set(own.flatMap((item) => item.productIds.map((id) => productNameById.get(id)).filter(Boolean)))
-  ) as string[];
-
   const label = promotionBadgeLabel(own[0]);
 
-  return names.length > 0 ? `${label} · promoção somente em ${names.join(", ")}` : label;
+  return scopeText ? `${label} · Oferta válida para ${scopeText}` : label;
 }
 
 /** Regra "compre X, leve Y" do produto: só nos elegíveis. */
