@@ -9,6 +9,19 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★ BUG do cadastro rápido do vendedor (05/10/2026), sobre `8b0c388`
+
+Só local, sem push. `npm.cmd test` 141/141, `tsc` e `build` exit 0, `git diff --check` vazio.
+
+**Causa:** a hipótese do convite criar o vendedor está **descartada** (nenhum código cria `b2b_responsibles` no convite; só o cadastro insere, e há teste estático para isso). O erro vinha do `INSERT` do cadastro rápido, cuja mensagem era FIXA ("e-mail já em uso ou o SQL 26b não foi aplicado") para qualquer falha, escondendo a causa. O cadastro rápido grava só nome, WhatsApp, e-mail, senha e o prazo; se a tabela do banco da Bio (anterior ao B2B atual) tiver colunas do perfil (CPF, Pix, CEP...) como NOT NULL, o Postgres recusa (23502). A My Pet e a Secreta nasceram sem essa restrição. **Não consegui ler o banco para confirmar**: a causa mais provável é essa, e o `28a` prova em uma linha.
+**Correção:**
+1. Erro real traduzido: e-mail de OUTRO vendedor ("Este e-mail já está cadastrado para outro vendedor. Use outro e-mail ou fale com o administrador."), convite já usado/expirado, coluna que o banco exige (cita a coluna e manda rodar o 28b), coluna/tabela ausente (26b) e erro desconhecido ("o erro ficou registrado"). O servidor loga o erro COMPLETO (`code`, `column`, `constraint`, `detail`, `inviteId`).
+2. O cadastro rápido repete o insert preenchendo com vazio qualquer coluna legada NOT NULL que o banco acusar (log a cada tentativa), então funciona mesmo antes do SQL.
+3. **SQL:** `28a_diagnostico_cadastro_rapido_one_shot.sql` (leitura, uma linha JSON: colunas NOT NULL sem padrão que o cadastro rápido não envia, todas as colunas e constraints) e `28b_vendedor_colunas_opcionais.sql` (idempotente, só remove NOT NULL das colunas do perfil; nenhum dado muda).
+**Testes:** banco legado com CPF/Pix/CEP NOT NULL: o cadastro rápido falha (23502) antes do 28b e funciona depois; convite novo → cadastro → painel com "Período de teste: faltam 7 dias"; e-mail de outro vendedor → mensagem clara; mapeamento de erros; repetição por NOT NULL.
+
+---
+
 ## ★★★★★★★★★★★★★★★ Vendedores antigos incompletos e texto do Termo RCA (05/10/2026), sobre `b4d483a`
 
 Só local, sem push. `npm.cmd test` 137/137, `tsc` e `build` exit 0, `git diff --check` vazio. B2C intocado.

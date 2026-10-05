@@ -305,3 +305,99 @@ test("Termo RCA: texto das seções 1 a 10 num quadro rolável só para RCA; ver
   assert.ok(form.indexOf("<RcaTermsBox />") < form.indexOf("RCA_TERMS_ACCEPT_LABEL}"));
   assert.match(src("components/b2b/RcaTermsBox.tsx"), /max-h-72 overflow-y-auto/);
 });
+
+// ---------------------------------------------------------------------------
+// Bug do cadastro rápido: "e-mail já em uso ou o SQL 26b não foi aplicado" mascarava a causa real
+// ---------------------------------------------------------------------------
+const { describeSignupError, findVendorByEmail, insertWithNotNullFallback, pgErrorInfo } = await import("../src/lib/b2b/signup-errors.ts");
+
+const pgError = (fields) => Object.assign(new Error(fields.message ?? "erro"), fields);
+
+test("erro REAL do Postgres vira mensagem com a causa (inclusive embrulhado pelo drizzle em `cause`)", () => {
+  const unique = pgErrorInfo(new Error("Failed query", { cause: pgError({ code: "23505", constraint: "b2b_responsibles_email_unique", detail: "Key (email)=(a@b.com) already exists." }) }));
+  assert.equal(unique.code, "23505");
+  assert.match(describeSignupError(unique), /e-mail já está cadastrado para outro vendedor/);
+
+  const notNull = pgErrorInfo(pgError({ code: "23502", column: "pix_key", message: 'null value in column "pix_key"' }));
+  assert.match(describeSignupError(notNull), /exige o campo "pix_key".*SQL 28b/);
+
+  assert.match(describeSignupError(pgErrorInfo(pgError({ code: "42703", message: 'column "trial_ends_at" does not exist' }))), /SQL 26b/);
+  assert.match(describeSignupError(pgErrorInfo(pgError({ code: "23505", constraint: "b2b_responsibles_invite_id_unique" }))), /convite já foi usado/);
+  assert.match(describeSignupError(pgErrorInfo(new Error("timeout"))), /registrado/); // erro desconhecido: não inventa causa
+});
+
+test("coluna legada NOT NULL: o cadastro repete preenchendo só o que o banco exige (e registra cada tentativa)", async () => {
+  const calls = [];
+  const seen = [];
+  const insert = async (values) => {
+    calls.push({ ...values });
+    for (const column of ["cpf", "pix_key"]) {
+      const key = column === "cpf" ? "cpf" : "pixKey";
+      if (!(key in values)) throw pgError({ code: "23502", column });
+    }
+    return [{ id: "novo" }];
+  };
+
+  const result = await insertWithNotNullFallback(insert, { name: "Maria" }, new Map([["cpf", "cpf"], ["pix_key", "pixKey"]]), (info) => seen.push(info.column));
+  assert.deepEqual(result, [{ id: "novo" }]);
+  assert.deepEqual(seen, ["cpf", "pix_key"]);
+  assert.equal(calls.at(-1).cpf, "");
+  assert.equal(calls.at(-1).name, "Maria");
+
+  // Erro que não é NOT NULL passa direto (sem repetir).
+  let attempts = 0;
+  await assert.rejects(insertWithNotNullFallback(async () => { attempts++; throw pgError({ code: "23505", constraint: "x" }); }, {}, new Map()));
+  assert.equal(attempts, 1);
+});
+
+test("banco com colunas legadas NOT NULL: 28a mostra quais, o cadastro rápido falha antes do 28b e funciona depois (idempotente)", async () => {
+  const legacy = new PGlite();
+  const legacyRun = async (text, params = []) => (await legacy.query(text, params)).rows;
+  await legacy.exec(`
+    CREATE TABLE b2b_responsibles (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), invite_id uuid UNIQUE, type text NOT NULL, status text NOT NULL DEFAULT 'pending',
+      name text NOT NULL, email text NOT NULL UNIQUE, phone text, login text, password_hash text,
+      cpf text NOT NULL, pix_key text NOT NULL, postal_code text NOT NULL, company_approved_at timestamp,
+      trial_ends_at timestamp, profile_completed_at timestamp, created_at timestamp DEFAULT now());
+  `);
+
+  const quick = `INSERT INTO b2b_responsibles (type, status, name, email, phone, login, password_hash, company_approved_at, trial_ends_at)
+                 VALUES ('rca', 'active', 'Maria', $1, '21999991234', $1, 'hash', now(), (now() AT TIME ZONE 'UTC') + interval '7 days')`;
+
+  await assert.rejects(legacyRun(quick, ["maria@teste.com"]), (error) => pgErrorInfo(error).code === "23502");
+
+  const [diag] = await legacyRun(sqlFile("28a_diagnostico_cadastro_rapido_one_shot.sql"));
+  assert.deepEqual(diag.diagnostico_cadastro_rapido.colunas_not_null_sem_default_que_o_cadastro_rapido_nao_envia, ["cpf", "pix_key", "postal_code"]);
+
+  await legacy.exec(sqlFile("28b_vendedor_colunas_opcionais.sql"));
+  await legacy.exec(sqlFile("28b_vendedor_colunas_opcionais.sql")); // idempotente
+
+  const [after] = await legacyRun(sqlFile("28a_diagnostico_cadastro_rapido_one_shot.sql"));
+  assert.deepEqual(after.diagnostico_cadastro_rapido.colunas_not_null_sem_default_que_o_cadastro_rapido_nao_envia, []);
+
+  // Convite novo → cadastro rápido → entra com o banner de 7 dias.
+  await legacyRun(quick, ["maria@teste.com"]);
+  const access = await loadVendorAccess(legacyRun, (await legacyRun(`SELECT id FROM b2b_responsibles WHERE email = 'maria@teste.com'`))[0].id);
+  assert.equal(access.state, "trial");
+  assert.equal(access.daysLeft, 7);
+  assert.match(bannerText(access), /^Período de teste: faltam 7 dias/);
+
+  // Convite com e-mail de OUTRO vendedor → mensagem clara (a checagem acha o dono do e-mail).
+  const owner = await findVendorByEmail(legacyRun, "Maria@Teste.com");
+  assert.equal(owner.name, "Maria");
+  assert.equal(await findVendorByEmail(legacyRun, "livre@teste.com"), null);
+  await legacy.close();
+});
+
+test("a rota de cadastro rápido: não cria vendedor no convite, avisa e-mail de outro vendedor e registra o erro real", () => {
+  const accept = src("app/api/b2b/invites/accept/route.ts");
+  assert.match(accept, /findVendorByEmail/);
+  assert.match(accept, /Este e-mail já está cadastrado para outro vendedor/);
+  assert.match(accept, /describeSignupError\(info\)/);
+  assert.match(accept, /console\.error\("\[b2b\/invites\/accept\] insert rápido falhou", \{ inviteId: invite\.id, \.\.\.info \}/);
+  assert.equal(accept.includes("SQL 26b não foi aplicado)."), false); // a mensagem genérica que escondia a causa saiu
+
+  // O convite só cria o convite: nenhum insert em b2b_responsibles fora do cadastro.
+  assert.equal(/insert\(b2bResponsibles\)/.test(src("lib/b2b/invites.ts")), false);
+  assert.equal(/INSERT INTO b2b_responsibles/i.test(src("app/api/admin/b2b/invites/route.ts")), false);
+});

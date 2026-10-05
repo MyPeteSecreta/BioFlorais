@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, getTableColumns, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bResponsibleInvites, b2bResponsibles } from "@/lib/db/schema";
@@ -26,6 +26,8 @@ import {
   createB2BResponsibleSession,
 } from "@/lib/b2b/responsible-session";
 import { RCA_TERMS_VERSION, parseQuickSignup, trialEndsFrom } from "@/lib/b2b/vendor-profile";
+import { describeSignupError, findVendorByEmail, insertWithNotNullFallback, pgErrorInfo } from "@/lib/b2b/signup-errors";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -165,14 +167,12 @@ export async function POST(request: NextRequest) {
       if (!parsed.ok) return fail(parsed.error);
 
       const email = parsed.value.email;
-      const [emailTaken] = await db
-        .select({ id: b2bResponsibles.id })
-        .from(b2bResponsibles)
-        .where(sql`lower(${b2bResponsibles.email}) = ${email} or lower(${b2bResponsibles.login}) = ${email}`)
-        .limit(1);
+      // O convite NÃO cria vendedor: só o cadastro cria. Se o e-mail já pertence a OUTRO vendedor, diz isso.
+      const emailTaken = await findVendorByEmail(getAppSqlRunner(), email);
 
       if (emailTaken) {
-        return fail("Já existe um cadastro com este e-mail. Fale com o administrador.", 409);
+        console.error("[b2b/invites/accept] e-mail de outro vendedor", { inviteId: invite.id, email, vendorId: emailTaken.id });
+        return fail("Este e-mail já está cadastrado para outro vendedor. Use outro e-mail ou fale com o administrador.", 409);
       }
 
       if (!(await claimInvite(invite.id))) {
@@ -182,10 +182,12 @@ export async function POST(request: NextRequest) {
       const now = new Date();
       let created: { id: string } | undefined;
 
+      const columnToKey = new Map(Object.entries(getTableColumns(b2bResponsibles)).map(([key, column]) => [column.name, key]));
+
       try {
-        [created] = await db
-          .insert(b2bResponsibles)
-          .values({
+        [created] = await insertWithNotNullFallback(
+          (values) => db.insert(b2bResponsibles).values(values as typeof b2bResponsibles.$inferInsert).returning({ id: b2bResponsibles.id }),
+          {
             inviteId: invite.id,
             type: invite.responsibleType,
             status: "active",
@@ -197,12 +199,17 @@ export async function POST(request: NextRequest) {
             companyApprovedAt: now,
             // 7 dias para completar o cadastro; clientes, ofertas e links funcionam desde já.
             trialEndsAt: trialEndsFrom(now),
-          })
-          .returning({ id: b2bResponsibles.id });
+          },
+          columnToKey,
+          (info) =>
+            console.error("[b2b/invites/accept] coluna legada NOT NULL, repetindo com valor vazio (rode o SQL 28b)", info)
+        );
       } catch (insertError) {
         await releaseInvite(invite.id);
-        console.error("[b2b/invites/accept] insert rápido", insertError);
-        return fail("Não foi possível concluir o cadastro (e-mail já em uso ou o SQL 26b não foi aplicado).", 409);
+        const info = pgErrorInfo(insertError);
+        // Log do erro REAL (código, coluna, constraint, detalhe) para achar a causa no servidor.
+        console.error("[b2b/invites/accept] insert rápido falhou", { inviteId: invite.id, ...info }, insertError);
+        return fail(describeSignupError(info), info.code === "23505" ? 409 : 500);
       }
 
       const response = NextResponse.json({
