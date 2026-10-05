@@ -97,6 +97,12 @@ export default async function B2BOfferPage({
           >
             Meus pedidos
           </Link>
+          <Link
+            href="/acompanhe-seu-pedido"
+            className="mt-3 mr-2 inline-block rounded-full border border-[#55245f] bg-white px-4 py-2 text-xs font-extrabold text-[#55245f]"
+          >
+            Acompanhar pedido
+          </Link>
           <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
             Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
           </p>

@@ -898,6 +898,8 @@ export const b2bResponsibles = pgTable(
     profileCompletedAt: timestamp("profile_completed_at"),
     rcaTermsAcceptedIp: text("rca_terms_accepted_ip"),
     rcaTermsVersion: text("rca_terms_version"),
+    /* sql/b2b/30b: nome do vendedor no Omie (coluna H do Pedido de Venda). */
+    omieVendorCode: text("omie_vendor_code"),
   }
 );
 

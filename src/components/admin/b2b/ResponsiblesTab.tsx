@@ -26,6 +26,7 @@ type Row = {
   offers: number;
   paidOrders: number;
   situation?: string | null;
+  omieVendor?: string | null;
 };
 
 type SharedLink = {
@@ -57,6 +58,7 @@ export default function ResponsiblesTab() {
   const [message, setMessage] = useState("");
   const [sharedLink, setSharedLink] = useState<SharedLink | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [omieDraft, setOmieDraft] = useState<Record<string, string>>({});
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -166,6 +168,32 @@ export default function ResponsiblesTab() {
     }
   }
 
+  async function saveOmieVendor(row: Row) {
+    const value = omieDraft[row.id] ?? row.omieVendor ?? "";
+
+    setBusyId(row.id);
+    setMessage("");
+
+    try {
+      const { ok, data } = await post(`/api/admin/b2b/responsibles/${row.id}`, { action: "set_omie_vendor", omieVendor: value });
+
+      if (!ok) {
+        setMessage(data.error ?? "Erro ao salvar o Vendedor no Omie.");
+        return;
+      }
+
+      setOmieDraft((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      setMessage(`Vendedor no Omie de ${row.name} salvo.`);
+      void load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const actionButton = "rounded-full border px-3 py-1 text-xs font-extrabold disabled:opacity-40";
 
   return (
@@ -213,6 +241,7 @@ export default function ResponsiblesTab() {
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Vendedor no Omie</th>
               <th className="px-4 py-3">Convite</th>
               <th className="px-4 py-3">Último acesso</th>
               <th className="px-4 py-3 text-right">Clientes</th>
@@ -224,12 +253,12 @@ export default function ResponsiblesTab() {
           <tbody className="divide-y divide-[#f1e9e4]">
             {loading && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-[#7b6a77]">Carregando…</td>
+                <td colSpan={10} className="px-4 py-6 text-center text-[#7b6a77]">Carregando…</td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-[#7b6a77]">
+                <td colSpan={10} className="px-4 py-6 text-center text-[#7b6a77]">
                   Nenhum vendedor ainda. Gere o primeiro convite acima.
                 </td>
               </tr>
@@ -257,6 +286,35 @@ export default function ResponsiblesTab() {
                       >
                         {row.situation}
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.kind === "responsible" ? (
+                      <div className="w-[240px]">
+                        <div className="flex gap-1.5">
+                          <input
+                            className={field}
+                            maxLength={70}
+                            placeholder="Nome completo no Omie"
+                            value={omieDraft[row.id] ?? row.omieVendor ?? ""}
+                            onChange={(e) => setOmieDraft((current) => ({ ...current, [row.id]: e.target.value }))}
+                          />
+                          <button
+                            type="button"
+                            disabled={busy || omieDraft[row.id] === undefined}
+                            onClick={() => saveOmieVendor(row)}
+                            className={`${actionButton} shrink-0 border-[#1f6b3a] text-[#1f6b3a]`}
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                        {!row.omieVendor && (
+                          <p className="mt-1 text-[11px] font-bold text-[#8f2727]">Sem isso o pedido B2B não é exportado ao Omie.</p>
+                        )}
+                        <p className="mt-1 text-[11px] text-[#7b6a77]">Nome completo exatamente como no cadastro de Vendedores do Omie (máx. 70 caracteres).</p>
+                      </div>
+                    ) : (
+                      "—"
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs">{formatDate(row.invitedAt)}</td>

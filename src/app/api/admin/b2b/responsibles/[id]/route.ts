@@ -15,6 +15,7 @@ import { db } from "@/lib/db/client";
 import { b2bResponsibles } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
 import {
   buildInviteMessage,
   buildInviteUrl,
@@ -38,6 +39,7 @@ export async function POST(
     const body = (await request.json().catch(() => ({}))) as {
       action?: string;
       whatsapp?: string;
+      omieVendor?: string;
     };
 
     const [responsible] = await db
@@ -112,6 +114,28 @@ export async function POST(
         }
 
         return NextResponse.json({ ok: true, trialEndsAt: rows[0].trial_ends_at });
+      }
+
+      case "set_omie_vendor": {
+        const parsed = parseOmieVendorInput(body.omieVendor);
+
+        if (!parsed.ok) {
+          return NextResponse.json({ error: parsed.error }, { status: 400 });
+        }
+
+        try {
+          await getAppSqlRunner()(
+            `UPDATE b2b_responsibles SET omie_vendor_code = $2, updated_at = now() WHERE id = $1`,
+            [id, parsed.value]
+          );
+        } catch {
+          return NextResponse.json(
+            { error: "Coluna do Vendedor no Omie ainda não existe (aplique o SQL 30b)." },
+            { status: 409 }
+          );
+        }
+
+        return NextResponse.json({ ok: true, omieVendor: parsed.value });
       }
 
       case "reset_access": {

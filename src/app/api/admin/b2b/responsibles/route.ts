@@ -38,6 +38,8 @@ export type AdminResponsibleRow = {
   /** Situação do cadastro: "Em teste até dd/mm" | "Cadastro completo" | "Teste vencido" (null = convite). */
   situation?: string | null;
   trialEndsAt?: string | null;
+  /** Nome no cadastro de Vendedores do Omie (SQL 30b); null = não cadastrado. */
+  omieVendor?: string | null;
 };
 
 // Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
@@ -126,6 +128,19 @@ export async function GET(request: NextRequest) {
       // SQL 26b ainda não aplicado.
     }
 
+    // Vendedor no Omie (SQL 30b). Sem a coluna: tudo "não cadastrado".
+    const omieBy = new Map<string, string>();
+
+    try {
+      const rowsOmie = await getAppSqlRunner()(
+        `SELECT id, omie_vendor_code FROM b2b_responsibles WHERE omie_vendor_code IS NOT NULL`
+      );
+
+      for (const row of rowsOmie) omieBy.set(String(row.id), String(row.omie_vendor_code));
+    } catch {
+      // SQL 30b ainda não aplicado.
+    }
+
     const knownEmails = new Set(responsibles.map((row) => row.email.toLowerCase()));
 
     const pendingInvites = await db
@@ -175,6 +190,7 @@ export async function GET(request: NextRequest) {
         paidOrders: paidBy.get(row.id) ?? 0,
         situation: situationBy.get(row.id)?.situation ?? "Cadastro completo",
         trialEndsAt: situationBy.get(row.id)?.trialEndsAt ?? null,
+        omieVendor: omieBy.get(row.id) ?? null,
       })),
     ];
 

@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★ Vendedor no Omie e atalhos "Acompanhe seu pedido" (05/10/2026), sobre `2483b13`
+
+**1) Vendedor no Omie** (a Central da My Pet exporta a coluna H "Vendedor" e não exporta pedido B2B sem esse campo)
+- SQL aditivo: `30a_vendedor_omie_preflight_one_shot.sql` (somente leitura, uma linha JSON) e `30b_vendedor_omie.sql` (BEGIN/COMMIT, `ADD COLUMN IF NOT EXISTS b2b_responsibles.omie_vendor_code text`, mesmo nome da My Pet). Ordem: 30a, 30b.
+- Admin → Vendedores: coluna "Vendedor no Omie" com campo editável + Salvar por vendedor (nome completo igual ao cadastro de Vendedores do Omie, máx. 70 caracteres, dica na tela; aviso quando vazio). Servidor valida (`src/lib/b2b/omie-vendor.ts`), exige admin; a lista funciona mesmo antes do 30b (mostra "não cadastrado") e salvar sem a coluna responde 409 com a orientação.
+- Preencher o nome de cada vendedor ativo depois do 30b: sem isso a Central não exporta o pedido dele.
+
+**2) Atalhos**
+- Cabeçalho do B2C (home): "Acompanhe seu pedido" na navegação a partir de 1280px; de 1024 a 1279px e no celular, botão "Acompanhar pedido". Nessa faixa (1024-1279) o texto "Frete grátis a partir de R$ 100" do cabeçalho some para caber (continua no site); logo com `shrink-0`. Outros itens intactos.
+- Link B2B: botão "Acompanhar pedido" no topo, ao lado de "Meus pedidos" (que segue igual).
+- Testes: `scripts/b2b-omie-vendor.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★ Acompanhe seu pedido: busca por e-mail + CPF/CNPJ (05/10/2026), sobre `b321f71`
 
 **Aprovado pelo Luis: mexe no B2C (só a página `/acompanhe-seu-pedido` e a rota `/api/orders/track`).** Sem SQL novo.
