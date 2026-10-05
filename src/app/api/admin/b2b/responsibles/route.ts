@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { adminSituation } from "@/lib/b2b/vendor-profile";
 import {
   b2bClientRelationships,
   b2bOffers,
@@ -33,6 +35,9 @@ export type AdminResponsibleRow = {
   clients: number;
   offers: number;
   paidOrders: number;
+  /** Situação do cadastro: "Em teste até dd/mm" | "Cadastro completo" | "Teste vencido" (null = convite). */
+  situation?: string | null;
+  trialEndsAt?: string | null;
 };
 
 // Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
@@ -98,6 +103,29 @@ export async function GET(request: NextRequest) {
     const offersBy = countMap(offerCounts);
     const paidBy = countMap(paidCounts);
 
+    // Situação do período de teste (SQL 26b). Sem as colunas: tudo "Cadastro completo".
+    const situationBy = new Map<string, { situation: string; trialEndsAt: string | null }>();
+
+    try {
+      const rowsTrial = await getAppSqlRunner()(
+        `SELECT id, to_char(trial_ends_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS trial_ends_at,
+                to_char(profile_completed_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS profile_completed_at
+           FROM b2b_responsibles`
+      );
+
+      for (const row of rowsTrial) {
+        situationBy.set(String(row.id), {
+          situation: adminSituation({
+            trialEndsAt: row.trial_ends_at ? new Date(String(row.trial_ends_at)) : null,
+            profileCompletedAt: row.profile_completed_at ? new Date(String(row.profile_completed_at)) : null,
+          }),
+          trialEndsAt: (row.trial_ends_at as string | null) ?? null,
+        });
+      }
+    } catch {
+      // SQL 26b ainda não aplicado.
+    }
+
     const knownEmails = new Set(responsibles.map((row) => row.email.toLowerCase()));
 
     const pendingInvites = await db
@@ -145,6 +173,8 @@ export async function GET(request: NextRequest) {
         clients: clientsBy.get(row.id) ?? 0,
         offers: offersBy.get(row.id) ?? 0,
         paidOrders: paidBy.get(row.id) ?? 0,
+        situation: situationBy.get(row.id)?.situation ?? "Cadastro completo",
+        trialEndsAt: situationBy.get(row.id)?.trialEndsAt ?? null,
       })),
     ];
 

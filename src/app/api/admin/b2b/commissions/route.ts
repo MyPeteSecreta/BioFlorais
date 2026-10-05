@@ -10,6 +10,7 @@ import { isAdminRequest } from "@/lib/admin/session";
 import { isUuid } from "@/lib/b2b/admin-input";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadCommissionRows, totalsFor } from "@/lib/b2b/commissions";
+import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,10 +82,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Só comissão de pedido B2B pago e não cancelado pode ser marcada como paga.
-    const [order] = await run(`SELECT status, b2b_offer_id, payment_method FROM orders WHERE id = $1`, [orderId]);
+    const [order] = await run(`SELECT status, b2b_offer_id, payment_method, b2b_responsible_id FROM orders WHERE id = $1`, [orderId]);
 
     if (!order || !order.b2b_offer_id) {
       return NextResponse.json({ error: "Pedido B2B não encontrado." }, { status: 404 });
+    }
+
+    // Comissão de vendedor sem cadastro completo fica retida: não pode ser marcada como paga.
+    const completed = await loadCompletedVendorIds(run, [String(order.b2b_responsible_id ?? "")]);
+
+    if (!completed.has(String(order.b2b_responsible_id ?? ""))) {
+      return NextResponse.json(
+        { error: "Comissão retida: o vendedor ainda não completou o cadastro (CPF/CNPJ, endereço, Pix e termo)." },
+        { status: 409 }
+      );
     }
 
     if (order.payment_method === "boleto") {

@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { b2bResponsibles } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import {
   buildInviteMessage,
   buildInviteUrl,
@@ -93,6 +94,24 @@ export async function POST(
           .where(eq(b2bResponsibles.id, id));
 
         return NextResponse.json({ ok: true, status: "active" });
+      }
+
+      case "extend_trial": {
+        // +7 dias a partir do que for maior: hoje ou o fim atual do teste. Cadastro completo não precisa.
+        const rows = await getAppSqlRunner()(
+          `UPDATE b2b_responsibles
+              SET trial_ends_at = greatest((now() AT TIME ZONE 'UTC'), coalesce(trial_ends_at, (now() AT TIME ZONE 'UTC'))) + interval '7 days',
+                  updated_at = now()
+            WHERE id = $1 AND profile_completed_at IS NULL AND trial_ends_at IS NOT NULL
+            RETURNING to_char(trial_ends_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS trial_ends_at`,
+          [id]
+        );
+
+        if (rows.length === 0) {
+          return NextResponse.json({ error: "Este vendedor não está em período de teste (cadastro já completo)." }, { status: 409 });
+        }
+
+        return NextResponse.json({ ok: true, trialEndsAt: rows[0].trial_ends_at });
       }
 
       case "reset_access": {

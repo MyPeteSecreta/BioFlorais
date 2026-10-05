@@ -20,10 +20,12 @@
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
+import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
 import { loadBoletoInstallments, type BoletoInstallment } from "@/lib/b2b/boleto-installments";
 import { isUuid } from "@/lib/b2b/admin-input";
 
-export type CommissionState = "aguardando" | "a_receber" | "paga" | "cancelada";
+/** "retida": já seria "a receber", mas o vendedor ainda não completou o cadastro. */
+export type CommissionState = "aguardando" | "a_receber" | "retida" | "paga" | "cancelada";
 
 /** Um item do pedido na abertura da comissão (base R$, % e comissão R$ do item). */
 export type CommissionItem = {
@@ -103,6 +105,7 @@ export function commissionState(input: {
 export const STATE_LABEL: Record<CommissionState, string> = {
   aguardando: "Aguardando pagamento",
   a_receber: "A receber",
+  retida: "Retida até completar o cadastro",
   paga: "Paga",
   cancelada: "Cancelada",
 };
@@ -332,6 +335,15 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
     });
   }
 
+  // Vendedor sem cadastro completo: a comissão ACUMULA, mas fica retida (libera ao completar).
+  const completed = await loadCompletedVendorIds(run, Array.from(new Set(result.map((row) => row.responsibleId))));
+
+  for (const row of result) {
+    if (row.state === "a_receber" && row.responsibleId && !completed.has(row.responsibleId)) {
+      row.state = "retida";
+    }
+  }
+
   return result;
 }
 
@@ -345,11 +357,13 @@ export type CommissionTotals = {
   receivedCents: number;
   /** Aguardando pagamento do pedido (ainda não é "a receber"). */
   waitingCents: number;
+  /** Retida até o vendedor completar o cadastro. */
+  heldCents: number;
 };
 
 /** Totais (só linhas com comissão calculada). `now` define qual é o "próximo dia 10". */
 export function totalsFor(rows: CommissionRow[], now = new Date()): CommissionTotals {
-  const totals: CommissionTotals = { nextTenthCents: 0, nextTenthDate: null, laterCents: 0, receivedCents: 0, waitingCents: 0 };
+  const totals: CommissionTotals = { nextTenthCents: 0, nextTenthDate: null, laterCents: 0, receivedCents: 0, waitingCents: 0, heldCents: 0 };
   const open = rows.filter((row) => row.state === "a_receber" && row.payableOn && row.commissionCents !== null);
 
   // Próximo dia 10 = a menor data de pagamento ainda não passada; vencidas entram nele.
@@ -363,6 +377,7 @@ export function totalsFor(rows: CommissionRow[], now = new Date()): CommissionTo
     if (row.commissionCents === null) continue;
 
     if (row.state === "paga") totals.receivedCents += row.commissionCents;
+    else if (row.state === "retida") totals.heldCents += row.commissionCents;
     else if (row.state === "aguardando") totals.waitingCents += row.commissionCents;
     else if (row.state === "a_receber" && row.payableOn) {
       if (next !== null && row.payableOn.getTime() > next) totals.laterCents += row.commissionCents;

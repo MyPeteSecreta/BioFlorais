@@ -25,6 +25,7 @@ type Row = {
   clients: number;
   offers: number;
   paidOrders: number;
+  situation?: string | null;
 };
 
 type SharedLink = {
@@ -248,6 +249,15 @@ export default function ResponsiblesTab() {
                     <span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${status.className}`}>
                       {status.label}
                     </span>
+                    {row.kind === "responsible" && row.situation && (
+                      <span
+                        className={`mt-1 block text-xs font-bold ${
+                          row.situation === "Teste vencido" ? "text-[#8f2727]" : row.situation === "Cadastro completo" ? "text-[#1f6b3a]" : "text-[#8a5a12]"
+                        }`}
+                      >
+                        {row.situation}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs">{formatDate(row.invitedAt)}</td>
                   <td className="px-4 py-3 text-xs">{formatDate(row.lastLoginAt)}</td>
@@ -277,6 +287,11 @@ export default function ResponsiblesTab() {
                       {row.kind === "responsible" && row.status === "inactive" && (
                         <button type="button" disabled={busy} onClick={() => act(row, "reactivate")} className={`${actionButton} border-[#1f6b3a] text-[#1f6b3a]`}>
                           Reativar
+                        </button>
+                      )}
+                      {row.kind === "responsible" && row.situation && row.situation !== "Cadastro completo" && (
+                        <button type="button" disabled={busy} onClick={() => act(row, "extend_trial", `Estender o teste de ${row.name} por mais 7 dias?`)} className={`${actionButton} border-[#8a5a12] text-[#8a5a12]`}>
+                          Estender teste +7 dias
                         </button>
                       )}
                       {row.kind === "responsible" && (

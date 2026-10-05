@@ -33,7 +33,7 @@ type Row = {
   extraPercent: number | null;
   totalPercent: number | null;
   commissionCents: number | null;
-  state: "aguardando" | "a_receber" | "paga" | "cancelada";
+  state: "aguardando" | "a_receber" | "retida" | "paga" | "cancelada";
   payableOn: string | null;
   paidOutAt: string | null;
 };
@@ -43,6 +43,7 @@ type Totals = { nextTenthCents: number; laterCents: number; receivedCents: numbe
 const LABEL = {
   aguardando: "Aguardando pagamento",
   a_receber: "A receber",
+  retida: "Retida até completar o cadastro",
   paga: "Paga",
   cancelada: "Cancelada",
 } as const;

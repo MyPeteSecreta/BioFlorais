@@ -893,6 +893,11 @@ export const b2bResponsibles = pgTable(
     state: text("state"),
     // Admin B2B: último login do responsável na área B2B.
     lastLoginAt: timestamp("last_login_at"),
+    /* sql/b2b/26b: período de teste de 7 dias e cadastro completo. */
+    trialEndsAt: timestamp("trial_ends_at"),
+    profileCompletedAt: timestamp("profile_completed_at"),
+    rcaTermsAcceptedIp: text("rca_terms_accepted_ip"),
+    rcaTermsVersion: text("rca_terms_version"),
   }
 );
 

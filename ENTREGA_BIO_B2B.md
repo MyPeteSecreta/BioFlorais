@@ -9,6 +9,25 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★ Período de teste do vendedor (05/10/2026), sobre `4baee44`
+
+Só local, sem push. `npm.cmd test` 135/135, `tsc` e `build` exit 0, `git diff --check` vazio. **B2C intocado.**
+**ORDEM: `26a` (leitura) → `26b` → publicar.** O 26b é obrigatório antes do deploy (o app lê as colunas; sem elas ninguém é bloqueado: o acesso cai em "cadastro completo", mas o cadastro rápido não grava o teste).
+
+1. **O que o cadastro por convite exigia:** login (3–40), nome, celular, PF: CPF+RG / PJ: CNPJ+IE, endereço completo, chave Pix, senha (8+) com confirmação e, no RCA, o aceite do Termo.
+2. **Cadastro RÁPIDO** (`/b2b/convite/<token>`): só nome, WhatsApp, e-mail (vem do convite, editável) e senha; já entra no painel (a sessão é criada no cadastro) e usa tudo. O login passa a ser o e-mail.
+3. **Teste de 7 dias:** `trial_ends_at` = cadastro + 7 dias. Banner fixo no painel: "Período de teste: faltam N dias (até dd/mm/aaaa). Complete seu cadastro para continuar e receber suas comissões." + botão "Completar agora".
+4. **Cadastro COMPLETO** (`/b2b/painel/cadastro`, a qualquer momento): CPF/CNPJ, endereço (CEP preenche), Pix OU dados bancários completos e, no RCA, aceite do Termo (data/hora em `rca_terms_accepted_at`, IP e versão `RCA_TERMS_VERSION` em colunas novas). Grava `profile_completed_at` e o banner some. Texto do termo continua PROVISÓRIO.
+5. **8º dia sem completar:** o layout do painel renderiza SÓ a tela de completar (nenhuma outra página) e as rotas do painel respondem 401 (`requireResponsible`). Os links dos clientes e a atribuição dos pedidos não olham o teste (só exigem vendedor `active`): continuam funcionando (teste confere o código).
+6. **Comissão:** acumula normalmente e fica "Retida até completar o cadastro" (Minhas comissões, com card de total retido e botão para completar, e aba Comissões do admin). O admin não consegue marcar como paga comissão de vendedor sem cadastro completo (409, antes de gravar). Ao completar, libera na hora (mesmo valor, "A receber").
+7. **Admin:** na lista de vendedores a situação "Em teste até dd/mm" · "Cadastro completo" · "Teste vencido" e a ação "Estender teste +7 dias" (a partir do maior entre hoje e o fim atual; recusa cadastro completo).
+8. **Cadastros atuais:** o 26b marca como completos (`profile_completed_at`) os vendedores que já têm documento, CEP e Pix; só preenche coluna nova, nenhum dado existente muda. O `26a` mostra antes quantos serão marcados e quais ficam de fora (esses ficam sem trial: contam como completos pelo código até alguém definir o teste).
+
+**SQL (Neon `bio-florais`):** `26a_trial_vendedor_preflight_one_shot.sql` (leitura, uma linha JSON) → `26b_trial_vendedor.sql` (aditivo, idempotente, transação única).
+**Testes:** `scripts/b2b-vendor-trial.test.mjs` (cadastro rápido, banner, bloqueio no 8º dia, estender, links/pedidos independentes do bloqueio, comissão retida e liberada, admin sem poder pagar, 26a/26b sem alterar dados).
+
+---
+
 ## ★★★★★★★★★★★★★ Rodada 4: acompanhamento do pedido (B2C e B2B) — 03/10/2026, sobre `a75d228`
 
 Só local, sem push. `npm.cmd test` 125/125, `tsc` e `build` exit 0, `git diff --check` vazio.

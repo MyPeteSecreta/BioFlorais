@@ -19,6 +19,7 @@ const METHOD: Record<string, string> = { pix: "Pix", card: "Cartão", boleto: "B
 const STATE_CLASS: Record<CommissionState, string> = {
   aguardando: "bg-[#fff4db] text-[#8a5a12]",
   a_receber: "bg-[#e8f0ff] text-[#274b8f]",
+  retida: "bg-amber-100 text-amber-900",
   paga: "bg-[#e3f5e9] text-[#1f6b3a]",
   cancelada: "bg-[#f3eef2] text-[#7b6a77]",
 };
@@ -74,6 +75,15 @@ export default async function MyCommissionsPage({
           <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[#9b6c24]">Aguardando pagamento</p>
           <p className="mt-1 text-2xl font-black">{formatB2BCents(totals.waitingCents)}</p>
         </div>
+        {totals.heldCents > 0 && (
+          <div className="rounded-[20px] border-2 border-amber-300 bg-amber-50 p-4 sm:col-span-2 lg:col-span-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-amber-900">Retida até completar o cadastro</p>
+            <p className="mt-1 text-2xl font-black text-amber-900">{formatB2BCents(totals.heldCents)}</p>
+            <Link href="/b2b/painel/cadastro" className="mt-2 inline-block rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white">
+              Completar cadastro agora
+            </Link>
+          </div>
+        )}
       </section>
 
       <form method="get" className="mt-6 flex flex-wrap items-end gap-3 rounded-[20px] border border-[#eadfd9] bg-white p-4 text-sm">
