@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★ Vendedores antigos incompletos e texto do Termo RCA (05/10/2026), sobre `b4d483a`
+
+Só local, sem push. `npm.cmd test` 137/137, `tsc` e `build` exit 0, `git diff --check` vazio. B2C intocado.
+**SQL (Neon `bio-florais`), depois do 26b:** `27a_trial_vendedores_antigos_preflight_one_shot.sql` (leitura, uma linha JSON: quem receberia prazo) → `27b_trial_vendedores_antigos.sql` (aditivo, idempotente).
+1. **Antigos incompletos:** quem não tem prazo, não tem cadastro completo e não tem documento + CEP + Pix ganha `trial_ends_at` = data do SQL + 7 dias: banner no painel e comissão retida até completar (mesmo comportamento da rodada anterior). O 27b só preenche a coluna onde está nula (rodar de novo não renova o prazo; completos e quem já tem prazo não mudam).
+2. **Termo RCA:** o texto da minuta (seções 1 a 10, com a tabela de condições comerciais; campos [entre colchetes] mantidos para a empresa preencher) aparece num quadro rolável acima da caixa de aceite, só para RCA, com o rótulo "Li e aceito os termos de representação". Versão `rca-2026-10` e texto ficam num único arquivo, `src/lib/b2b/rca-terms.ts`; o aceite grava essa constante (data/hora, IP e versão). Para publicar o texto final, edite só esse arquivo. Testes: seções 1–10 presentes, versão definida em um lugar só, quadro só para RCA e antes do aceite, 27a/27b (idempotência e retenção da comissão).
+
+---
+
 ## ★★★★★★★★★★★★★★ Período de teste do vendedor (05/10/2026), sobre `4baee44`
 
 Só local, sem push. `npm.cmd test` 135/135, `tsc` e `build` exit 0, `git diff --check` vazio. **B2C intocado.**

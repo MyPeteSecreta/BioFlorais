@@ -250,3 +250,58 @@ test("cadastro rápido já entra: cria a sessão, define trial_ends_at e o convi
   }
   assert.equal(/CPF|CNPJ|Chave Pix|Termo/.test(form), false); // nada do cadastro completo no convite
 });
+
+test("27a/27b: vendedor ANTIGO incompleto ganha teste de 7 dias (data do SQL); completos e quem já tem prazo não mudam; idempotente", async () => {
+  await pg.exec(`ALTER TABLE b2b_responsibles ADD COLUMN IF NOT EXISTS type text`);
+  await run(`UPDATE b2b_responsibles SET trial_ends_at = NULL, profile_completed_at = NULL WHERE id = $1`, [V_INCOMPLETE_OLD]);
+  const snapshot = await run(`SELECT id, trial_ends_at, profile_completed_at FROM b2b_responsibles WHERE id <> $1 ORDER BY id`, [V_INCOMPLETE_OLD]);
+
+  const [pre] = await run(sqlFile("27a_trial_vendedores_antigos_preflight_one_shot.sql"));
+  assert.deepEqual(pre.preflight_trial_antigos.receberiam_prazo.map((row) => row.id), [V_INCOMPLETE_OLD]);
+  assert.equal(pre.preflight_trial_antigos.receberiam_prazo[0].tem_pix, false);
+
+  await pg.exec(sqlFile("27b_trial_vendedores_antigos.sql"));
+  const [first] = await run(`SELECT trial_ends_at FROM b2b_responsibles WHERE id = $1`, [V_INCOMPLETE_OLD]);
+  const [{ d }] = await run(`SELECT extract(epoch FROM (trial_ends_at - (now() AT TIME ZONE 'UTC'))) / 86400 AS d FROM b2b_responsibles WHERE id = $1`, [V_INCOMPLETE_OLD]);
+  const days = Number(d);
+  assert.ok(days > 6.9 && days < 7.1, `esperado ~7 dias, veio ${days}`);
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await pg.exec(sqlFile("27b_trial_vendedores_antigos.sql")); // idempotente: não renova o prazo
+  const [second] = await run(`SELECT trial_ends_at FROM b2b_responsibles WHERE id = $1`, [V_INCOMPLETE_OLD]);
+  assert.equal(second.trial_ends_at.getTime(), first.trial_ends_at.getTime());
+
+  const others = await run(`SELECT id, trial_ends_at, profile_completed_at FROM b2b_responsibles WHERE id <> $1 ORDER BY id`, [V_INCOMPLETE_OLD]);
+  assert.deepEqual(others, snapshot); // completos e quem já tinha prazo ficaram iguais
+
+  // Agora o antigo incompleto está em teste e a comissão dele fica retida.
+  assert.equal((await loadVendorAccess(run, V_INCOMPLETE_OLD)).state, "trial");
+  const orderId = await paidOrder(V_INCOMPLETE_OLD);
+  const rows = await loadCommissionRows(run, {});
+  assert.equal(rows.find((row) => row.orderId === orderId).state, "retida");
+});
+
+test("Termo RCA: texto das seções 1 a 10 num quadro rolável só para RCA; versão rca-2026-10 em um único arquivo", async () => {
+  const terms = await import("../src/lib/b2b/rca-terms.ts");
+
+  assert.equal(terms.RCA_TERMS_VERSION, "rca-2026-10");
+  assert.deepEqual(terms.RCA_TERMS_SECTIONS.map((section) => section.title.split(".")[0]), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+
+  const all = JSON.stringify(terms.RCA_TERMS_SECTIONS);
+  for (const trecho of ["Pharma e Natural Distribuidora Ltda.", "Lei nº 4.886/1965", "Lei nº 13.709/2018 (LGPD)", "Pedido mínimo", "R$ 250,00", "28/42/56 dias", "chargeback", "Aceite eletrônico"]) {
+    assert.ok(all.includes(trecho), trecho);
+  }
+  assert.equal(terms.RCA_TERMS_ACCEPT_LABEL, "Li e aceito os termos de representação");
+
+  // Versão em UM lugar: nenhum outro arquivo define o literal, e o aceite grava a mesma constante.
+  const files = ["lib/b2b/vendor-profile.ts", "app/api/b2b/profile/complete/route.ts", "app/api/b2b/invites/accept/route.ts", "components/b2b/CompleteProfileForm.tsx", "components/b2b/RcaTermsBox.tsx"];
+  for (const rel of files) assert.equal(src(rel).includes('"rca-2026-10"'), false, rel);
+  assert.match(src("lib/b2b/vendor-profile.ts"), /export \{ RCA_TERMS_VERSION \} from "@\/lib\/b2b\/rca-terms"/);
+  assert.match(src("app/api/b2b/profile/complete/route.ts"), /rcaTermsVersion: RCA_TERMS_VERSION/);
+
+  // Só para RCA, acima da caixa de aceite.
+  const form = src("components/b2b/CompleteProfileForm.tsx");
+  assert.match(form, /requiresRcaTerms && \(/);
+  assert.ok(form.indexOf("<RcaTermsBox />") < form.indexOf("RCA_TERMS_ACCEPT_LABEL}"));
+  assert.match(src("components/b2b/RcaTermsBox.tsx"), /max-h-72 overflow-y-auto/);
+});

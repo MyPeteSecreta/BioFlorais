@@ -20,8 +20,8 @@ import type { SqlRunner } from "@/lib/b2b/ownership";
 export const TRIAL_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Versão do Termo RCA gravada no aceite (troque ao publicar o termo oficial). */
-export const RCA_TERMS_VERSION = "2026-10-provisorio-v1";
+/** Versão do Termo RCA gravada no aceite: definida UMA vez em rca-terms.ts (junto com o texto). */
+export { RCA_TERMS_VERSION } from "@/lib/b2b/rca-terms";
 
 export type AccessState =
   | { state: "complete" }

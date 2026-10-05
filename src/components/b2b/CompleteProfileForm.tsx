@@ -8,19 +8,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
+import RcaTermsBox from "@/components/b2b/RcaTermsBox";
+import { RCA_TERMS_ACCEPT_LABEL } from "@/lib/b2b/rca-terms";
+
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-3 text-base outline-none focus:border-[#63326d]";
 
-/*
- * Resumo do termo de adesão do RCA. TEXTO PROVISÓRIO: substituir pelo termo oficial
- * revisado pelo jurídico (e trocar RCA_TERMS_VERSION em vendor-profile.ts).
- */
-const RCA_TERMS = [
-  "Atuo como Representante Comercial Autônomo (RCA), sem vínculo empregatício com a Bio Florais.",
-  "Vou oferecer os produtos somente pelas ofertas e preços gerados na área B2B, sem alterar condições comerciais por conta própria.",
-  "As comissões seguem as regras comerciais vigentes informadas pela Bio Florais e são pagas na chave Pix/conta cadastrada.",
-  "Mantenho em sigilo os dados de clientes, preços e condições a que eu tiver acesso.",
-  "Meu acesso é pessoal e intransferível e pode ser desativado pela Bio Florais a qualquer momento.",
-];
 
 export default function CompleteProfileForm({
   requiresRcaTerms,
@@ -174,14 +166,10 @@ export default function CompleteProfileForm({
         {requiresRcaTerms && (
           <section className="space-y-3 rounded-[20px] border border-[#eadfd9] bg-white p-5">
             <h2 className="font-bold">Termo de adesão do RCA</h2>
-            <ul className="max-h-48 list-disc space-y-1 overflow-y-auto rounded-xl bg-[#fbf5f1] p-4 pl-8 text-sm">
-              {RCA_TERMS.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+            <RcaTermsBox />
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" checked={rcaTermsAccepted} onChange={(e) => setRcaTermsAccepted(e.target.checked)} className="mt-1" />
-              Li e aceito o termo de adesão do Representante Comercial Autônomo (data, hora e IP ficam registrados).
+              {RCA_TERMS_ACCEPT_LABEL} (data, hora, IP e versão ficam registrados).
             </label>
           </section>
         )}
