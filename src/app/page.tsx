@@ -146,7 +146,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-[#ece2df]/80 bg-[#fffdf9]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 lg:px-10">
 
-          <Link href="#topo" className="shrink-0">
+          <Link href="#topo">
             <div className="font-serif text-[25px] font-semibold tracking-[-0.03em] text-[#55245f]">
               Bio Florais
             </div>
@@ -181,15 +181,8 @@ export default function Home() {
             </Link>
           </nav>
 
-          <Link
-            href="/acompanhe-seu-pedido"
-            className="whitespace-nowrap rounded-full border border-[#63326d]/20 bg-white px-4 py-2 text-xs font-extrabold text-[#63326d] xl:hidden"
-          >
-            Acompanhar pedido
-          </Link>
-
           <div className="hidden items-center gap-5 lg:flex">
-            <div className="hidden items-center gap-2 whitespace-nowrap xl:flex text-[12px] font-semibold text-[#7b5d2c]">
+            <div className="flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-[#7b5d2c]">
               <span
                 aria-hidden="true"
                 className="text-[14px]"

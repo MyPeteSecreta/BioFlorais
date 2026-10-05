@@ -55,15 +55,25 @@ test("admin: campo 'Vendedor no Omie' editável por vendedor, validado no servid
   assert.ok(read("src/lib/db/schema.ts").includes('omieVendorCode: text("omie_vendor_code")'));
 });
 
-test("atalhos: 'Acompanhe seu pedido' no cabeçalho do B2C (desktop e celular) e botão no topo do link B2B", () => {
+test("cabeçalho do B2C: abaixo de 1280px igual ao original (frete visível, sem link); só xl ganha o link; cartão de acompanhamento nos fluxos de pagamento", () => {
   const home = read("src/app/page.tsx");
   const header = home.slice(home.indexOf("<header"), home.indexOf("</header>"));
-  assert.equal((header.match(/href="\/acompanhe-seu-pedido"/g) ?? []).length, 2);
-  assert.ok(header.includes("Acompanhe seu pedido") && header.includes("Acompanhar pedido"));
-  // os outros itens do cabeçalho seguem
+  assert.equal(header.split("href=\"/acompanhe-seu-pedido\"").length - 1, 1);
+  assert.ok(!header.includes("Acompanhar pedido"), "sem botão no celular/tablet/notebook pequeno");
+  assert.ok(/className="hidden [^"]*xl:block"/.test(header.slice(header.indexOf("/acompanhe-seu-pedido") - 120, header.indexOf("/acompanhe-seu-pedido") + 120)), "link só a partir de xl");
+  const frete = header.slice(header.indexOf("Frete grátis") - 400, header.indexOf("Frete grátis"));
+  assert.ok(frete.includes('className="flex items-center gap-2 whitespace-nowrap'), "frete sempre visível");
+  assert.ok(header.includes('<Link href="#topo">'), "logo como no original");
   for (const item of ["Adulto", "Pet", "Infantil", "Descubra seu Bio", "Nossas linhas", "Ver produtos"]) assert.ok(header.includes(item), item);
   assert.ok(read("src/components/layout/SiteFooter.tsx").includes("/acompanhe-seu-pedido"));
+  // cartão: B2C (Pix e cartão, qualquer situação do pedido), tela de pagamento, B2B (Pix, cartão e boleto)
+  assert.ok(read("src/app/checkout/page.tsx").includes("{pendingOrderId && <TrackOrderCard"));
+  assert.ok(read("src/app/checkout/pagamento/page.tsx").includes("<TrackOrderCard"));
+  const b2b = read("src/app/b2b/checkout/B2BCheckoutContent.tsx");
+  assert.equal((b2b.match(/<TrackOrderCard/g) ?? []).length, 2);
+});
 
+test("link B2B: botão 'Acompanhar pedido' no topo, ao lado de 'Meus pedidos'", () => {
   const b2b = read("src/app/b2b/oferta/[token]/page.tsx");
   const topo = b2b.slice(b2b.indexOf("<header"), b2b.indexOf("</header>"));
   assert.ok(topo.includes("Meus pedidos") && topo.includes('href="/acompanhe-seu-pedido"') && topo.includes("Acompanhar pedido"));

@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★ Cabeçalho do B2C volta ao original abaixo de 1280px (05/10/2026), sobre `4893a8e`
+
+Decisão do Luis: vender vem primeiro. Sem SQL.
+- Cabeçalho do B2C (`src/app/page.tsx`): abaixo de 1280px (celular, tablet, notebook pequeno) fica EXATAMENTE como em `2483b13` (sem o botão/link "Acompanhar pedido", "Frete grátis a partir de R$ 100" como era, logo sem `shrink-0`). Só a partir de 1280px entra o link "Acompanhe seu pedido" na navegação.
+- Conferido no navegador: em 1280 e 1440 o link cabe sem quebrar linha nem tirar nada (nav, frete e "Ver produtos" em uma linha, sem rolagem horizontal); em 1024 e 375 o cabeçalho é o original (1024: frete visível; 375: sem frete no cabeçalho, como já era).
+- Se algum dia o link não couber em 1280, a regra é tirá-lo (basta remover o `<Link ... xl:block>`).
+- Continuam: "Acompanhe seu pedido" no rodapé; cartão "Acompanhe seu pedido" (`TrackOrderCard`) na tela de pedido criado do B2C (aparece sempre que há pedido pendente/pago: Pix e cartão, em coluna única no celular, `aside` sem `hidden`), na tela `/checkout/pagamento` e no B2B (Pix, cartão e boleto: tela de pagamento e tela final). Botão "Acompanhar pedido" no link B2B mantido.
+- Testes em `scripts/b2b-omie-vendor.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★ Vendedor no Omie e atalhos "Acompanhe seu pedido" (05/10/2026), sobre `2483b13`
 
 **1) Vendedor no Omie** (a Central da My Pet exporta a coluna H "Vendedor" e não exporta pedido B2B sem esse campo)
