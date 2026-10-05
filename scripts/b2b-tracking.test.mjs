@@ -15,6 +15,7 @@ const {
   allowTrackingAttempt,
   buildTimeline,
   findOrderForTracking,
+  findOrdersByEmailAndDocument,
   hashIp,
   listClientOrders,
   loadTrackingView,
@@ -214,4 +215,63 @@ test("25b: chamada curta + tempos padrão, idempotente, sem criar mensagens", as
   assert.deepEqual(settings, [{ key: "retailer_banner_seconds", value: "60" }, { key: "retailer_button_seconds", value: "60" }]);
   assert.equal((await run(`SELECT count(*)::int AS total FROM b2b_retailer_messages`))[0].total, 0); // não semeia mensagens
   assert.equal((await run(`SELECT 1 FROM information_schema.columns WHERE table_name='b2b_retailer_messages' AND column_name='short_call'`)).length, 1);
+});
+
+test("busca por e-mail + CPF/CNPJ: 0, 1 e vários pedidos; só últimos 6 meses; só o mesmo cliente", async () => {
+  const NOW = new Date("2026-10-05T15:00:00Z");
+  const CARLA = UUID(61); // sem pedidos
+  const DUDU = UUID(62); // 1 pedido
+  const ANA_HOMONIMA = UUID(63); // mesmo e-mail da Ana, outro CPF
+  await run(`INSERT INTO customers VALUES ($1,'Carla','carla@exemplo.com','111.444.777-35',NULL), ($2,'Dudu','dudu@exemplo.com',NULL,'11.222.333/0001-81'), ($3,'Outra','ana@exemplo.com','529.982.247-25',NULL)`, [CARLA, DUDU, ANA_HOMONIMA]);
+  await run(`INSERT INTO orders (id, customer_id, status, fulfillment_status, payment_method, total_cents, created_at) VALUES
+    ($1, $2, 'paid', 'shipped', 'pix', 7000, '2026-09-20 10:00:00'),
+    ($3, $4, 'paid', 'paid_to_prepare', 'pix', 3000, '2026-10-04 10:00:00'),
+    ($5, $4, 'paid', 'paid_to_prepare', 'pix', 9999, '2026-10-04 11:00:00'),
+    ($6, $7, 'paid', 'delivered', 'pix', 4000, '2026-02-01 10:00:00')`,
+    [UUID(71), DUDU, UUID(72), ANA_HOMONIMA, UUID(73), UUID(74), CUSTOMER_A]);
+
+  // 0 pedidos
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "carla@exemplo.com", "111.444.777-35", NOW), []);
+  // 1 pedido (CNPJ, e-mail em outra caixa)
+  const one = await findOrdersByEmailAndDocument(run, " DUDU@exemplo.com ", "11222333000181", NOW);
+  assert.equal(one.length, 1);
+  assert.equal(one[0].number, "00000071");
+  assert.equal(one[0].totalCents, 7000);
+  // vários, mais novo primeiro, sem o de 8 meses atrás
+  const many = await findOrdersByEmailAndDocument(run, "ANA@exemplo.com", "123.456.789-09", NOW);
+  const ids = many.map((o) => o.orderId);
+  assert.ok(ids.length >= 3);
+  assert.ok(ids.includes(ORDER_A) && ids.includes(ORDER_BOLETO) && ids.includes(ORDER_PIX));
+  assert.ok(!ids.includes(UUID(74)), "pedido de mais de 6 meses fora");
+  assert.ok(!ids.includes(UUID(72)) && !ids.includes(UUID(73)), "pedidos de outro cliente com o mesmo e-mail fora");
+  const times = many.map((o) => new Date(o.createdAt).getTime());
+  assert.deepEqual(times, [...times].sort((a, b) => b - a));
+  // a homônima enxerga só os dela
+  const other = await findOrdersByEmailAndDocument(run, "ana@exemplo.com", "52998224725", NOW);
+  assert.deepEqual(other.map((o) => o.orderId).sort(), [UUID(72), UUID(73)].sort());
+});
+
+test("e-mail + CPF/CNPJ: um certo e o outro errado, ou faltando, devolve vazio (resposta genérica)", async () => {
+  const NOW = new Date("2026-10-05T15:00:00Z");
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "ana@exemplo.com", "000.000.000-00", NOW), []);
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "errado@exemplo.com", "123.456.789-09", NOW), []);
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "ana@exemplo.com", "", NOW), []);
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "", "123.456.789-09", NOW), []);
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "ana@exemplo.com", "123", NOW), []);
+  // CPF de uma pessoa com e-mail de outra
+  assert.deepEqual(await findOrdersByEmailAndDocument(run, "beto@exemplo.com", "123.456.789-09", NOW), []);
+});
+
+test("rota de busca: limite de tentativas vem ANTES de qualquer consulta, nos dois modos; resposta genérica única; URL sem dado pessoal", () => {
+  const route = readFileSync(new URL("../src/app/api/orders/track/route.ts", import.meta.url), "utf8");
+  const limit = route.indexOf("allowTrackingAttempt");
+  assert.ok(limit > 0);
+  assert.ok(limit < route.indexOf("findOrdersByEmailAndDocument("), "limite antes da busca por e-mail+CPF");
+  assert.ok(limit < route.indexOf("findOrderForTracking("), "limite antes da busca por número");
+  assert.equal((route.match(/GENERIC/g) ?? []).length >= 3, true);
+  const page = readFileSync(new URL("../src/app/acompanhe-seu-pedido/page.tsx", import.meta.url), "utf8");
+  assert.ok(!/router\.push\([^)]*(email|document|contact)/.test(page), "nada de dado pessoal na URL");
+  assert.ok(page.includes("Tenho o número do pedido"));
+  const url = `/acompanhe/${signTrackingToken(ORDER_A)}`;
+  assert.ok(!url.includes("ana") && !url.includes("123456789"));
 });

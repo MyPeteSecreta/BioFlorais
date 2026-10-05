@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★ Acompanhe seu pedido: busca por e-mail + CPF/CNPJ (05/10/2026), sobre `b321f71`
+
+**Aprovado pelo Luis: mexe no B2C (só a página `/acompanhe-seu-pedido` e a rota `/api/orders/track`).** Sem SQL novo.
+
+- Principal: e-mail + CPF/CNPJ (os dois, do MESMO cliente) → lista dos pedidos dos últimos 6 meses (nº, data, valor, situação, até 50) → clicar abre `/acompanhe/<token>` (igual a antes).
+- Secundária "Tenho o número do pedido": nº + e-mail OU CPF/CNPJ, como antes.
+- Mesma resposta genérica quando não acha (404); limite de 5 tentativas/10 min por IP aplicado antes de qualquer consulta, nos dois modos; nada de dado pessoal na URL; link assinado inalterado.
+- Não muda: rodapé/checkout, `/acompanhe/[token]`, B2B "Meus pedidos".
+- Código: `findOrdersByEmailAndDocument` em `src/lib/order-tracking.ts`; modo `contact` na rota; página reescrita.
+- Testes (`scripts/b2b-tracking.test.mjs`): 0, 1 e vários pedidos; >6 meses fora; mesmo e-mail com outro CPF fora; e-mail certo + CPF errado (e o inverso) → vazio; limite antes da busca; URL sem PII.
+- Conferido: tsc, build, 152/152 testes, `git diff --check` limpo, página em desktop e 375px.
+
 ## ★★★★★★★★★★★★★★★★★ Promoções reais de outubro/26 (B1 a B11), sobre `beb4659`
 
 Só local, sem push. `npm.cmd test` 149/149, `tsc` e `build` exit 0, `git diff --check` vazio. Nada mais do site muda (preços, B2C, checkout, frete, cupons, comissão base e janela de 180 dias).

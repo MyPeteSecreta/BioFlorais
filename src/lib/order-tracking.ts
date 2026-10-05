@@ -409,3 +409,69 @@ export function progressLabel(status: string, fulfillmentStatus: string) {
   if (status === "paid" || status === "approved") return "Pago · aguardando separação";
   return "Aguardando pagamento";
 }
+
+// ---------------------------------------------------------------------------
+// Busca principal: e-mail + CPF/CNPJ (os DOIS, do MESMO cliente) -> pedidos dos últimos 6 meses
+// ---------------------------------------------------------------------------
+
+export const TRACKING_LIST_MONTHS = 6;
+export const TRACKING_LIST_LIMIT = 50;
+
+export type TrackedOrderSummary = {
+  orderId: string;
+  number: string;
+  createdAt: Date;
+  totalCents: number;
+  situation: string;
+};
+
+/** E-mail válido (sem espaços) em minúsculas, ou null. */
+export function parseEmail(value: string): string | null {
+  const email = String(value ?? "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254 ? email : null;
+}
+
+/** CPF (11) ou CNPJ (14) só com dígitos, ou null. */
+export function parseDocument(value: string): string | null {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.length === 11 || digits.length === 14 ? digits : null;
+}
+
+/**
+ * Pedidos dos últimos 6 meses do cliente cujo cadastro tem esse e-mail E esse CPF/CNPJ.
+ * Os dois precisam bater NO MESMO cadastro: e-mail certo com documento errado (ou o
+ * contrário) devolve vazio, igual a "não existe" (o chamador responde de forma genérica).
+ * Nunca mistura pedidos de outro cliente (mesmo e-mail com outro documento fica de fora).
+ */
+export async function findOrdersByEmailAndDocument(
+  run: SqlRunner,
+  emailInput: string,
+  documentInput: string,
+  now = new Date()
+): Promise<TrackedOrderSummary[]> {
+  const email = parseEmail(emailInput);
+  const document = parseDocument(documentInput);
+
+  if (!email || !document) return [];
+
+  const rows = await run(
+    `SELECT o.id, o.status, o.fulfillment_status, o.total_cents,
+            to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+       FROM orders o
+       JOIN customers c ON c.id = o.customer_id
+      WHERE lower(c.email) = $1
+        AND (regexp_replace(coalesce(c.cpf, ''), '\\D', '', 'g') = $2 OR regexp_replace(coalesce(c.cnpj, ''), '\\D', '', 'g') = $2)
+        AND o.created_at >= ($3::timestamp - ($4 || ' months')::interval)
+      ORDER BY o.created_at DESC
+      LIMIT $5`,
+    [email, document, now.toISOString(), String(TRACKING_LIST_MONTHS), TRACKING_LIST_LIMIT]
+  );
+
+  return rows.map((row) => ({
+    orderId: String(row.id),
+    number: String(row.id).slice(0, 8).toUpperCase(),
+    createdAt: new Date(String(row.created_at)),
+    totalCents: Number(row.total_cents ?? 0),
+    situation: progressLabel(String(row.status ?? ""), String(row.fulfillment_status ?? "")),
+  }));
+}
