@@ -1,5 +1,5 @@
 /**
- * BIO FLORAIS B2B — login do responsável/RCA (login + senha).
+ * BIO FLORAIS B2B — login do responsável/RCA (e-mail OU login + senha).
  * Só responsáveis com status "active" entram.
  */
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const password = String(body.password ?? "");
 
     if (!login || !password) {
-      return NextResponse.json({ error: "Informe login e senha." }, { status: 400 });
+      return NextResponse.json({ error: "Informe e-mail (ou login) e senha." }, { status: 400 });
     }
 
     const [responsible] = await db
@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
         passwordHash: b2bResponsibles.passwordHash,
       })
       .from(b2bResponsibles)
-      .where(sql`lower(${b2bResponsibles.login}) = ${login}`)
+      .where(sql`lower(${b2bResponsibles.email}) = ${login} OR lower(${b2bResponsibles.login}) = ${login}`)
+      // Se e-mail de um e o login de outro coincidirem, vale quem tem o login igual ao digitado.
+      .orderBy(sql`(lower(${b2bResponsibles.login}) = ${login}) DESC`)
       .limit(1);
 
     if (
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
       !responsible.passwordHash ||
       !verifyPassword(password, responsible.passwordHash)
     ) {
-      return NextResponse.json({ error: "Login ou senha inválidos." }, { status: 401 });
+      return NextResponse.json({ error: "E-mail/login ou senha incorretos. Confira e tente de novo." }, { status: 401 });
     }
 
     // Só depois da senha correta revelamos o motivo do bloqueio.

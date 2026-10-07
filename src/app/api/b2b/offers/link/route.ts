@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const responsible = await requireResponsible(request);
 
   if (!responsible) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   const responsible = await requireResponsible(request);
 
   if (!responsible) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   const run = getAppSqlRunner();
@@ -106,7 +106,7 @@ export async function DELETE(request: NextRequest) {
   const responsible = await requireResponsible(request);
 
   if (!responsible) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {

@@ -27,6 +27,8 @@ export default function InviteForm({ token, purpose, name: invitedName, email: i
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
+  const [quickDone, setQuickDone] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -58,8 +60,8 @@ export default function InviteForm({ token, purpose, name: invitedName, email: i
       }
 
       if (purpose === "onboarding") {
-        // Já entra no painel (a sessão foi criada no cadastro).
-        window.location.href = "/b2b/painel";
+        // A sessão já foi criada no cadastro: mostra o acesso (para guardar) e segue para o painel.
+        setQuickDone(true);
         return;
       }
 
@@ -69,6 +71,31 @@ export default function InviteForm({ token, purpose, name: invitedName, email: i
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (quickDone) {
+    const loginUrl = `${window.location.origin}/b2b/login`;
+
+    return (
+      <section className="mt-8 rounded-[20px] border border-[#eadfd9] bg-white p-6">
+        <h2 className="text-lg font-bold">Cadastro feito!</h2>
+        <p className="mt-2 text-sm">
+          Seu acesso: <strong className="break-all">{loginUrl}</strong> · use seu e-mail e a senha que você criou.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(loginUrl).then(() => setCopied(true)).catch(() => undefined);
+          }}
+          className="mt-3 rounded-full border border-[#55245f] px-4 py-2 text-sm font-extrabold text-[#55245f]"
+        >
+          {copied ? "Copiado ✓" : "Copiar endereço de acesso"}
+        </button>
+        <a href="/b2b/painel" className="mt-4 block rounded-full bg-[#55245f] px-5 py-3 text-center text-sm font-extrabold text-white">
+          Ir para o meu painel
+        </a>
+      </section>
+    );
   }
 
   if (resetDone !== null) {

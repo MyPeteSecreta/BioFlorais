@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -9,6 +10,7 @@ export default function B2BLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -42,14 +44,23 @@ export default function B2BLoginPage() {
       <form onSubmit={handleSubmit} className="mx-auto max-w-sm space-y-3 rounded-[20px] border border-[#eadfd9] bg-white p-6">
         <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#9b6c24]">Bio Florais · B2B</p>
         <h1 className="font-serif text-2xl font-semibold text-[#55245f]">Acesso do representante</h1>
+        <label className="block text-xs font-bold text-[#6c5b69]" htmlFor="b2b-login">
+          E-mail ou login
+        </label>
         <input
+          id="b2b-login"
           autoComplete="username"
-          placeholder="Login"
+          autoCapitalize="none"
+          placeholder="voce@email.com"
           value={login}
           onChange={(event) => setLogin(event.target.value)}
           className="w-full rounded-xl border border-[#d9c7dc] px-3 py-2.5 text-sm"
         />
+        <label className="block text-xs font-bold text-[#6c5b69]" htmlFor="b2b-password">
+          Senha
+        </label>
         <input
+          id="b2b-password"
           type="password"
           autoComplete="current-password"
           placeholder="Senha"
@@ -65,6 +76,20 @@ export default function B2BLoginPage() {
         >
           {submitting ? "Entrando…" : "Entrar"}
         </button>
+        <button type="button" onClick={() => setForgot((value) => !value)} className="w-full text-center text-sm font-bold text-[#63326d] underline underline-offset-4">
+          Esqueci minha senha
+        </button>
+        {forgot && (
+          <p className="rounded-xl bg-[#f6eef7] p-3 text-sm">
+            Peça ao administrador (ou a quem te convidou) um <strong>link para criar uma nova senha</strong>. Ele gera e envia
+            pelo WhatsApp em segundos. Depois é só entrar com seu e-mail e a nova senha.
+          </p>
+        )}
+        <p className="text-center text-xs text-[#8a7886]">
+          <Link href="/" className="underline">
+            Voltar ao site
+          </Link>
+        </p>
       </form>
     </main>
   );

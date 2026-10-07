@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const responsible = await requireResponsibleAnyState(request);
 
   if (!responsible) {
-    return NextResponse.json({ error: "Sessão B2B inválida." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {

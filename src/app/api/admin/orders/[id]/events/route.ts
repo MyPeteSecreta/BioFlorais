@@ -22,7 +22,7 @@ const EVENTS = ["separating", "shipped", "delivered"] as const;
 type EventName = (typeof EVENTS)[number];
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  if (!isAdminRequest(request)) return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
 
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  if (!isAdminRequest(request)) return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
 
   try {
     const { id } = await params;

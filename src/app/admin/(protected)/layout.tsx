@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 
 import Link from "next/link";
+
+import SessionExpiredGuard from "@/components/SessionExpiredGuard";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -58,6 +60,7 @@ export default async function ProtectedAdminLayout({
 
   return (
     <div className="min-h-screen bg-[#fffdf9]">
+      <SessionExpiredGuard scope="admin" loginHref="/admin/login" />
       <header className="sticky top-0 z-50 border-b border-[#eadfd9] bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[72px] max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-3 lg:px-10">
           <div>

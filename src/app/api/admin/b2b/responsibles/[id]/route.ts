@@ -31,7 +31,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {

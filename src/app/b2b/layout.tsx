@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import SessionExpiredGuard from "@/components/SessionExpiredGuard";
 import { B2BCartProvider } from "@/lib/b2b/cart-context";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function B2BLayout({ children }: { children: ReactNode }) {
         B2B apontam sempre para o link (token).
       */}
       <style>{"body > footer { display: none !important; }"}</style>
+      <SessionExpiredGuard scope="b2b" loginHref="/b2b/login" />
       {children}
     </B2BCartProvider>
   );

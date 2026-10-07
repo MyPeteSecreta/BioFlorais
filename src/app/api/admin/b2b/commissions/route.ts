@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {
@@ -44,7 +44,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(request: NextRequest) {
   if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {

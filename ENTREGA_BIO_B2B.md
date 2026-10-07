@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V1 Login por e-mail ou login + sessão expirada (07/10/2026), sobre `659f7b7`
+
+Sem SQL. B2C intocado.
+- `/api/b2b/auth/login`: aceita E-MAIL OU LOGIN (`lower(email)=x OR lower(login)=x`; se coincidirem em registros diferentes, vence o login igual ao digitado). Senha errada: "E-mail/login ou senha incorretos. Confira e tente de novo."
+- `/b2b/login` (já existia na Bio): rótulo "E-mail ou login", link "Esqueci minha senha" (explica que o admin gera o link de nova senha e envia pelo WhatsApp; o fluxo `reset_access` já existe no admin).
+- Cadastro rápido: tela final "Seu acesso: <URL de login> · use seu e-mail e a senha que você criou" + copiar + "Ir para o meu painel" (a sessão já é criada no cadastro).
+- Sessão expirada (cookie de 12h): todas as rotas 401 do admin e do vendedor respondem "Sua sessão expirou. Entre de novo."; `SessionExpiredGuard` (admin e B2B) mostra faixa com link "Entrar de novo" e leva ao login sozinho em 4 s. O login em si não dispara o aviso.
+- Testes: `scripts/b2b-vendor-login.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★ Cabeçalho do B2C volta ao original abaixo de 1280px (05/10/2026), sobre `4893a8e`
 
 Decisão do Luis: vender vem primeiro. Sem SQL.

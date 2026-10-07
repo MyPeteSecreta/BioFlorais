@@ -20,7 +20,7 @@ export async function PATCH(
   // Rota administrativa: exige a sessão do admin.
   if (!isAdminRequest(request)) {
     return NextResponse.json(
-      { error: "Não autorizado." },
+      { error: "Sua sessão expirou. Entre de novo." },
       { status: 401 }
     );
   }

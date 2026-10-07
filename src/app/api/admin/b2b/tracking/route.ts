@@ -31,7 +31,7 @@ const LIMIT = 200;
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: "Sua sessão expirou. Entre de novo." }, { status: 401 });
   }
 
   try {
