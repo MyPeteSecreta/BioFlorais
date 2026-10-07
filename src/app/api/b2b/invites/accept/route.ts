@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (emailTaken) {
-      return fail("Já existe um cadastro com este e-mail. Fale com o administrador.", 409);
+      return fail("Este e-mail já tem cadastro de vendedor. Fale com o administrador para ele liberar o e-mail.", 409);
     }
 
     if (!(await claimInvite(invite.id))) {

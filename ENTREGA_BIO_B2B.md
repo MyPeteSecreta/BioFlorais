@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V2 E-mail "preso" (07/10/2026), sobre `868b9cf`
+
+- **SQL, nesta ordem:** `31a_email_preso_preflight_one_shot.sql` (somente leitura, uma linha JSON: colunas existem? inativos que seguram e-mail, convites vencidos) e `31b_email_preso.sql` (BEGIN/COMMIT, ADD COLUMN IF NOT EXISTS `email_original`, `login_original`, `released_at`).
+- Convite revogado/expirado nunca reserva e-mail (só vendedor existente ocupa; convite novo checa só `b2b_responsibles`).
+- Admin → Vendedores: "Editar e-mail/login" (valida e-mail e login contra e-mail e login de outros vendedores; guarda o original) e "Desativar e liberar e-mail" (status inactive, e-mail e login viram `liberado+<id>@invalid`, original guardado, convites pendentes desse e-mail revogados; sem DELETE; pedidos e comissões continuam no mesmo id). A lista mostra "e-mail anterior".
+- Mensagem clara no convite: "Este e-mail já pertence ao vendedor ativo <nome>…" ou "…a <nome> (inativo). Use Editar… ou Desativar e liberar…".
+- Antes do 31b a lista abre normalmente; editar/liberar respondem 409 pedindo o SQL.
+- Testes: `scripts/b2b-email-preso.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V1 Login por e-mail ou login + sessão expirada (07/10/2026), sobre `659f7b7`
 
 Sem SQL. B2C intocado.

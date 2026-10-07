@@ -40,6 +40,8 @@ export type AdminResponsibleRow = {
   trialEndsAt?: string | null;
   /** Nome no cadastro de Vendedores do Omie (SQL 30b); null = não cadastrado. */
   omieVendor?: string | null;
+  login?: string | null;
+  emailOriginal?: string | null;
 };
 
 // Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
@@ -62,6 +64,7 @@ export async function GET(request: NextRequest) {
         type: b2bResponsibles.type,
         status: b2bResponsibles.status,
         phone: b2bResponsibles.phone,
+        login: b2bResponsibles.login,
         createdAt: b2bResponsibles.createdAt,
         lastLoginAt: b2bResponsibles.lastLoginAt,
         invitedAt: b2bResponsibleInvites.sentAt,
@@ -141,6 +144,19 @@ export async function GET(request: NextRequest) {
       // SQL 30b ainda não aplicado.
     }
 
+    // Histórico do e-mail liberado (SQL 31b). Sem as colunas: sem histórico.
+    const originalBy = new Map<string, string>();
+
+    try {
+      const rowsOriginal = await getAppSqlRunner()(
+        `SELECT id, email_original FROM b2b_responsibles WHERE email_original IS NOT NULL AND email_original <> email`
+      );
+
+      for (const row of rowsOriginal) originalBy.set(String(row.id), String(row.email_original));
+    } catch {
+      // SQL 31b ainda não aplicado.
+    }
+
     const knownEmails = new Set(responsibles.map((row) => row.email.toLowerCase()));
 
     const pendingInvites = await db
@@ -191,6 +207,8 @@ export async function GET(request: NextRequest) {
         situation: situationBy.get(row.id)?.situation ?? "Cadastro completo",
         trialEndsAt: situationBy.get(row.id)?.trialEndsAt ?? null,
         omieVendor: omieBy.get(row.id) ?? null,
+        login: row.login ?? null,
+        emailOriginal: originalBy.get(row.id) ?? null,
       })),
     ];
 

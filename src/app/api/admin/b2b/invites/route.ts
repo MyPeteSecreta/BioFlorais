@@ -4,10 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
 
-import { db } from "@/lib/db/client";
-import { b2bResponsibles } from "@/lib/db/schema";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { describeIdentityConflict, findIdentityConflict } from "@/lib/b2b/vendor-identity";
 import { isAdminRequest } from "@/lib/admin/session";
 import {
   buildInviteMessage,
@@ -50,20 +49,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Escolha o tipo: RCA ou Vendedor." }, { status: 400 });
     }
 
-    const [existing] = await db
-      .select({ id: b2bResponsibles.id })
-      .from(b2bResponsibles)
-      .where(sql`lower(${b2bResponsibles.email}) = ${email}`)
-      .limit(1);
+    // Só quem já é vendedor ocupa o e-mail: convite revogado/expirado nunca reserva.
+    const conflict = await findIdentityConflict(getAppSqlRunner(), { email });
 
-    if (existing) {
-      return NextResponse.json(
-        {
-          error:
-            "Já existe um vendedor com este e-mail. Use \"Redefinir acesso\" na lista.",
-        },
-        { status: 409 }
-      );
+    if (conflict) {
+      return NextResponse.json({ error: describeIdentityConflict(conflict) }, { status: 409 });
     }
 
     const invite = await createResponsibleInvite({

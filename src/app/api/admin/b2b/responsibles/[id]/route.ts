@@ -16,6 +16,7 @@ import { b2bResponsibles } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
+import { changeIdentity, describeIdentityConflict, parseIdentityInput, releaseIdentity } from "@/lib/b2b/vendor-identity";
 import {
   buildInviteMessage,
   buildInviteUrl,
@@ -40,6 +41,8 @@ export async function POST(
       action?: string;
       whatsapp?: string;
       omieVendor?: string;
+      email?: string;
+      login?: string;
     };
 
     const [responsible] = await db
@@ -114,6 +117,45 @@ export async function POST(
         }
 
         return NextResponse.json({ ok: true, trialEndsAt: rows[0].trial_ends_at });
+      }
+
+      case "edit_identity": {
+        const parsed = parseIdentityInput({ email: body.email, login: body.login });
+
+        if (!parsed.ok) {
+          return NextResponse.json({ error: parsed.error }, { status: 400 });
+        }
+
+        try {
+          const result = await changeIdentity(getAppSqlRunner(), id, parsed.value);
+
+          if (!result.ok) {
+            return NextResponse.json(
+              { error: result.conflict ? describeIdentityConflict(result.conflict) : "Vendedor não encontrado." },
+              { status: result.conflict ? 409 : 404 }
+            );
+          }
+        } catch (error) {
+          console.error("[admin/b2b/responsibles edit_identity]", error);
+          return NextResponse.json({ error: "Não foi possível editar (aplique o SQL 31b)." }, { status: 409 });
+        }
+
+        return NextResponse.json({ ok: true, email: parsed.value.email, login: parsed.value.login });
+      }
+
+      case "release_email": {
+        try {
+          const result = await releaseIdentity(getAppSqlRunner(), id);
+
+          if (!result.ok) {
+            return NextResponse.json({ error: "Vendedor não encontrado." }, { status: 404 });
+          }
+
+          return NextResponse.json({ ok: true, originalEmail: result.originalEmail });
+        } catch (error) {
+          console.error("[admin/b2b/responsibles release_email]", error);
+          return NextResponse.json({ error: "Não foi possível liberar (aplique o SQL 31b)." }, { status: 409 });
+        }
       }
 
       case "set_omie_vendor": {

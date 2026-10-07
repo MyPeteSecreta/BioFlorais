@@ -27,6 +27,8 @@ type Row = {
   paidOrders: number;
   situation?: string | null;
   omieVendor?: string | null;
+  login?: string | null;
+  emailOriginal?: string | null;
 };
 
 type SharedLink = {
@@ -168,6 +170,28 @@ export default function ResponsiblesTab() {
     }
   }
 
+  async function editIdentity(row: Row) {
+    const email = window.prompt(`E-mail de ${row.name}:`, row.email);
+
+    if (email === null) return;
+
+    const login = window.prompt("Login (pode ser o próprio e-mail):", row.login || email);
+
+    if (login === null) return;
+
+    setBusyId(row.id);
+    setMessage("");
+
+    try {
+      const { ok, data } = await post(`/api/admin/b2b/responsibles/${row.id}`, { action: "edit_identity", email, login });
+
+      setMessage(ok ? `E-mail/login de ${row.name} atualizados.` : (data.error ?? "Erro ao editar."));
+      if (ok) void load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function saveOmieVendor(row: Row) {
     const value = omieDraft[row.id] ?? row.omieVendor ?? "";
 
@@ -272,6 +296,7 @@ export default function ResponsiblesTab() {
                   <td className="px-4 py-3">
                     <p className="font-bold text-[#342737]">{row.name}</p>
                     <p className="text-xs text-[#7b6a77]">{row.email}</p>
+                    {row.emailOriginal && <p className="text-[11px] text-[#8a5a12]">e-mail anterior: {row.emailOriginal}</p>}
                   </td>
                   <td className="px-4 py-3">{TYPE_LABELS[row.type] ?? row.type}</td>
                   <td className="px-4 py-3">
@@ -350,6 +375,23 @@ export default function ResponsiblesTab() {
                       {row.kind === "responsible" && row.situation && row.situation !== "Cadastro completo" && (
                         <button type="button" disabled={busy} onClick={() => act(row, "extend_trial", `Estender o teste de ${row.name} por mais 7 dias?`)} className={`${actionButton} border-[#8a5a12] text-[#8a5a12]`}>
                           Estender teste +7 dias
+                        </button>
+                      )}
+                      {row.kind === "responsible" && (
+                        <button type="button" disabled={busy} onClick={() => editIdentity(row)} className={`${actionButton} border-[#342737] text-[#342737]`}>
+                          Editar e-mail/login
+                        </button>
+                      )}
+                      {row.kind === "responsible" && !row.email.startsWith("liberado+") && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            act(row, "release_email", `Desativar ${row.name} e LIBERAR o e-mail ${row.email}? Ele perde o acesso; os pedidos e comissões dele continuam. O e-mail poderá ser cadastrado de novo.`)
+                          }
+                          className={`${actionButton} border-[#b33] text-[#b33]`}
+                        >
+                          Desativar e liberar e-mail
                         </button>
                       )}
                       {row.kind === "responsible" && (
