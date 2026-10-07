@@ -11,6 +11,7 @@
  * com PGlite e dois vendedores).
  */
 
+import { andNotArchived } from "@/lib/b2b/archive";
 import { neon } from "@neondatabase/serverless";
 
 import { isUuid } from "@/lib/b2b/admin-input";
@@ -77,12 +78,13 @@ export async function findOwnedClient(
 ): Promise<OwnedClient | null> {
   if (!isUuid(responsibleId) || !isUuid(clientId)) return null;
 
+  const notArchived = await andNotArchived(run, "b2b_clients", "c");
   const rows = await run(
     `SELECT c.id, c.display_name, c.contact_name, c.email, c.phone,
             (SELECT name FROM b2b_responsibles WHERE id = $1) AS responsible_name
        FROM b2b_clients c
        JOIN b2b_client_relationships r ON r.client_id = c.id
-      WHERE c.id = $2 AND ${ACTIVE_RELATIONSHIP}
+      WHERE c.id = $2${notArchived} AND ${ACTIVE_RELATIONSHIP}
       LIMIT 1`,
     [responsibleId, clientId]
   );
@@ -97,12 +99,13 @@ export async function listOwnedClients(
 ): Promise<OwnedClient[]> {
   if (!isUuid(responsibleId)) return [];
 
+  const notArchived = await andNotArchived(run, "b2b_clients", "c");
   const rows = await run(
     `SELECT c.id, c.display_name, c.contact_name, c.email, c.phone,
             (SELECT name FROM b2b_responsibles WHERE id = $1) AS responsible_name
        FROM b2b_clients c
        JOIN b2b_client_relationships r ON r.client_id = c.id
-      WHERE ${ACTIVE_RELATIONSHIP}
+      WHERE ${ACTIVE_RELATIONSHIP}${notArchived}
       ORDER BY c.display_name ASC`,
     [responsibleId]
   );

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import OrderBatchSelection from "@/components/admin/OrderBatchSelection";
-import { desc, eq, ne} from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
+
+import { notArchivedCondition } from "@/lib/b2b/archive";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 import { db } from "@/lib/db/client";
 import {
@@ -74,6 +77,8 @@ function fulfillmentLabel(status: string) {
 }
 
 export default async function AdminOrdersPage() {
+  // V5: pedidos arquivados (dados de teste) não aparecem na Central/Omie.
+  const notArchivedOrders = await notArchivedCondition(getAppSqlRunner(), "orders");
   const orderRows = await db
     .select({
       id: orders.id,
@@ -145,9 +150,12 @@ export default async function AdminOrdersPage() {
     // Tentativa tecnica de pagamento com cartao nao e pedido
     // comercial e nao entra na operacao da Central.
     .where(
-      ne(
-        orders.status,
-        "checkout_pending"
+      and(
+        ne(
+          orders.status,
+          "checkout_pending"
+        ),
+        sql.raw(notArchivedOrders)
       )
     )
     .orderBy(

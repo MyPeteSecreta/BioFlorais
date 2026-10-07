@@ -14,6 +14,7 @@
  * SQL puro sobre SqlRunner (roda no Neon e no PGlite dos testes).
  */
 
+import { andNotArchived } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { isUuid } from "@/lib/b2b/admin-input";
 
@@ -75,6 +76,7 @@ export async function loadBoletoInstallments(
   const dueFrom = filters.dueFrom && DATE_RE.test(filters.dueFrom) ? filters.dueFrom : null;
   const dueTo = filters.dueTo && DATE_RE.test(filters.dueTo) ? filters.dueTo : null;
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT o.id AS order_id, o.status AS order_status,
             coalesce(c.display_name, '') AS client_name,
@@ -104,7 +106,7 @@ export async function loadBoletoInstallments(
               ON bp.order_id = o.id
              AND bp.installment = CASE WHEN br.schedule IS NOT NULL AND jsonb_typeof(br.schedule) = 'array' AND jsonb_array_length(br.schedule) > 0
                                        THEN (e.item ->> 'installment')::int ELSE e.n END
-      WHERE o.b2b_offer_id IS NOT NULL
+      WHERE o.b2b_offer_id IS NOT NULL${notArchived}
         AND ($1::uuid IS NULL OR o.b2b_client_id = $1::uuid)
         AND ($2::uuid IS NULL OR o.b2b_responsible_id = $2::uuid)
       ORDER BY due_date NULLS LAST, o.created_at, installment`,

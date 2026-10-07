@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { notArchivedCondition } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { adminSituation } from "@/lib/b2b/vendor-profile";
 import {
@@ -71,6 +72,8 @@ export async function GET(request: NextRequest) {
       })
       .from(b2bResponsibles)
       .leftJoin(b2bResponsibleInvites, eq(b2bResponsibleInvites.id, b2bResponsibles.inviteId))
+      // V5: vendedores arquivados (dados de teste) saem da lista.
+      .where(sql.raw(await notArchivedCondition(getAppSqlRunner(), "b2b_responsibles")))
       .orderBy(desc(b2bResponsibles.createdAt));
 
     const clientCounts = await db
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
         total: sql<number>`count(*)::int`,
       })
       .from(orders)
-      .where(and(isNotNull(orders.b2bResponsibleId), eq(orders.status, "paid")))
+      .where(and(isNotNull(orders.b2bResponsibleId), eq(orders.status, "paid"), sql.raw(await notArchivedCondition(getAppSqlRunner(), "orders"))))
       .groupBy(orders.b2bResponsibleId);
 
     const countMap = (rows: Array<{ responsibleId: string | null; total: number }>) =>

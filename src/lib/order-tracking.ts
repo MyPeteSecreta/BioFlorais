@@ -14,6 +14,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { isUuid } from "@/lib/b2b/admin-input";
 import { loadBoletoInstallments, type BoletoInstallment } from "@/lib/b2b/boleto-installments";
+import { andNotArchived } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 
@@ -115,9 +116,10 @@ export async function findOrderForTracking(run: SqlRunner, number: string, conta
 
   if (!orderNumber || !parsed) return null;
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id
-      WHERE upper(left(o.id::text, 8)) = $1
+      WHERE upper(left(o.id::text, 8)) = $1${notArchived}
         AND ( ($2::text IS NOT NULL AND lower(c.email) = $2::text)
            OR ($3::text IS NOT NULL AND (regexp_replace(coalesce(c.cpf, ''), '\\D', '', 'g') = $3::text
                                       OR regexp_replace(coalesce(c.cnpj, ''), '\\D', '', 'g') = $3::text)) )
@@ -261,13 +263,14 @@ function extractPixCode(raw: unknown): string | null {
 export async function loadTrackingView(run: SqlRunner, orderId: string, now = new Date()): Promise<TrackingView | null> {
   if (!isUuid(orderId)) return null;
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const [order] = await run(
     `SELECT o.id, o.status, o.fulfillment_status, o.payment_method, o.subtotal_cents, o.discount_cents, o.shipping_cents,
             o.total_cents, o.shipping_service_name, o.tracking_code, o.b2b_offer_id,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
             a.city, a.state, a.cep
        FROM orders o LEFT JOIN addresses a ON a.id = o.shipping_address_id
-      WHERE o.id = $1`,
+      WHERE o.id = $1${notArchived}`,
     [orderId]
   );
 
@@ -381,10 +384,11 @@ export async function loadTrackingView(run: SqlRunner, orderId: string, now = ne
 export async function listClientOrders(run: SqlRunner, clientId: string) {
   if (!isUuid(clientId)) return [];
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT o.id, o.status, o.fulfillment_status, o.payment_method, o.total_cents,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
-       FROM orders o WHERE o.b2b_client_id = $1 AND o.b2b_offer_id IS NOT NULL
+       FROM orders o WHERE o.b2b_client_id = $1 AND o.b2b_offer_id IS NOT NULL${notArchived}
       ORDER BY o.created_at DESC LIMIT 100`,
     [clientId]
   );
@@ -454,12 +458,13 @@ export async function findOrdersByEmailAndDocument(
 
   if (!email || !document) return [];
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT o.id, o.status, o.fulfillment_status, o.total_cents,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
        FROM orders o
        JOIN customers c ON c.id = o.customer_id
-      WHERE lower(c.email) = $1
+      WHERE lower(c.email) = $1${notArchived}
         AND (regexp_replace(coalesce(c.cpf, ''), '\\D', '', 'g') = $2 OR regexp_replace(coalesce(c.cnpj, ''), '\\D', '', 'g') = $2)
         AND o.created_at >= ($3::timestamp - ($4 || ' months')::interval)
       ORDER BY o.created_at DESC

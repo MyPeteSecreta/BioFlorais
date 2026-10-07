@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin/session";
 import { isUuid } from "@/lib/b2b/admin-input";
+import { andNotArchived } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadCommissionRows, totalsFor } from "@/lib/b2b/commissions";
 import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       responsibleId: params.get("vendedor"),
       month: params.get("mes"),
     });
-    const responsibles = await run(`SELECT id, name FROM b2b_responsibles ORDER BY name`);
+    const responsibles = await run(`SELECT id, name FROM b2b_responsibles WHERE TRUE${await andNotArchived(run, "b2b_responsibles")} ORDER BY name`);
 
     return NextResponse.json({
       rows,

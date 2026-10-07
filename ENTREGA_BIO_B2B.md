@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V5 Limpeza dos dados de TESTE, arquivando (07/10/2026), sobre `201c2af`
+
+- **SQL, nesta ordem:** `32a_dados_de_teste_preflight_one_shot.sql` (somente leitura, uma linha JSON com o que SERIA arquivado: vendedores, clientes, pedidos com TESTEB2B95 e pagos de verdade) e `32b_dados_de_teste.sql` (aditivo, BEGIN/COMMIT, IF NOT EXISTS: `is_test` e `archived_at` em `b2b_responsibles`, `b2b_clients` e `orders`; tabela `b2b_archive_log` para desfazer). Aplicar o 32b não muda nenhum dado.
+- Admin → nova aba "Dados de teste": candidatos (nome/e-mail com "teste", @example.invalid, cupom TESTEB2B95, pedidos ligados a vendedor/cliente de teste) com caixa de seleção; "Arquivar selecionados". Arquivar = `archived_at`/`is_test`; vendedor vira `inactive`, cliente `active=false` (estado anterior no log); pedidos de vendedor/cliente arquivado herdam. Pedido PAGO DE VERDADE (pago e sem o cupom de teste) fica de fora, a não ser que o admin marque a confirmação linha a linha. "Desfazer" por lote devolve tudo. NADA é apagado.
+- Some de: lista de vendedores, comissões (admin e painel), boletos, acompanhamento do admin, Central de pedidos (`/admin/pedidos`, que é o que a Central/Omie lê), acompanhamento do cliente (número, e-mail+CPF, "Meus pedidos"), histórico de compras/uso de promoção e clientes do vendedor. Antes do 32b os filtros não existem e nada muda (checagem tolerante da coluna).
+- Atenção Central/Omie: se a Central lê o banco da Bio por outro caminho que não `/admin/pedidos`, ela precisa filtrar `archived_at IS NULL`.
+- Testes: `scripts/b2b-dados-de-teste.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V2 E-mail "preso" (07/10/2026), sobre `868b9cf`
 
 - **SQL, nesta ordem:** `31a_email_preso_preflight_one_shot.sql` (somente leitura, uma linha JSON: colunas existem? inativos que seguram e-mail, convites vencidos) e `31b_email_preso.sql` (BEGIN/COMMIT, ADD COLUMN IF NOT EXISTS `email_original`, `login_original`, `released_at`).

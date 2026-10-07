@@ -23,6 +23,8 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
+import { notArchivedCondition } from "@/lib/b2b/archive";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
       .from(orders)
       .leftJoin(customers, eq(customers.id, orders.customerId))
       .leftJoin(b2bClients, eq(b2bClients.id, orders.b2bClientId))
-      .where(isNotNull(orders.b2bOfferId))
+      .where(and(isNotNull(orders.b2bOfferId), sql.raw(await notArchivedCondition(getAppSqlRunner(), "orders"))))
       .orderBy(desc(orders.createdAt))
       .limit(LIMIT);
 

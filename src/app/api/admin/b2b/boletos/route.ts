@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin/session";
+import { andNotArchived } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import {
   giveBaixa,
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
     });
 
     const [clients, responsibles] = await Promise.all([
-      run(`SELECT id, display_name FROM b2b_clients ORDER BY display_name`),
-      run(`SELECT id, name FROM b2b_responsibles ORDER BY name`),
+      run(`SELECT id, display_name FROM b2b_clients WHERE TRUE${await andNotArchived(run, "b2b_clients")} ORDER BY display_name`),
+      run(`SELECT id, name FROM b2b_responsibles WHERE TRUE${await andNotArchived(run, "b2b_responsibles")} ORDER BY name`),
     ]);
 
     return NextResponse.json({

@@ -18,6 +18,7 @@
  * puras para as decisões.
  */
 
+import { andNotArchived } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { isUuid } from "@/lib/b2b/admin-input";
 import { commissionWindowFor, type CommissionWindow } from "@/lib/b2b/commission-window";
@@ -62,13 +63,14 @@ export async function loadClientPurchases(
 ): Promise<LinePurchase[]> {
   if (!isUuid(clientId)) return [];
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT DISTINCT gp.commercial_group_id AS group_id, o.id AS order_id,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at
        FROM orders o
        JOIN order_items i ON i.order_id = o.id AND i.unit_price_cents > 0
        JOIN b2b_commercial_group_products gp ON gp.product_id = i.product_id
-      WHERE o.b2b_client_id = $1
+      WHERE o.b2b_client_id = $1${notArchived}
         AND ${countsAsPurchaseSql("o")}
         AND ($2::uuid IS NULL OR o.b2b_offer_id IS DISTINCT FROM $2::uuid)
       ORDER BY at`,
@@ -211,11 +213,12 @@ export function commissionWindowForItem(
 export async function loadPromotionUses(run: SqlRunner, offerId: string): Promise<Map<string, number>> {
   if (!isUuid(offerId)) return new Map();
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const rows = await run(
     `SELECT i.promotion_id AS promotion_id, count(DISTINCT o.id)::int AS used
        FROM orders o
        JOIN order_items i ON i.order_id = o.id
-      WHERE o.b2b_offer_id = $1
+      WHERE o.b2b_offer_id = $1${notArchived}
         AND i.promotion_id IS NOT NULL
         AND (${countsAsPurchaseSql("o")} OR ${reservesUseSql("o")})
       GROUP BY i.promotion_id`,

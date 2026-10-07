@@ -18,6 +18,7 @@
  * (sql/b2b/18b), com a data em que o admin pagou a comissão ao vendedor.
  */
 
+import { andNotArchived } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
@@ -129,6 +130,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
   const clientId = filters.clientId && isUuid(filters.clientId) ? filters.clientId : null;
   const month = filters.month && MONTH_RE.test(filters.month) ? filters.month : null;
 
+  const notArchived = await andNotArchived(run, "orders", "o");
   const query = `SELECT o.id, o.status, o.payment_method, o.total_cents, o.shipping_cents,
             o.b2b_responsible_id, o.b2b_client_id,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
@@ -151,7 +153,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
            FROM order_items i
           WHERE i.order_id = o.id AND i.unit_price_cents > 0 AND i.commission_total_percent IS NOT NULL
        ) w ON true
-      WHERE o.b2b_offer_id IS NOT NULL
+      WHERE o.b2b_offer_id IS NOT NULL${notArchived}
         AND ($1::uuid IS NULL OR o.b2b_responsible_id = $1::uuid)
         AND ($2::uuid IS NULL OR o.b2b_client_id = $2::uuid)
         AND ($3::text IS NULL OR to_char(o.created_at, 'YYYY-MM') = $3::text)
