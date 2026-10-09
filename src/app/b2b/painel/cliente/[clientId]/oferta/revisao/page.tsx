@@ -163,7 +163,7 @@ export default async function OfferReviewPage({
 
       <div className="mt-8 flex flex-col items-center gap-3">
         {isDraft ? (
-          <ReviewActions clientId={client.id} offerId={offer.id} blocked={blocked} />
+          <ReviewActions clientId={client.id} offerId={offer.id} blocked={blocked} clientName={client.displayName} />
         ) : (
           <Link
             href={`/b2b/painel/cliente/${client.id}`}

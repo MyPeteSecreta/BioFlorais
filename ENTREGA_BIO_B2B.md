@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★ QR Code do link da oferta (09/10/2026), sobre `2361bcd`
+
+**SEM SQL.** Dependência `qrcode` (+ `@types/qrcode`), autorizada pelo Luis; o QR é gerado NO NAVEGADOR (nada de serviço externo).
+- Botão "Mostrar QR Code" logo após "Gerar link" (ao lado de Copiar e WhatsApp, na revisão da oferta) e na lista de ofertas do cliente (ofertas com link ativo e não revogado). A Bio não tem modo demonstração: não há link fictício.
+- Tela cheia (modal) de fundo branco, "Bio Florais" + "Olá, <nome do cliente>!", QR com 78% da largura no celular (máx. 560 px), alto contraste (preto sobre branco) e margem branca de 4 módulos; "Aponte a câmera do seu celular para abrir sua loja personalizada."; "Baixar imagem" (PNG 1024 px) e "Fechar" (também Esc). Sem permissões nem tela sempre acesa.
+- O QR contém exatamente a URL do link (o teste lê o conteúdo do QR gerado). Na lista a URL vem de `GET /api/b2b/offers/link`, que só entrega ao vendedor dono da oferta e bloqueia oferta revogada/expirada como antes.
+- Testes: `scripts/b2b-qrcode.test.mjs`. Conferência manual (roteiro de 3 passos): 1) painel → cliente → "Gerar link para o cliente" → "Mostrar QR Code"; 2) com a câmera de outro celular, apontar para a tela; 3) deve abrir a loja personalizada do cliente (conferir com link revogado: deve bloquear).
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V7 + V3/V6 + V4 — Analytics e rotas da Central (08/10/2026), sobre `107df9d`
 
 **SEM SQL novo** (usa `order_events` do 23b e as colunas de cadastro/arquivo já existentes). **Variáveis na Vercel da Bio:** `CENTRAL_API_SECRET` (mesmo valor das 3 marcas; sem ela as rotas respondem 503) e `CENTRAL_URL` = `https://www.mypeteme.com.br` (sem elas a Bio só deixa de replicar/oferecer "Usar meus dados"; nada quebra).

@@ -6,21 +6,25 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import LinkSharePanel from "./LinkSharePanel";
+import QrCodeModal from "./QrCodeModal";
 
 export default function OfferLinkActions({
   offerId,
   hasActiveLink,
+  clientName,
 }: {
   offerId: string;
   hasActiveLink: boolean;
+  clientName?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [link, setLink] = useState<{ url: string; whatsappUrl: string } | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
-  async function copyCurrent(whatsapp: boolean) {
+  async function copyCurrent(whatsapp: boolean, qr = false) {
     setBusy(true);
     setError("");
 
@@ -33,7 +37,9 @@ export default function OfferLinkActions({
         return;
       }
 
-      if (whatsapp) {
+      if (qr) {
+        setQrUrl(data.url);
+      } else if (whatsapp) {
         window.open(data.whatsappUrl, "_blank", "noopener");
       } else {
         try {
@@ -105,6 +111,14 @@ export default function OfferLinkActions({
             >
               Enviar por WhatsApp
             </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => copyCurrent(false, true)}
+              className="rounded-full bg-[#26352c] px-4 py-2 text-xs font-extrabold text-white disabled:opacity-50"
+            >
+              Mostrar QR Code
+            </button>
           </>
         )}
         {hasActiveLink && (
@@ -119,7 +133,8 @@ export default function OfferLinkActions({
         )}
       </div>
       {error && <p className="text-xs text-red-700">{error}</p>}
-      {link && <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} />}
+      {link && <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} clientName={clientName} />}
+      {qrUrl && <QrCodeModal url={qrUrl} clientName={clientName} onClose={() => setQrUrl(null)} />}
     </div>
   );
 }

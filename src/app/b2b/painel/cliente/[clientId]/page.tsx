@@ -138,7 +138,7 @@ export default async function B2BClientPage({
                       Ver condições
                     </Link>
                     {!offer.revokedAt && (
-                      <OfferLinkActions offerId={offer.id} hasActiveLink={offer.hasActiveLink} />
+                      <OfferLinkActions offerId={offer.id} hasActiveLink={offer.hasActiveLink} clientName={client.displayName} />
                     )}
                   </>
                 )}
