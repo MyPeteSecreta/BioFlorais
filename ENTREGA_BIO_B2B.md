@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V7 + V3/V6 + V4 — Analytics e rotas da Central (08/10/2026), sobre `107df9d`
+
+**SEM SQL novo** (usa `order_events` do 23b e as colunas de cadastro/arquivo já existentes). **Variáveis na Vercel da Bio:** `CENTRAL_API_SECRET` (mesmo valor das 3 marcas; sem ela as rotas respondem 503) e `CENTRAL_URL` = `https://www.mypeteme.com.br` (sem elas a Bio só deixa de replicar/oferecer "Usar meus dados"; nada quebra).
+- **V7 (autorizado pelo Luis):** `@vercel/analytics` e `@vercel/speed-insights` instalados; `<WebAnalytics />` no layout raiz. Tokens saem da URL antes do envio (`src/lib/analytics-url.ts`): `/b2b/oferta/[token]`, `/b2b/convite/[token]`, `/acompanhe/[token]` e os parâmetros `b2b`, `token`, `email`, `cpf`, `cnpj`. Sem cookies, sem dado pessoal. Ativar Web Analytics/Speed Insights no painel da Vercel do projeto.
+- **Rotas internas (header `x-central-secret`, comparação em tempo constante; 503 sem variável, 401 segredo errado):**
+  - `POST /api/central/invites`: cria o convite como o admin (RCA→`rca`, VENDEDOR→`clt`); e-mail de vendedor existente = 409 `EMAIL_IN_USE` citando o dono; convite pendente do mesmo e-mail é substituído (igual ao admin, por isso a Bio não devolve `INVITE_PENDING`); link = `getSiteUrl()` (`https://www.bioflorais.com.br`).
+  - `GET /api/central/orders?stage=separation|tracking|shipped`: pagos (`paid`/`approved`), não arquivados; tracking = `ready_to_ship` sem `tracking_code`; itens com nome completo (snapshot ou rótulo B2B), pagas + bonificadas (linhas de preço 0); número `BIO-XXXXXXXX`.
+  - `POST /api/central/orders/{id}/progress`: `separating`→`separating`; `separated`→`ready_to_ship`; `shipped` (exige transportadora + código, link http/https opcional) grava `shipping_service_name`/`tracking_code`; `delivered` só depois de enviado → `delivered` (mesmo que o admin da Bio). Cada ação grava `order_events` com `created_by = "Central · <nome>"` (o "separado" entra como evento `separating`, nota "Separado e embalado", para o cliente seguir vendo "Em separação"). Não pago/cancelado = 409.
+  - `GET/POST /api/central/sellers/profile` (V4): consulta (ignora arquivados; `complete` = `profile_completed_at`) e replicação (só vendedor ativo que ainda NÃO completou; RCA sem termo = `TERMS_REQUIRED`; grava data/IP/versão do aceite original; mesma validação do cadastro completo).
+- **V4 do lado da Bio:** ao concluir o cadastro completo (painel ou cadastro "full" do convite) a Bio chama `POST {CENTRAL_URL}/api/central/sellers/replicate` DEPOIS de responder (`after()`, melhor esforço); em "Completar cadastro" aparece "Usar meus dados de <marca>" (busca `GET {CENTRAL_URL}/api/central/sellers/lookup?email=<logado>&exclude=bio`, 4 s de limite) que só pré-preenche; o termo continua sendo aceito aqui.
+- Testes: `scripts/b2b-central.test.mjs` (segredo, convite, etapas e itens, andamento + eventos, consulta/replicação, chamadas à Central com falha, Analytics, fios das rotas).
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★ Rodada 5 · V5 Limpeza dos dados de TESTE, arquivando (07/10/2026), sobre `201c2af`
 
 - **SQL, nesta ordem:** `32a_dados_de_teste_preflight_one_shot.sql` (somente leitura, uma linha JSON com o que SERIA arquivado: vendedores, clientes, pedidos com TESTEB2B95 e pagos de verdade) e `32b_dados_de_teste.sql` (aditivo, BEGIN/COMMIT, IF NOT EXISTS: `is_test` e `archived_at` em `b2b_responsibles`, `b2b_clients` e `orders`; tabela `b2b_archive_log` para desfazer). Aplicar o 32b não muda nenhum dado.

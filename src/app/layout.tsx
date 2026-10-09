@@ -6,6 +6,7 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import MobileLineBar from "@/components/layout/MobileLineBar";
 import UgcFloatingButton from "@/components/ugc/UgcFloatingButton";
 import HideOnB2B from "@/components/layout/HideOnB2B";
+import WebAnalytics from "@/components/analytics/WebAnalytics";
 
 export const metadata: Metadata = {
   title: "Bio Florais | Equilíbrio para viver melhor",
@@ -32,6 +33,7 @@ export default function RootLayout({
             <MobileLineBar />
           </HideOnB2B>
         </CartProvider>
+        <WebAnalytics />
       </body>
     </html>
   );

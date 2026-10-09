@@ -5,11 +5,13 @@
  * a versão do termo. Libera as comissões retidas.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { b2bResponsibles } from "@/lib/db/schema";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { replicateAfterCompletion } from "@/lib/central/central-client";
 import { requireResponsibleAnyState } from "@/lib/b2b/require-responsible";
 import { RCA_TERMS_VERSION, parseCompleteProfile } from "@/lib/b2b/vendor-profile";
 
@@ -63,6 +65,9 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       })
       .where(eq(b2bResponsibles.id, responsible.id));
+
+    // V4: a Central replica o cadastro para as outras marcas (melhor esforço, depois da resposta).
+    after(() => replicateAfterCompletion(getAppSqlRunner(), responsible.id));
 
     return NextResponse.json({ ok: true, profileCompletedAt: now.toISOString() });
   } catch (error) {

@@ -13,7 +13,9 @@
  * dois cadastros; se a gravação falhar, a reserva é desfeita.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+
+import { replicateAfterCompletion } from "@/lib/central/central-client";
 import { and, eq, gt, getTableColumns, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
@@ -310,8 +312,10 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
+    let createdId: string | null = null;
+
     try {
-      await db.insert(b2bResponsibles).values({
+      [{ id: createdId }] = await db.insert(b2bResponsibles).values({
         inviteId: invite.id,
         type: invite.responsibleType,
         status: "active",
@@ -343,12 +347,18 @@ export async function POST(request: NextRequest) {
         profileCompletedAt: now,
         onboardingCompletedAt: now,
         companyApprovedAt: now,
-      });
+      }).returning({ id: b2bResponsibles.id });
     } catch (insertError) {
       // Ex.: login/e-mail gravado por outra requisição no meio do caminho.
       await releaseInvite(invite.id);
       console.error("[b2b/invites/accept] insert", insertError);
       return fail("Não foi possível concluir o cadastro (login ou e-mail já em uso).", 409);
+    }
+
+    // V4: cadastro completo feito aqui também é replicado pela Central (melhor esforço).
+    if (createdId) {
+      const sellerId = createdId;
+      after(() => replicateAfterCompletion(getAppSqlRunner(), sellerId));
     }
 
     return NextResponse.json({ ok: true, purpose: "onboarding", login, status: "active" });

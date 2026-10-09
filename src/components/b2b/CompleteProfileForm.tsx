@@ -10,6 +10,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import RcaTermsBox from "@/components/b2b/RcaTermsBox";
 import { RCA_TERMS_ACCEPT_LABEL } from "@/lib/b2b/rca-terms";
+import type { SellerProfileData } from "@/lib/central/contract";
 
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-3 text-base outline-none focus:border-[#63326d]";
 
@@ -18,11 +19,14 @@ export default function CompleteProfileForm({
   requiresRcaTerms,
   expired,
   bannerText,
+  sources = [],
 }: {
   requiresRcaTerms: boolean;
   /** Teste vencido: esta é a ÚNICA tela do painel. */
   expired: boolean;
   bannerText: string | null;
+  /** V4: cadastros completos do mesmo e-mail em outras marcas ("Usar meus dados de <marca>"). */
+  sources?: Array<{ store: string; label: string; profile: SellerProfileData }>;
 }) {
   const [personType, setPersonType] = useState<"pf" | "pj">("pf");
   const [cpf, setCpf] = useState("");
@@ -44,6 +48,25 @@ export default function CompleteProfileForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+
+  function useSource(profile: SellerProfileData) {
+    setPersonType(profile.personType);
+    setCpf(profile.cpf ?? "");
+    setRg(profile.rg ?? "");
+    setCnpj(profile.cnpj ?? "");
+    setStateRegistration(profile.stateRegistration ?? "");
+    setPostalCode(profile.postalCode ?? "");
+    setStreet(profile.street ?? "");
+    setAddressNumber(profile.addressNumber ?? "");
+    setAddressComplement(profile.addressComplement ?? "");
+    setNeighborhood(profile.neighborhood ?? "");
+    setCity(profile.city ?? "");
+    setState(profile.state ?? "");
+    setPixKey(profile.pixKey ?? "");
+    setBankName(profile.bankName ?? "");
+    setBankAgency(profile.bankAgency ?? "");
+    setBankAccount(profile.bankAccount ?? "");
+  }
 
   const cepDigits = postalCode.replace(/\D/g, "");
 
@@ -107,6 +130,23 @@ export default function CompleteProfileForm({
         </p>
       ) : (
         bannerText && <p className="mt-3 text-sm text-[#6c5b69]">{bannerText}</p>
+      )}
+
+      {sources.length > 0 && (
+        <div className="mt-6 space-y-2 rounded-[20px] border border-[#eadfd9] bg-[#fbf6fc] p-4">
+          <p className="text-sm font-bold">Você já tem cadastro completo em outra marca.</p>
+          <p className="text-xs text-[#6c5b69]">Confira os dados preenchidos; o aceite do termo continua sendo seu, nesta marca.</p>
+          {sources.map((source) => (
+            <button
+              key={source.store}
+              type="button"
+              onClick={() => useSource(source.profile)}
+              className="w-full rounded-full border-2 border-[#63326d] px-4 py-3 text-sm font-extrabold text-[#63326d] sm:w-auto"
+            >
+              Usar meus dados de {source.label}
+            </button>
+          ))}
+        </div>
       )}
 
       <form onSubmit={submit} className="mt-6 space-y-5">
