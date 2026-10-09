@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★ Admin → B2B → Vendedores igual à Secreta (09/10/2026), sobre `27de0dd`
+
+**SEM SQL.** A tabela larga (ações no fim, rolagem lateral) virou **um cartão por pessoa**, com busca e botões visíveis (nada de menu escondido). Regras puras em `src/lib/b2b/seller-card.ts`; as ações continuam nas mesmas rotas.
+- **Selo de situação:** "Convite pendente (expira dd/mm)", "Convite expirado", "Cadastrado – em teste até dd/mm", "Cadastro completo", "Cadastrado – teste vencido", "Inativo" / "Inativo – e-mail liberado".
+- **Convite pendente:** "Copiar link do convite" (copia direto o link vigente), "WhatsApp", "Gerar novo link" (confirma e avisa que o anterior é REVOGADO) e "Revogar". Convite expirado: só "Gerar novo link".
+- **Vendedor cadastrado:** "Copiar acesso" (copia "Entre em https://www.bioflorais.com.br/b2b/login com o seu e-mail <e-mail> e a sua senha"), "WhatsApp" (abre o mesmo texto no número dele) e "Redefinir senha" (gera o link de nova senha; aparece a caixa com Copiar + WhatsApp). Na segunda linha, também visíveis: Desativar/Reativar, Estender teste +7 dias, Editar e-mail/login, Desativar e liberar e-mail; e o campo "Vendedor no Omie".
+- **Busca** por nome ou e-mail (sem diferenciar maiúsculas/acentos; acha também pelo e-mail anterior de quem teve o e-mail liberado), com "n de N pessoas".
+- Não visto com dados reais nem no navegador (exige sessão de admin e banco); conferido por teste de regras e de fios. Testes: `scripts/b2b-vendedores-cartao.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★ QR Code do link da oferta (09/10/2026), sobre `2361bcd`
 
 **SEM SQL.** Dependência `qrcode` (+ `@types/qrcode`), autorizada pelo Luis; o QR é gerado NO NAVEGADOR (nada de serviço externo).
