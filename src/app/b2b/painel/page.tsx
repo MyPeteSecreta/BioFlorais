@@ -12,6 +12,7 @@ import { b2bClients, b2bCommercialGroups, b2bOfferLineViews } from "@/lib/db/sch
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { getAppSqlRunner, listOwnedClients } from "@/lib/b2b/ownership";
 import NewClientForm from "@/components/b2b/NewClientForm";
+import QuickLinkPanel from "@/components/b2b/QuickLinkPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,8 @@ export default async function B2BPanelPage() {
           antes de gerar o link.
         </p>
       </div>
+
+      <QuickLinkPanel clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
 
       <NewClientForm />
 

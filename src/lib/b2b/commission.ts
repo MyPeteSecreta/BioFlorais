@@ -63,7 +63,8 @@ const APPLIES_TO = `
 export async function loadCommissionMatrix(
   run: SqlRunner,
   responsibleId: string,
-  clientId: string
+  /** null = regras gerais do vendedor (modelo de oferta, sem cliente definido). */
+  clientId: string | null
 ): Promise<CommissionMatrix> {
   try {
     const [base] = await run(

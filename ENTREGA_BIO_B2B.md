@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L1 "Link padrão" (10/10/2026)
+
+**SEM SQL.** No painel do vendedor, logo acima de "+ Novo cliente": botão grande **"Link padrão (preço B2B, todas as linhas)"**.
+- Pede só o NOME do cliente (cria o cliente com só o nome, ligado ao vendedor, como "Novo cliente") ou deixa escolher um cliente que o vendedor já tem.
+- Cria a oferta **já ativa** com TODAS as linhas B2B publicadas (ativas e visíveis no B2B, sem as de teste), **sem promoção** (preço B2B normal) e mostra na hora **Copiar link, Enviar pelo WhatsApp e Mostrar QR Code**.
+- Reaproveita as regras do Offer Builder (`validateDraftInput`, ativação com link; `quick-offer.ts`) e a comissão é a regra normal (base + extra de preço normal / janela de 180 dias). Só cliente do vendedor logado (rota `POST /api/b2b/offers/quick`).
+- Testado no navegador em 375 px (rede simulada, página temporária removida): painel sem rolagem lateral, "Gerando…", resultado com Copiar/WhatsApp/QR e a tela do QR com "Olá, Loja do Zé!". Testes: `scripts/b2b-link-padrao.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Comissões vazias ao trocar vendedor/mês (10/10/2026)
 
 **SEM SQL.** Item 4 do teste do Luis.
