@@ -45,7 +45,14 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     <main className="min-h-screen bg-[#fffaf6] px-4 py-8 text-[#422347]">
       <div className="mx-auto max-w-2xl space-y-5">
         <header>
-          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#9b6c24]">Bio Florais</p>
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" aria-label="Bio Florais, voltar à loja" className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#9b6c24]">
+              Bio Florais
+            </Link>
+            <Link href="/" className="rounded-full border border-[#d9c7dc] px-4 py-2 text-sm font-extrabold text-[#63326d]">
+              ← Voltar à loja
+            </Link>
+          </div>
           <h1 className="mt-1 font-serif text-3xl font-semibold text-[#55245f]">Pedido #{view.number}</h1>
           <p className="mt-1 text-sm text-[#6c5b69]">
             Feito em {new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(view.createdAt)} ·{" "}

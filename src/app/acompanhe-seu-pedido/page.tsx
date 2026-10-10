@@ -63,8 +63,15 @@ export default function TrackOrderPage() {
   return (
     <main className="min-h-screen bg-[#fffaf6] px-5 py-10 text-[#422347]">
       <div className="mx-auto max-w-md">
-        <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#9b6c24]">Bio Florais</p>
-        <h1 className="mt-2 font-serif text-3xl font-semibold text-[#55245f]">Acompanhe seu pedido</h1>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" aria-label="Bio Florais, voltar à loja" className="font-serif text-2xl font-semibold text-[#55245f]">
+            Bio Florais
+          </Link>
+          <Link href="/" className="rounded-full border border-[#d9c7dc] px-4 py-2 text-sm font-extrabold text-[#63326d]">
+            ← Voltar à loja
+          </Link>
+        </div>
+        <h1 className="mt-6 font-serif text-3xl font-semibold text-[#55245f]">Acompanhe seu pedido</h1>
         <p className="mt-2 text-sm text-[#6c5b69]">
           {byNumber
             ? "Informe o número do pedido (está na confirmação da compra, ex.: 3F9A21C4) e o e-mail ou o CPF/CNPJ usado na compra."

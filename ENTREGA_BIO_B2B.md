@@ -9,6 +9,21 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ B2C P1 da Bio (10/10/2026), sobre `05422b7`
+
+**SEM SQL.** Quatro itens do `B2C_MELHORIAS.md`, um commit por item. Testado no navegador (375 px e desktop; sem banco, com a sacola em localStorage).
+
+1. **Menu que trava.** O cabeçalho da home tinha Adulto, Pet e Infantil apontando TODOS para o mesmo `#linhas` (e o logo para `#topo`): depois de usar um e voltar, os outros viravam "mesma âncora" e pareciam não responder. Agora cada um vai à sua página (`/linha/adulto`, `/linha/pet`, `/linha/infantil`), "Nossas linhas" continua na âncora da home (o logo segue como no original, pedido em rodada anterior). Conferido: Adulto → voltar → Pet → voltar → Infantil → Adulto → Pet, todos navegaram. (A barra inferior do celular já usava links diretos.)
+2. **Sacola/checkout com nome completo e foto.** Sacola e resumo do checkout passam a mostrar "Condicionador Filhotes · Cosméticos Pet · 500 ml" / "Floral Filhotes · Pet · 31 ml" (tipo + nome + linha + volume, o mesmo rótulo do B2B), resolvido pelo catálogo a partir do slug; a foto real vem de `GET /api/catalog/images` porque o catálogo guarda caminhos `/assets/products/*.webp` que NÃO existem em `public/` (as fotos de verdade estão em `public/products/...`), por isso a sacola mostrava imagem quebrada/sem foto. A confirmação e o acompanhamento do pedido já usavam o nome completo. O checkout não pôde ser renderizado no navegador sem o banco (a cotação vem da API): o resumo usa o mesmo código da sacola, coberto por teste.
+3. **Páginas vazias.** `Conheça a marca` (`/sobre`), `Terapia floral`, `Trocas e Devoluções` e `Frete e Entrega` ganharam texto (componente `InfoPage`, mesmo visual das outras). **O Luis deve revisar:**
+   - **Trocas e Devoluções** (texto padrão CDC): arrependimento em 7 dias (art. 49), vício em 30 dias (não duráveis) / 90 dias (duráveis) (art. 26), frete de devolução por conta da loja nos casos de arrependimento/defeito, reembolso do Pix em até 7 dias úteis após o recebimento, produtos de uso pessoal abertos não voltam por arrependimento. **Confirmar com o jurídico** (principalmente a regra de produto aberto e o prazo do reembolso).
+   - **Frete e Entrega**: frete calculado por CEP/peso (Melhor Envio), frete grátis a partir de R$ 100 (o mesmo valor do cabeçalho do site), prazo conta após o pagamento, rastreio em "Acompanhe seu pedido". **Confirmar prazos, valor do frete grátis e transportadoras.**
+   - **Conheça a marca** e **Terapia floral**: texto INICIAL (desde 1997, flores frescas brasileiras, sem álcool, linhas, "complementar, não substitui acompanhamento médico/psicológico/veterinário"). **Substituir pelo texto oficial; conferir as afirmações sobre benefícios.**
+   - Contato nas páginas: WhatsApp (21) 3955-3713 e **sac@angelblanc.com** (a caixa sac@bioflorais.com.br ainda não existe, item P2).
+4. **"Acompanhe seu pedido".** Logo "Bio Florais" clicável e botão "← Voltar à loja" na busca e na página do pedido.
+
+Testes: `scripts/b2c-p1-menu.test.mjs`, `b2c-p1-sacola.test.mjs`, `b2c-p1-paginas.test.mjs`, `b2c-p1-acompanhe.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L2 "Minha oferta padrão" (10/10/2026), sobre L1
 
 **SQL, nesta ordem:** `34a_modelos_de_oferta_preflight_one_shot.sql` (somente leitura, uma linha JSON) e `34b_modelos_de_oferta.sql` (BEGIN/COMMIT, `CREATE TABLE IF NOT EXISTS b2b_offer_templates`, índice; só aditivo). Sem o 34b a tela "Minhas ofertas padrão" abre com o aviso "falta aplicar o SQL 34b"; o resto do painel não muda.
