@@ -1,28 +1,41 @@
-﻿import Link from "next/link";
+import type { Metadata } from "next";
 
+import InfoPage from "@/components/layout/InfoPage";
+
+export const metadata: Metadata = {
+  title: "Conheça a Bio Florais | Desde 1997",
+  description: "Bio Florais: desde 1997, florais com flores frescas brasileiras e fórmulas sem álcool para diferentes momentos da vida.",
+};
+
+/* TEXTO INICIAL — o Luis deve revisar e substituir pelo conteúdo institucional oficial da marca. */
 export default function Page() {
   return (
-    <main className="min-h-[70vh] bg-[#fffdf9] px-6 py-16 text-[#2f2231] lg:px-10">
-      <div className="mx-auto max-w-[900px]">
-
-        <Link
-          href="/"
-          className="text-sm font-bold text-[#63326d]"
-        >
-          ← Voltar para Bio Florais
-        </Link>
-
-        <h1 className="mt-10 font-serif text-4xl font-semibold text-[#422347] sm:text-5xl">
-          Conheça a Bio Florais
-        </h1>
-
-        <div className="mt-6 h-px w-16 bg-[#c39745]" />
-
-        <p className="mt-8 max-w-[760px] text-lg leading-8 text-[#665765]">
-          Conheça a história, os valores e o universo Bio Florais. Esta página será ampliada com o conteúdo institucional oficial da marca.
-        </p>
-
-      </div>
-    </main>
+    <InfoPage
+      title="Conheça a Bio Florais"
+      intro="Desde 1997, a Bio Florais cria florais e cosméticos com flores frescas brasileiras e fórmulas sem álcool, para acompanhar diferentes momentos da vida."
+      contact={false}
+      sections={[
+        {
+          heading: "Nossa história",
+          paragraphs: [
+            "A Bio Florais nasceu em 1997 com uma ideia simples: cuidar do equilíbrio emocional de forma natural, respeitando a natureza e a rotina de cada pessoa.",
+            "Ao longo dos anos, a marca cresceu e hoje reúne linhas para adultos, crianças, bebês, adolescentes e também para pets.",
+          ],
+        },
+        {
+          heading: "Flores frescas brasileiras",
+          paragraphs: ["Nossas fórmulas partem de flores frescas brasileiras, preparadas com cuidado para manter a delicadeza e a identidade de cada essência."],
+        },
+        {
+          heading: "Sem álcool",
+          paragraphs: ["As fórmulas são sem álcool, pensadas para serem usadas com tranquilidade por toda a família, inclusive crianças e animais."],
+        },
+        {
+          heading: "Para cada fase da vida",
+          paragraphs: ["Conheça as linhas Adulto, Pet, Infantil, Baby, Kids, Teen, Dose Única, Virtudes Divinas, Cosméticos, Cosméticos Pet e Home Care e encontre o que combina com o seu momento."],
+          bullets: ["Não sabe por onde começar? Faça o quiz “Descubra seu floral” na página inicial."],
+        },
+      ]}
+    />
   );
 }
