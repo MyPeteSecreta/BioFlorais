@@ -1,10 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   type ReactNode,
   useRef,
   useState,
 } from "react";
+
+import { archiveOrdersAsTest } from "./archive-orders";
 
 type Props = {
   children: ReactNode;
@@ -18,6 +21,9 @@ export default function OrderBatchSelection({
 
   const [selectedCount, setSelectedCount] =
     useState(0);
+  const router = useRouter();
+  const [archiving, setArchiving] = useState(false);
+  const [archiveMessage, setArchiveMessage] = useState("");
 
   function getCheckboxes() {
     if (!formRef.current) return [];
@@ -46,6 +52,30 @@ export default function OrderBatchSelection({
     }
 
     syncCount();
+  }
+
+  async function archiveSelected() {
+    const ids = getCheckboxes()
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => checkbox.value);
+
+    setArchiving(true);
+    setArchiveMessage("");
+
+    try {
+      const outcome = await archiveOrdersAsTest(ids);
+
+      if (outcome.cancelled && !outcome.message) return;
+
+      setArchiveMessage(outcome.message);
+
+      if (outcome.archived > 0) {
+        clearAll();
+        router.refresh();
+      }
+    } finally {
+      setArchiving(false);
+    }
   }
 
   function clearAll() {
@@ -78,7 +108,16 @@ export default function OrderBatchSelection({
           onClick={clearAll}
           className="rounded-full border border-[#d9cac2] px-4 py-2 text-sm font-extrabold text-[#756674] transition hover:bg-[#f8f3ef]"
         >
-          Limpar seleção
+          Desmarcar todos
+        </button>
+
+        <button
+          type="button"
+          disabled={selectedCount === 0 || archiving}
+          onClick={archiveSelected}
+          className="rounded-full border-2 border-[#b33] px-5 py-2 text-sm font-extrabold text-[#b33] transition hover:bg-[#fbe7e7] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {archiving ? "Arquivando…" : `Marcar como teste e arquivar (${selectedCount})`}
         </button>
 
         <button
@@ -88,6 +127,12 @@ export default function OrderBatchSelection({
         >
           Imprimir separação ({selectedCount})
         </button>
+
+        {archiveMessage && (
+          <p role="status" className="w-full text-sm font-bold text-[#422347]">
+            {archiveMessage}
+          </p>
+        )}
 
         <span className="ml-auto text-xs font-bold text-[#8a7a87]">
           {selectedCount === 0

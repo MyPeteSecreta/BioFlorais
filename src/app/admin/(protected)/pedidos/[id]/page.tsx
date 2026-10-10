@@ -12,6 +12,7 @@ import {
   products,
 } from "@/lib/db/schema";
 
+import ArchiveOrderButton from "@/components/admin/ArchiveOrderButton";
 import FulfillmentControls from "@/components/admin/FulfillmentControls";
 import ShippingControls from "@/components/admin/ShippingControls";
 import OrderEventsPanel from "@/components/admin/OrderEventsPanel";
@@ -434,6 +435,8 @@ export default async function PedidoDetalhePage({
               Imprimir separação
             </Link>
           </div>
+
+          <ArchiveOrderButton orderId={order.id} />
 
           <FulfillmentControls
             orderId={order.id}

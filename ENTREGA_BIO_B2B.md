@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Admin → Pedidos: "Marcar como teste e arquivar" para QUALQUER pedido (10/10/2026), sobre `5ab75d8`
+
+**SEM SQL novo** (usa o 32b já aplicado). Itens 1 e 2 do teste do Luis.
+- **O que o Luis viu ("só apaga a seleção"):** em Pedidos os únicos botões eram "Selecionar todos", "Limpar seleção" e "Imprimir separação"; não existia ação de arquivar, então "Limpar seleção" só desmarcava. Renomeado para "Desmarcar todos" e criada a ação de verdade.
+- **Pedidos (lista):** selecione os pedidos → "Marcar como teste e arquivar (n)" → confirmação → arquivados (somem de Pedidos, Comissões, Boletos, Acompanhamento e da Central/Omie); a mensagem diz onde desfazer.
+- **Detalhe do pedido:** botão "Marcar como teste e arquivar" (volta para a lista).
+- **Pedido PAGO de verdade** (pago ou aprovado, sem o cupom de teste): segunda confirmação com aviso em vermelho; sem ela fica de fora.
+- **Desfazer:** Admin → B2B → Dados de teste → "Lotes arquivados" → Desfazer (mesmo mecanismo do V5; nada é apagado). Rota `POST /api/admin/orders/archive` (só admin, até 300 pedidos).
+- **Testado no navegador** (componente real numa página temporária, rede simulada, depois removida): botão desabilitado sem seleção, "(3)" ao selecionar todos, 1ª confirmação, 2ª confirmação para o pago real, mensagem final e seleção limpa. Testes: `scripts/b2b-pedidos-arquivar.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★ Promoção por LINHA: a mesma promoção em várias linhas da oferta (10/10/2026), sobre `7d46371`
 
 **BUG CONFIRMADO NA BIO.** A oferta só aceitava uma vez cada promoção: a validação recusava "a mesma promoção para duas linhas" e a tabela `b2b_offer_promotions` tinha chave única (oferta, promoção). Além disso, o servidor guardava a linha escolhida por promoção (não por promoção + linha), a ativação gravava a elegibilidade em todas as linhas da promoção e o contador de usos era um só para a promoção na oferta.

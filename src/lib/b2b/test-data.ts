@@ -12,6 +12,9 @@ import { isUuid } from "@/lib/b2b/admin-input";
 
 export const TEST_COUPON = "TESTEB2B95";
 
+/** Pedido pago = "paid" ou "approved" (o admin trata os dois como pagos). */
+const PAID_STATUSES = ["paid", "approved"];
+
 export type TestCandidates = {
   responsibles: Array<{ id: string; name: string; email: string; status: string }>;
   clients: Array<{ id: string; name: string; email: string | null }>;
@@ -78,7 +81,7 @@ export async function listTestCandidates(run: SqlRunner): Promise<TestCandidates
         totalCents: Number(row.total_cents ?? 0),
         createdAt: String(row.created_at),
         reason: couponTest ? `cupom ${TEST_COUPON}` : row.vendor_test === true ? "vendedor de teste" : "cliente de teste",
-        paidForReal: String(row.status) === "paid" && !couponTest,
+        paidForReal: PAID_STATUSES.includes(String(row.status)) && !couponTest,
       };
     }),
   };
@@ -133,7 +136,7 @@ export async function archiveSelected(run: SqlRunner, input: ArchiveInput): Prom
   const skippedPaid: string[] = [];
 
   for (const row of orderRows) {
-    const paidForReal = String(row.status) === "paid" && row.coupon_test !== true;
+    const paidForReal = PAID_STATUSES.includes(String(row.status)) && row.coupon_test !== true;
 
     if (paidForReal && !confirmed.has(String(row.id))) skippedPaid.push(String(row.id));
     else toArchive.push(String(row.id));
