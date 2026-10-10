@@ -4,6 +4,7 @@
  * Só o tipo buy_x_get_y_auto_same_sku tem efeito (mesmo recorte da
  * Secreta). Simplificações deliberadas:
  * - um produto recebe no máximo UMA promoção (a primeira elegível);
+ * - a escolha vale por (promoção, LINHA): só os produtos daquela linha, com a elegibilidade dela;
  * - o limite respeitado é b2b_offer_promotions.max_uses/uses_count.
  */
 
@@ -17,8 +18,8 @@ import {
   b2bPromotionTerms,
   b2bPromotions,
 } from "@/lib/db/schema";
-import { applyB2BPercentDiscount, calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
-import { loadOfferPromotionGate } from "@/lib/b2b/promotion-gate";
+import { matchPromotionLines } from "@/lib/b2b/promotion-lines";
+import { gateKey, loadOfferPromotionGate } from "@/lib/b2b/promotion-gate";
 import type { PublicB2BProduct } from "@/lib/b2b/public-offer-context";
 
 export const B2B_SUPPORTED_PROMOTION_TYPE = "buy_x_get_y_auto_same_sku";
@@ -49,6 +50,8 @@ export type B2BPromotionBonusLine = {
   productId: string;
   qty: number;
   promotionId: string;
+  /** Linha da oferta em que a promoção foi escolhida (elegibilidade e comissão são desta linha). */
+  commercialGroupId?: string | null;
 };
 
 /** C3: produto com X% de desconto (o preço efetivo é aplicado na cotação). */
@@ -56,6 +59,7 @@ export type B2BPromotionDiscountLine = {
   productId: string;
   percent: number;
   promotionId: string;
+  commercialGroupId?: string | null;
 };
 
 export async function resolveB2BPromotionBonusLines(
@@ -101,8 +105,8 @@ export async function resolveB2BPromotionBonusLines(
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
       !(row.validUntil && now > row.validUntil) &&
-      !(row.maxUses !== null && (gate.get(row.promotionId)?.used ?? row.usesCount) >= row.maxUses) &&
-      (gate.get(row.promotionId)?.available ?? true)
+      !(row.maxUses !== null && (gate.get(gateKey(row.promotionId, row.commercialGroupId))?.used ?? row.usesCount) >= row.maxUses) &&
+      (gate.get(gateKey(row.promotionId, row.commercialGroupId))?.available ?? true)
   );
 
   if (eligible.length === 0) {
@@ -160,87 +164,8 @@ export async function resolveB2BPromotionBonusLines(
 
   const productsById = new Map(offerProducts.map((product) => [product.id, product]));
 
-  /*
-   * Elegibilidade: lista explícita de produtos da promoção > grupos
-   * comerciais da promoção > qualquer produto da oferta. Em todos os
-   * casos o produto precisa pertencer à oferta.
-   */
-  const chosenGroupByPromotion = new Map(active.map((row) => [row.promotionId, row.commercialGroupId]));
-
-  function isEligible(promotionId: string, productId: string) {
-    const product = productsById.get(productId);
-
-    if (!product) {
-      return false;
-    }
-
-    // C4: a promoção vale só na LINHA em que o vendedor a escolheu (o SKU/linha da promoção
-    // continua limitando dentro dela).
-    const chosenGroup = chosenGroupByPromotion.get(promotionId);
-
-    if (chosenGroup && !product.commercialGroupIds.includes(chosenGroup)) {
-      return false;
-    }
-
-    const explicit = explicitRows.filter((row) => row.promotionId === promotionId);
-
-    if (explicit.length > 0) {
-      return explicit.some((row) => row.productId === productId);
-    }
-
-    const groups = groupRows.filter((row) => row.promotionId === promotionId);
-
-    if (groups.length > 0) {
-      return groups.some((row) =>
-        product.commercialGroupIds.includes(row.commercialGroupId)
-      );
-    }
-
-    return true;
-  }
-
-  const bonusLines: B2BPromotionBonusLine[] = [];
-  const discountLines: B2BPromotionDiscountLine[] = [];
-  const used = new Set<string>();
-
-  for (const item of cartItems) {
-    const match = active.find((promotion) =>
-      isEligible(promotion.promotionId, item.productId)
-    );
-
-    if (!match) {
-      continue;
-    }
-
-    if (match.type === B2B_PERCENT_PROMOTION_TYPE) {
-      // C3: X% de desconto; o item é considerado "promocional" mesmo se o preço não mudar de centavo.
-      const percent = Number(match.percentage);
-
-      if (applyB2BPercentDiscount(1000, percent) < 1000) {
-        discountLines.push({ productId: item.productId, percent, promotionId: match.promotionId });
-        used.add(match.promotionId);
-      }
-
-      continue;
-    }
-
-    const bonusQty = calculateB2BPromotionBonusQty(
-      item.qty,
-      match.buyQuantity!,
-      match.freeQuantity!
-    );
-
-    if (bonusQty > 0) {
-      bonusLines.push({
-        productId: item.productId,
-        qty: bonusQty,
-        promotionId: match.promotionId,
-      });
-      used.add(match.promotionId);
-    }
-  }
-
-  return { bonusLines, discountLines, promotionIdsUsed: Array.from(used) };
+  // A escolha vale por (promoção, LINHA); a parte pura está em promotion-lines.ts.
+  return matchPromotionLines({ active, productsById, explicitRows, groupRows, cartItems });
 }
 
 export type B2BOfferPromotionNotice = {
@@ -297,8 +222,8 @@ export async function listOfferPromotionNotices(
       !(row.endsAt && now > row.endsAt) &&
       !(row.validFrom && now < row.validFrom) &&
       !(row.validUntil && now > row.validUntil) &&
-      !(row.maxUses !== null && (gate.get(row.promotionId)?.used ?? row.usesCount) >= row.maxUses) &&
-      (gate.get(row.promotionId)?.available ?? true)
+      !(row.maxUses !== null && (gate.get(gateKey(row.promotionId, row.commercialGroupId))?.used ?? row.usesCount) >= row.maxUses) &&
+      (gate.get(gateKey(row.promotionId, row.commercialGroupId))?.available ?? true)
   );
 
   if (valid.length === 0) return [];
@@ -316,7 +241,7 @@ export async function listOfferPromotionNotices(
     freeQuantity: row.freeQuantity ?? 0,
     productIds: explicit.filter((item) => item.promotionId === row.promotionId).map((item) => item.productId),
     usesRemaining:
-      row.maxUses !== null ? Math.max(0, row.maxUses - (gate.get(row.promotionId)?.used ?? row.usesCount)) : null,
+      row.maxUses !== null ? Math.max(0, row.maxUses - (gate.get(gateKey(row.promotionId, row.commercialGroupId))?.used ?? row.usesCount)) : null,
     validUntil: row.validUntil,
   }));
 }

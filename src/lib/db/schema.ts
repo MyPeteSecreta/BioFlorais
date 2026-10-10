@@ -1069,7 +1069,11 @@ export const b2bOfferPromotions = pgTable(
     durationDays: integer("duration_days"),
   },
   (t) => [
-    primaryKey({ columns: [t.offerId, t.promotionId] }),
+    /*
+     * sql/b2b/33b: a escolha vale por (oferta, promoção, LINHA); a mesma promoção pode estar em
+     * várias linhas da oferta, cada uma com a sua elegibilidade.
+     */
+    uniqueIndex("b2b_offer_promotions_offer_promo_group_uq").on(t.offerId, t.promotionId, t.commercialGroupId),
   ]
 );
 

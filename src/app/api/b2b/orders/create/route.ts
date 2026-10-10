@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
       db
         .select({
           promotionId: b2bOfferPromotions.promotionId,
+          commercialGroupId: b2bOfferPromotions.commercialGroupId,
           name: b2bPromotions.name,
           buyQuantity: b2bPromotions.buyQuantity,
           freeQuantity: b2bPromotions.freeQuantity,

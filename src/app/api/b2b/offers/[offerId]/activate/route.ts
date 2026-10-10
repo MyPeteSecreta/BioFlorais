@@ -121,7 +121,8 @@ export async function POST(
         .where(
           and(
             eq(b2bOfferPromotions.offerId, offer.id),
-            eq(b2bOfferPromotions.promotionId, line.condition.promotionId)
+            eq(b2bOfferPromotions.promotionId, line.condition.promotionId),
+            eq(b2bOfferPromotions.commercialGroupId, line.id)
           )
         );
     }

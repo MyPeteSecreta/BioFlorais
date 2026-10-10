@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, offerId });
   } catch (error) {
     console.error("[b2b/offers/draft]", error);
+
+    const code = (error as { code?: string; cause?: { code?: string } })?.code ?? (error as { cause?: { code?: string } })?.cause?.code;
+
+    if (code === "23505") {
+      return NextResponse.json(
+        { error: "A mesma promoção em mais de uma linha precisa do SQL 33b (aplique-o e tente de novo)." },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json({ error: "Erro ao salvar a oferta." }, { status: 500 });
   }
 }

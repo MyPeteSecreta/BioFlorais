@@ -20,6 +20,8 @@ import { resolveItemCommission, type CommissionBasis, type CommissionWindow } fr
 
 export type OfferPromotionTerms = {
   promotionId: string;
+  /** Linha da oferta em que a promoção foi escolhida (null = registro antigo, sem linha). */
+  commercialGroupId?: string | null;
   name: string;
   buyQuantity: number | null;
   freeQuantity: number | null;
@@ -29,9 +31,9 @@ export type OfferPromotionTerms = {
 };
 
 type QuoteLine = { productId: string; qty: number; unitPriceCents: number; listUnitPriceCents?: number };
-type BonusLine = { productId: string; qty: number; promotionId: string };
+type BonusLine = { productId: string; qty: number; promotionId: string; commercialGroupId?: string | null };
 /** C3: produto com X% de desconto (listUnitPriceCents = preço B2B antes do desconto). */
-type DiscountLine = { productId: string; percent: number; promotionId: string };
+type DiscountLine = { productId: string; percent: number; promotionId: string; commercialGroupId?: string | null };
 
 export type OrderItemSnapshot = {
   productId: string;
@@ -68,7 +70,9 @@ export function buildOrderItemSnapshots(input: {
   /** Janela de 180 dias (por cliente e LINHA), avaliada na criação do pedido; função = por produto. */
   window: CommissionWindow | ((productId: string) => CommissionWindow);
 }): OrderItemSnapshot[] {
-  const termsById = new Map(input.offerPromotions.map((terms) => [terms.promotionId, terms]));
+  // Termos por (promoção, LINHA): a mesma promoção pode ter elegibilidade diferente em cada linha.
+  const termsKey = (promotionId: string, groupId: string | null | undefined) => `${promotionId}:${groupId ?? ""}`;
+  const termsById = new Map(input.offerPromotions.map((terms) => [termsKey(terms.promotionId, terms.commercialGroupId), terms]));
   const bonusByProduct = new Map(input.bonusLines.map((bonus) => [bonus.productId, bonus]));
   const discountByProduct = new Map((input.discountLines ?? []).map((discount) => [discount.productId, discount]));
   const commissionForProduct = (productId: string) => {
@@ -76,7 +80,9 @@ export function buildOrderItemSnapshots(input: {
     const bonus = bonusByProduct.get(productId);
     const discount = discountByProduct.get(productId);
     const realized = bonus ?? discount;
-    const terms = realized ? termsById.get(realized.promotionId) : undefined;
+    const terms = realized
+      ? (termsById.get(termsKey(realized.promotionId, realized.commercialGroupId)) ?? termsById.get(termsKey(realized.promotionId, null)))
+      : undefined;
     let promotionExtraPercent: number | null = null;
     let promotionTerms: OfferPromotionTerms | undefined;
 

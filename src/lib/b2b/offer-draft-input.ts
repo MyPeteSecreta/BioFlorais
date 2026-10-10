@@ -59,7 +59,6 @@ export function validateDraftInput(
   const rawConditions = Array.isArray(body.promotions) ? (body.promotions as RawCondition[]) : [];
   const conditions: DraftLineCondition[] = [];
   const seenGroups = new Set<string>();
-  const seenPromotions = new Set<string>();
 
   for (const raw of rawConditions) {
     const groupId = typeof raw?.commercialGroupId === "string" ? raw.commercialGroupId : "";
@@ -87,10 +86,6 @@ export function validateDraftInput(
       return { ok: false, error: chosen.reason || `Promoção indisponível para este cliente na linha ${line.name}.` };
     }
 
-    if (seenPromotions.has(promotionId)) {
-      return { ok: false, error: "A mesma promoção foi escolhida para duas linhas." };
-    }
-
     if (mode !== "uses" && mode !== "days") {
       return { ok: false, error: "Escolha por número de compras ou por período." };
     }
@@ -111,7 +106,6 @@ export function validateDraftInput(
     }
 
     seenGroups.add(groupId);
-    seenPromotions.add(promotionId);
     conditions.push({ commercialGroupId: groupId, condition });
   }
 

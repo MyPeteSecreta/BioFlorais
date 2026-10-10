@@ -15,6 +15,7 @@ import {
   buildHistory,
   loadClientPurchases,
   loadPromotionUses,
+  loadPromotionUsesByLine,
   loadReconquistaMonths,
   promotionAvailability,
   type PromotionType,
@@ -28,7 +29,10 @@ export type PromotionGateEntry = {
   used: number;
 };
 
+/** O porteiro vale por (promoção, LINHA): a mesma promoção pode estar em várias linhas da oferta. */
 export type PromotionGate = Map<string, PromotionGateEntry>;
+
+export const gateKey = (promotionId: string, groupId: string | null | undefined) => `${promotionId}:${groupId ?? ""}`;
 
 export async function loadOfferPromotionGate(
   offerId: string,
@@ -49,10 +53,11 @@ export async function loadOfferPromotionGate(
 
     if (rows.length === 0) return new Map();
 
-    const [purchases, months, uses] = await Promise.all([
+    const [purchases, months, usesTotal, usesByLine] = await Promise.all([
       loadClientPurchases(run, clientId, offerId),
       loadReconquistaMonths(run),
       loadPromotionUses(run, offerId),
+      loadPromotionUsesByLine(run, offerId).catch(() => null),
     ]);
 
     const gate: PromotionGate = new Map();
@@ -67,10 +72,13 @@ export async function loadOfferPromotionGate(
         .map((purchase) => purchase.at);
       const availability = promotionAvailability(promoType, buildHistory(dates, now, months));
 
-      gate.set(String(row.promotion_id), {
+      const key = gateKey(String(row.promotion_id), row.commercial_group_id ? String(row.commercial_group_id) : null);
+
+      gate.set(key, {
         ...availability,
         promoType,
-        used: uses.get(String(row.promotion_id)) ?? 0,
+        // Por linha; sem a consulta por linha (ou linha legada) cai no total da promoção.
+        used: usesByLine && row.commercial_group_id ? (usesByLine.get(key) ?? 0) : (usesTotal.get(String(row.promotion_id)) ?? 0),
       });
     }
 

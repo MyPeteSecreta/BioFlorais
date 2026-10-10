@@ -209,6 +209,33 @@ export function commissionWindowForItem(
   return windows.find((window) => window.open) ?? windows[0];
 }
 
+/**
+ * Usos da promoção POR LINHA da oferta (chave "<promoção>:<linha>"): um pedido conta na linha
+ * cujos produtos ele bonificou/descontou; compra em outra linha não gasta o limite desta.
+ * Linha legada (sem linha gravada) conta o total da promoção.
+ */
+export async function loadPromotionUsesByLine(run: SqlRunner, offerId: string): Promise<Map<string, number>> {
+  if (!isUuid(offerId)) return new Map();
+
+  const notArchived = await andNotArchived(run, "orders", "o");
+  const rows = await run(
+    `SELECT op.promotion_id AS promotion_id, op.commercial_group_id AS group_id, count(DISTINCT o.id)::int AS used
+       FROM orders o
+       JOIN order_items i ON i.order_id = o.id
+       JOIN b2b_offer_promotions op ON op.offer_id = o.b2b_offer_id AND op.promotion_id::text = i.promotion_id
+      WHERE o.b2b_offer_id = $1${notArchived}
+        AND i.promotion_id IS NOT NULL
+        AND (${countsAsPurchaseSql("o")} OR ${reservesUseSql("o")})
+        AND (op.commercial_group_id IS NULL OR EXISTS (
+              SELECT 1 FROM b2b_commercial_group_products gp
+               WHERE gp.commercial_group_id = op.commercial_group_id AND gp.product_id = i.product_id))
+      GROUP BY op.promotion_id, op.commercial_group_id`,
+    [offerId]
+  );
+
+  return new Map(rows.map((row) => [`${String(row.promotion_id)}:${row.group_id ? String(row.group_id) : ""}`, Number(row.used)]));
+}
+
 /** Usos da promoção na oferta (R5): pedidos que a bonificaram e contam como compra ou reservam. */
 export async function loadPromotionUses(run: SqlRunner, offerId: string): Promise<Map<string, number>> {
   if (!isUuid(offerId)) return new Map();

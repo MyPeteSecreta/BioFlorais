@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     const offerCounts = await db
       .select({
         promotionId: b2bOfferPromotions.promotionId,
-        offers: sql<number>`count(*)::int`,
+        offers: sql<number>`count(DISTINCT ${b2bOfferPromotions.offerId})::int`,
       })
       .from(b2bOfferPromotions)
       .groupBy(b2bOfferPromotions.promotionId);

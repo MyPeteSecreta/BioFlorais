@@ -9,6 +9,22 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★ Promoção por LINHA: a mesma promoção em várias linhas da oferta (10/10/2026), sobre `7d46371`
+
+**BUG CONFIRMADO NA BIO.** A oferta só aceitava uma vez cada promoção: a validação recusava "a mesma promoção para duas linhas" e a tabela `b2b_offer_promotions` tinha chave única (oferta, promoção). Além disso, o servidor guardava a linha escolhida por promoção (não por promoção + linha), a ativação gravava a elegibilidade em todas as linhas da promoção e o contador de usos era um só para a promoção na oferta.
+
+**SQL, nesta ordem:** `33a_promocao_por_linha_preflight_one_shot.sql` (somente leitura, uma linha JSON: restrições atuais da tabela, se o índice novo já existe, linhas antigas sem linha) e `33b_promocao_por_linha.sql` (BEGIN/COMMIT, idempotente, não apaga nada: troca a chave única (oferta, promoção) por (oferta, promoção, linha)). **Antes do 33b, escolher a mesma promoção em duas linhas devolve "precisa do SQL 33b"; o resto segue como estava.**
+
+Agora a escolha vale por (promoção, LINHA), só para os produtos daquela linha:
+- **Gravação:** a mesma promoção pode ser escolhida em várias linhas, cada uma com a sua elegibilidade; duas condições na MESMA linha continuam recusadas.
+- **Ativação do link:** `valid_from/valid_until/max_uses` só da linha certa (antes: de todas as linhas daquela promoção, com a última vencendo).
+- **Revisão e link do cliente:** já eram por linha (avisos e selos por linha); o limite restante "n compras" e a validade agora são os da linha.
+- **Sacola e cálculo do servidor** (`promotion-lines.ts`, parte pura, usada pela cotação e pela criação do pedido): cada item é conferido contra a escolha da SUA linha; se a escolha de uma linha vence/esgota, a outra continua e a primeira não herda a dela.
+- **Contador de usos e porteiro (abertura/recorrente):** por (promoção, linha) — pedido no Pet não gasta o limite do Infantil (consulta nova `loadPromotionUsesByLine`; a antiga, por promoção, segue para a tela de promoções do admin).
+- **Comissão no pedido:** o item carrega a linha da promoção realizada e o extra/elegibilidade congelados são os dessa linha (B1 do Pet "3 compras" ≠ B1 do Infantil "60 dias").
+- Admin → Promoções: "ofertas" agora conta ofertas distintas (não linhas).
+- Teste do cenário pedido: Adulto = B3 "2 compras", Pet = B1 "3 compras", Infantil = B1 "60 dias" → cada linha mostra, bonifica, conta usos e comissiona só a sua. `scripts/b2b-promocao-por-linha.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★ Admin → B2B → Vendedores igual à Secreta (09/10/2026), sobre `27de0dd`
 
 **SEM SQL.** A tabela larga (ações no fim, rolagem lateral) virou **um cartão por pessoa**, com busca e botões visíveis (nada de menu escondido). Regras puras em `src/lib/b2b/seller-card.ts`; as ações continuam nas mesmas rotas.
