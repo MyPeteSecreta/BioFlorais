@@ -16,6 +16,7 @@ import { b2bResponsibles } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
+import { ensureReferralCode, setHouseSeller, setReferralCode } from "@/lib/b2b/partners";
 import { changeIdentity, describeIdentityConflict, parseIdentityInput, releaseIdentity } from "@/lib/b2b/vendor-identity";
 import {
   buildInviteMessage,
@@ -43,6 +44,8 @@ export async function POST(
       omieVendor?: string;
       email?: string;
       login?: string;
+      code?: string;
+      house?: boolean;
     };
 
     const [responsible] = await db
@@ -155,6 +158,35 @@ export async function POST(
         } catch (error) {
           console.error("[admin/b2b/responsibles release_email]", error);
           return NextResponse.json({ error: "Não foi possível liberar (aplique o SQL 31b)." }, { status: 409 });
+        }
+      }
+
+      case "set_referral_code": {
+        const result = await setReferralCode(getAppSqlRunner(), id, body.code);
+
+        return result.ok
+          ? NextResponse.json({ ok: true, code: result.code })
+          : NextResponse.json({ error: result.error }, { status: result.status });
+      }
+
+      case "ensure_referral_code": {
+        const code = await ensureReferralCode(getAppSqlRunner(), id);
+
+        return code
+          ? NextResponse.json({ ok: true, code })
+          : NextResponse.json({ error: "Não foi possível gerar o código (aplique o SQL 35b)." }, { status: 409 });
+      }
+
+      case "set_house": {
+        try {
+          const result = await setHouseSeller(getAppSqlRunner(), body.house === false ? null : id);
+
+          return result.ok
+            ? NextResponse.json({ ok: true, house: body.house !== false })
+            : NextResponse.json({ error: result.error }, { status: 409 });
+        } catch (error) {
+          console.error("[admin/b2b/responsibles set_house]", error);
+          return NextResponse.json({ error: "Não foi possível salvar o vendedor da casa." }, { status: 409 });
         }
       }
 

@@ -15,6 +15,7 @@ export default function HideOnB2B({ children }: { children: ReactNode }) {
   if (
     pathname === "/b2b" ||
     pathname?.startsWith("/b2b/") ||
+    pathname === "/parceiros" ||
     pathname === "/admin" ||
     pathname?.startsWith("/admin/")
   ) {

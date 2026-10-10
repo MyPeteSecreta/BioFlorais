@@ -18,6 +18,7 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
+import { getSiteUrl } from "@/lib/seo/site-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,10 @@ export type AdminResponsibleRow = {
   omieVendor?: string | null;
   login?: string | null;
   emailOriginal?: string | null;
+  /** Código do "Meu link de captação" (SQL 35b); null = ainda sem código. */
+  referralCode?: string | null;
+  /** Vendedor da casa da página /parceiros. */
+  isHouse?: boolean;
 };
 
 // Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
@@ -160,6 +165,22 @@ export async function GET(request: NextRequest) {
       // SQL 31b ainda não aplicado.
     }
 
+    // Código de captação e vendedor da casa (SQL 35b). Sem as colunas: sem código.
+    const codeBy = new Map<string, string>();
+    let houseId: string | null = null;
+
+    try {
+      const rowsCode = await getAppSqlRunner()(`SELECT id, referral_code FROM b2b_responsibles WHERE referral_code IS NOT NULL`);
+
+      for (const row of rowsCode) codeBy.set(String(row.id), String(row.referral_code));
+
+      const [house] = await getAppSqlRunner()(`SELECT value FROM b2b_settings WHERE key = 'house_responsible_id'`);
+
+      houseId = house?.value ? String(house.value) : null;
+    } catch {
+      // SQL 35b ainda não aplicado.
+    }
+
     const knownEmails = new Set(responsibles.map((row) => row.email.toLowerCase()));
 
     const pendingInvites = await db
@@ -212,10 +233,12 @@ export async function GET(request: NextRequest) {
         omieVendor: omieBy.get(row.id) ?? null,
         login: row.login ?? null,
         emailOriginal: originalBy.get(row.id) ?? null,
+        referralCode: codeBy.get(row.id) ?? null,
+        isHouse: houseId === row.id,
       })),
     ];
 
-    return NextResponse.json({ rows });
+    return NextResponse.json({ rows, siteUrl: getSiteUrl() });
   } catch (error) {
     console.error("[admin/b2b/responsibles GET]", error);
     return NextResponse.json({ error: "Erro ao carregar vendedores." }, { status: 500 });

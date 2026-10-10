@@ -11,6 +11,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import QrCodeModal from "@/components/b2b/QrCodeModal";
 import ShareLink from "./ShareLink";
 import { accessText, accessWhatsAppUrl, isReleasedEmail, matchesSearch, sellerBadge, type SellerBadge } from "@/lib/b2b/seller-card";
 
@@ -32,6 +33,8 @@ type Row = {
   omieVendor?: string | null;
   login?: string | null;
   emailOriginal?: string | null;
+  referralCode?: string | null;
+  isHouse?: boolean;
 };
 
 type SharedLink = {
@@ -71,6 +74,8 @@ export default function ResponsiblesTab() {
   const [sharedLink, setSharedLink] = useState<SharedLink | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [omieDraft, setOmieDraft] = useState<Record<string, string>>({});
+  const [siteUrl, setSiteUrl] = useState("");
+  const [qr, setQr] = useState<{ url: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
 
   const [name, setName] = useState("");
@@ -95,6 +100,7 @@ export default function ResponsiblesTab() {
       }
 
       setRows(data.rows ?? []);
+      setSiteUrl(data.siteUrl ?? "");
     } finally {
       setLoading(false);
     }
@@ -142,7 +148,7 @@ export default function ResponsiblesTab() {
     }
   }
 
-  async function act(row: Row, action: string, confirmText?: string) {
+  async function act(row: Row, action: string, confirmText?: string, extra: Record<string, unknown> = {}) {
     if (confirmText && !window.confirm(confirmText)) return;
 
     setBusyId(row.id);
@@ -150,7 +156,7 @@ export default function ResponsiblesTab() {
 
     try {
       const url = row.kind === "invite" ? `/api/admin/b2b/invites/${row.id}` : `/api/admin/b2b/responsibles/${row.id}`;
-      const { ok, data } = await post(url, { action });
+      const { ok, data } = await post(url, { action, ...extra });
 
       if (!ok) {
         setMessage(data.error ?? "Erro ao executar a ação.");
@@ -231,6 +237,37 @@ export default function ResponsiblesTab() {
       const { ok, data } = await post(`/api/admin/b2b/responsibles/${row.id}`, { action: "edit_identity", email: newEmail, login });
 
       setMessage(ok ? `E-mail/login de ${row.name} atualizados.` : (data.error ?? "Erro ao editar."));
+      if (ok) void load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const partnersLink = (code: string) => `${siteUrl || window.location.origin}/parceiros?v=${encodeURIComponent(code)}`;
+
+  async function copyPartnersLink(row: Row) {
+    if (!row.referralCode) return;
+
+    try {
+      await navigator.clipboard.writeText(partnersLink(row.referralCode));
+      setMessage(`Link de captação de ${row.name} copiado.`);
+    } catch {
+      setMessage(`Link: ${partnersLink(row.referralCode)}`);
+    }
+  }
+
+  async function editCode(row: Row) {
+    const code = window.prompt(`Código de captação de ${row.name} (4 a 12 letras ou números):`, row.referralCode ?? "");
+
+    if (code === null) return;
+
+    setBusyId(row.id);
+    setMessage("");
+
+    try {
+      const { ok, data } = await post(`/api/admin/b2b/responsibles/${row.id}`, { action: "set_referral_code", code });
+
+      setMessage(ok ? `Código de ${row.name}: ${data.code}` : (data.error ?? "Erro ao salvar o código."));
       if (ok) void load();
     } finally {
       setBusyId(null);
@@ -409,6 +446,7 @@ export default function ResponsiblesTab() {
       </form>
 
       {sharedLink && <ShareLink {...sharedLink} onClose={() => setSharedLink(null)} />}
+      {qr && <QrCodeModal url={qr.url} clientName={qr.name} onClose={() => setQr(null)} />}
 
       {message && (
         <p role="status" className="rounded-xl bg-[#fbe7e7] p-3 text-sm text-[#8f2727]">
@@ -489,6 +527,59 @@ export default function ResponsiblesTab() {
 
                   {main && <div className="mt-4 flex flex-wrap gap-2">{main}</div>}
                   {other && <div className="mt-3 flex flex-wrap gap-2 border-t border-[#f1e8e3] pt-3">{other}</div>}
+
+                  {row.kind === "responsible" && !released && (
+                    <div className="mt-3 border-t border-[#f1e8e3] pt-3" data-testid="captacao">
+                      <p className="mb-1 text-xs font-bold text-[#7b6a77]">
+                        Link de captação (página /parceiros)
+                        {row.isHouse && <span className="ml-2 rounded-full bg-[#e3f6e8] px-2 py-0.5 text-[10px] font-extrabold text-[#1c6b35]">vendedor da casa</span>}
+                      </p>
+                      {row.referralCode ? (
+                        <p className="break-all text-sm text-[#594740]">
+                          Código <strong>{row.referralCode}</strong> · /parceiros?v={row.referralCode}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[#7b6a77]">Sem código ainda.</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {row.referralCode ? (
+                          <>
+                            <button type="button" className={`${smallBase} border-[#342737] text-[#342737]`} onClick={() => copyPartnersLink(row)}>
+                              Copiar link
+                            </button>
+                            <button
+                              type="button"
+                              className={`${smallBase} border-[#342737] text-[#342737]`}
+                              onClick={() => setQr({ url: partnersLink(row.referralCode as string), name: row.name })}
+                            >
+                              QR Code
+                            </button>
+                            <button type="button" disabled={busy} className={`${smallBase} border-[#342737] text-[#342737]`} onClick={() => editCode(row)}>
+                              Editar código
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" disabled={busy} className={`${smallBase} border-[#342737] text-[#342737]`} onClick={() => act(row, "ensure_referral_code")}>
+                            Gerar código
+                          </button>
+                        )}
+                        {row.status === "active" && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className={`${smallBase} ${row.isHouse ? "border-[#b33] text-[#b33]" : "border-[#1f6b3a] text-[#1f6b3a]"}`}
+                            onClick={() =>
+                              row.isHouse
+                                ? act(row, "set_house", undefined, { house: false })
+                                : act(row, "set_house", `Definir ${row.name} como vendedor da casa? Lojistas que se cadastrarem em /parceiros sem link de vendedor ficam com ele.`)
+                            }
+                          >
+                            {row.isHouse ? "Remover vendedor da casa" : "Definir como vendedor da casa"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {row.kind === "responsible" && !released && (
                     <div className="mt-3 border-t border-[#f1e8e3] pt-3">

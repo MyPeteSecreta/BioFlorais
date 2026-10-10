@@ -9,6 +9,19 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L3 Página /parceiros (11/10/2026), sobre `679ec93`
+
+**SQL, nesta ordem:** `35a_parceiros_preflight_one_shot.sql` (somente leitura, uma linha JSON) e `35b_parceiros.sql` (BEGIN/COMMIT, só aditivo): `b2b_responsibles.referral_code` (+ índice único sem diferenciar maiúsculas; gera o código de 6 letras/números para quem já existe) e `b2b_clients.document/city/state/lead_source/lead_referral_code`. O vendedor da casa fica em `b2b_settings` (`house_responsible_id`), sem coluna nova. Sem o 35b a página abre só com a apresentação; o painel e o admin não mostram o código.
+
+**Variável (opcional):** `B2B_DEMO_CTA_URL` = a URL da agenda de representantes (botões "Quero ser representante" e "Falar com um representante"). Sem ela, os botões abrem o WhatsApp (21) 3955-3713 — **o Luis deve definir a URL da agenda na Vercel**.
+
+- **`/parceiros`** (pública, **noindex**, sem o carrinho/"Seja uma criadora" do B2C): apresentação para o lojista (pedido mínimo R$ 250, frete especial B2B a partir de R$ 450, Pix/cartão em até 3x/boleto PJ, entrega rápida), as linhas B2B publicadas com o card da Home e "a partir de R$" no preço B2B normal (sem promoções).
+- **Vínculo:** `?v=<código>` liga o lojista àquele vendedor (mostra "Seu representante: <nome>", nunca o e-mail); sem `?v=` ou com código inexistente/inativo, ao **vendedor da casa**. **Sem vendedor da casa** e sem `?v=`, só a apresentação e "Falar com um representante" (sem formulário).
+- **"Quero comprar":** cadastro rápido (nome da loja, CNPJ ou CPF válidos, WhatsApp, e-mail, cidade/UF) → cria o cliente do vendedor com a origem (`lead_source = parceiros`, código) — reaproveita o cliente do mesmo vendedor com o mesmo e-mail/documento — e abre o **link padrão (L1)**: oferta ativa com todas as linhas B2B, preço normal, sem promoção. Pedidos entram com esse vendedor. Proteções: campo-isca invisível, limite de 8 tentativas/10 min por IP, validação de CNPJ/CPF.
+- **Painel do vendedor:** "Meu link de captação" (`/parceiros?v=<código>`) com Copiar, Enviar pelo WhatsApp e Mostrar QR Code (para o flyer/cartão). O código é gerado na primeira vez que o painel abre.
+- **Admin → Vendedores:** em cada vendedor, o código e o link com **Copiar link, QR Code, Editar código** (4 a 12 letras/números, único), "Gerar código" quando falta e **"Definir como vendedor da casa"** (só vendedor ativo; "Remover vendedor da casa"). **Ação do Luis:** criar o vendedor CLT "Angel Blanc – Comercial" pelo convite e marcá-lo como vendedor da casa.
+- Testado no navegador: `/parceiros` renderiza com noindex e, sem vendedor, mostra "Falar com um representante" sem formulário (o banco real não estava disponível, então a página com vendedor e a lista de linhas com preço não puderam ser vistas); o formulário em 375 px sem rolagem lateral e com a mensagem de erro. Testes: `scripts/b2b-parceiros.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ B2C P1 da Bio (10/10/2026), sobre `05422b7`
 
 **SEM SQL.** Quatro itens do `B2C_MELHORIAS.md`, um commit por item. Testado no navegador (375 px e desktop; sem banco, com a sacola em localStorage).
