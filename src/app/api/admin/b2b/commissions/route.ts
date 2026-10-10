@@ -24,15 +24,23 @@ export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const run = getAppSqlRunner();
-    const rows = await loadCommissionRows(run, {
+    const all = await loadCommissionRows(run, {
       responsibleId: params.get("vendedor"),
       month: params.get("mes"),
+      includeArchived: true,
     });
-    const responsibles = await run(`SELECT id, name FROM b2b_responsibles WHERE TRUE${await andNotArchived(run, "b2b_responsibles")} ORDER BY name`);
+    // Pedidos arquivados (dados de teste) ficam de fora; o contador explica por que a lista pode estar vazia.
+    const showArchived = params.get("arquivados") === "1";
+    const rows = showArchived ? all : all.filter((row) => !row.archived);
+    const archivedHidden = showArchived ? 0 : new Set(all.filter((row) => row.archived).map((row) => row.orderId)).size;
+    const responsibles = await run(
+      `SELECT id, name FROM b2b_responsibles WHERE TRUE${showArchived ? "" : await andNotArchived(run, "b2b_responsibles")} ORDER BY name`
+    );
 
     return NextResponse.json({
       rows,
       totals: totalsFor(rows),
+      archivedHidden,
       responsibles: responsibles.map((row) => ({ id: String(row.id), name: String(row.name) })),
     });
   } catch (error) {

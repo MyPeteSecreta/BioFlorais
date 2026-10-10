@@ -18,7 +18,7 @@
  * (sql/b2b/18b), com a data em que o admin pagou a comissão ao vendedor.
  */
 
-import { andNotArchived } from "@/lib/b2b/archive";
+import { notArchivedCondition } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
@@ -69,6 +69,8 @@ export type CommissionRow = {
   /** Boleto: nº da parcela (a comissão é por parcela, pela data da BAIXA); 0 = pedido inteiro (Pix/cartão). */
   installment: number;
   installmentLabel: string | null;
+  /** Pedido arquivado como teste (só vem com includeArchived). */
+  archived?: boolean;
 };
 
 const CANCELLED = new Set(["cancelled", "canceled", "failed", "expired", "refunded", "rejected"]);
@@ -117,6 +119,8 @@ export type CommissionFilters = {
   clientId?: string | null;
   /** AAAA-MM do mês do PEDIDO. */
   month?: string | null;
+  /** Inclui os pedidos arquivados (dados de teste), marcados com archived = true. */
+  includeArchived?: boolean;
 };
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -130,8 +134,9 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
   const clientId = filters.clientId && isUuid(filters.clientId) ? filters.clientId : null;
   const month = filters.month && MONTH_RE.test(filters.month) ? filters.month : null;
 
-  const notArchived = await andNotArchived(run, "orders", "o");
-  const query = `SELECT o.id, o.status, o.payment_method, o.total_cents, o.shipping_cents,
+  const live = await notArchivedCondition(run, "orders", "o");
+  const notArchived = filters.includeArchived ? "" : ` AND ${live}`;
+  const query = `SELECT o.id, o.status, o.payment_method, o.total_cents, o.shipping_cents, NOT (${live}) AS archived,
             o.b2b_responsible_id, o.b2b_client_id,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
             coalesce(o.b2b_responsible_name, r.name, '') AS responsible_name,
@@ -198,7 +203,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
 
   if (rows.some((row) => row.payment_method === "boleto")) {
     try {
-      const all = await loadBoletoInstallments(run, { responsibleId, clientId });
+      const all = await loadBoletoInstallments(run, { responsibleId, clientId, includeArchived: filters.includeArchived });
 
       for (const item of all) {
         const list = installmentsByOrder.get(item.orderId) ?? [];
@@ -284,6 +289,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
       extraPercent: row.extra_pct === null || row.extra_pct === undefined ? null : Math.round(Number(row.extra_pct) * 100) / 100,
       totalPercent: totalPercent === null ? null : Math.round(totalPercent * 100) / 100,
       basis: (row.basis as string | null) ?? null,
+      archived: row.archived === true,
     };
 
     const parcels = paymentMethod === "boleto" ? installmentsByOrder.get(orderId) : undefined;

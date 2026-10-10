@@ -9,6 +9,13 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Comissões vazias ao trocar vendedor/mês (10/10/2026)
+
+**SEM SQL.** Item 4 do teste do Luis.
+- **Causa:** a lista de comissões sempre exclui pedidos arquivados (V5) e o filtro do vendedor/mês só mostrava o que sobrava: se os pedidos do teste estavam arquivados (como dados de teste), "Todos os vendedores" em qualquer mês voltava vazio, sem explicar. O filtro de mês em si (mês de criação do pedido, "AAAA-MM") e "Todos" estavam corretos (teste cobre).
+- **Correção:** aviso "n pedido(s) arquivados como teste não aparecem aqui" com a caixa "Mostrar pedidos arquivados (teste)" (linhas marcadas "arquivado (teste)"; a lista de vendedores passa a incluir os arquivados quando a caixa está marcada). Os totais seguem só com o que não está arquivado.
+- Testes: `scripts/b2b-comissoes-arquivados.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ "Boletos a receber" vazio com solicitação no Acompanhamento (10/10/2026), sobre `6d93e57`
 
 **SEM SQL.** Item 3 do teste do Luis.

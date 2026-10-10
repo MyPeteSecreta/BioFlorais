@@ -36,6 +36,7 @@ type Row = {
   state: "aguardando" | "a_receber" | "retida" | "paga" | "cancelada";
   payableOn: string | null;
   paidOutAt: string | null;
+  archived?: boolean;
 };
 
 type Totals = { nextTenthCents: number; laterCents: number; receivedCents: number; waitingCents: number };
@@ -60,11 +61,14 @@ export default function CommissionsTab() {
   const [vendedor, setVendedor] = useState("");
   const [mes, setMes] = useState("");
   const [message, setMessage] = useState("");
+  const [arquivados, setArquivados] = useState(false);
+  const [archivedHidden, setArchivedHidden] = useState(0);
 
   const load = useCallback(async () => {
     const query = new URLSearchParams();
     if (vendedor) query.set("vendedor", vendedor);
     if (mes) query.set("mes", mes);
+    if (arquivados) query.set("arquivados", "1");
     const { ok, data } = await api(`/api/admin/b2b/commissions?${query.toString()}`);
 
     if (!ok) {
@@ -75,7 +79,8 @@ export default function CommissionsTab() {
     setRows(data.rows ?? []);
     setTotals(data.totals ?? null);
     setResponsibles(data.responsibles ?? []);
-  }, [api, vendedor, mes]);
+    setArchivedHidden(data.archivedHidden ?? 0);
+  }, [api, vendedor, mes, arquivados]);
 
   useEffect(() => {
     // Carga inicial vinda da API: o setState só ocorre depois do fetch.
@@ -111,6 +116,12 @@ export default function CommissionsTab() {
         como paga ao vendedor.
       </p>
       {message && <p className="rounded-xl bg-[#f6eef7] p-3 text-sm font-semibold">{message}</p>}
+      {archivedHidden > 0 && !arquivados && (
+        <p className="max-w-3xl rounded-xl bg-[#fbe7e7] p-3 text-sm text-[#8f2727]">
+          {archivedHidden} pedido(s) <strong>arquivados como teste</strong> não aparecem aqui (nem nas comissões). Marque
+          &quot;Mostrar pedidos arquivados&quot; para vê-los (ou desfaça o arquivamento em Dados de teste).
+        </p>
+      )}
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs font-bold text-[#7b6a77]">
@@ -127,6 +138,10 @@ export default function CommissionsTab() {
         <label className="text-xs font-bold text-[#7b6a77]">
           Mês do pedido
           <input className={`${field} block`} type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
+        </label>
+        <label className="flex items-center gap-2 pb-2 text-sm font-bold text-[#7b6a77]">
+          <input type="checkbox" className="h-4 w-4" checked={arquivados} onChange={(e) => setArquivados(e.target.checked)} />
+          Mostrar pedidos arquivados (teste)
         </label>
         {totals && (
           <p className="text-sm font-bold">
@@ -165,7 +180,8 @@ export default function CommissionsTab() {
                   <td className="px-4 py-3">{row.responsibleName}</td>
                   <td className="px-4 py-3">{row.clientName || "—"}</td>
                   <td className="px-4 py-3">
-                    #{row.orderNumber} · {row.paymentMethod ?? "—"}
+                    #{row.orderNumber}
+                    {row.archived && <span className="ml-1 rounded-full bg-[#f3eef2] px-2 py-0.5 text-[10px] font-extrabold text-[#7b6a77]">arquivado (teste)</span>} · {row.paymentMethod ?? "—"}
                     {row.installmentLabel ? ` · parcela ${row.installmentLabel}` : ""}
                   </td>
                   <td className="px-4 py-3 text-right">{formatB2BCents(row.baseCents)}</td>
