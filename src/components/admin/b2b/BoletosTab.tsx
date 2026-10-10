@@ -24,6 +24,7 @@ type Installment = {
   paidAt: string | null;
   paidCents: number | null;
   note: string | null;
+  archived?: boolean;
 };
 
 const LABEL = { aberto: "Em aberto", vencido: "Vencido", pago: "Pago", cancelado: "Cancelado" } as const;
@@ -47,6 +48,8 @@ export default function BoletosTab() {
   const [cliente, setCliente] = useState("");
   const [vendedor, setVendedor] = useState("");
   const [message, setMessage] = useState("");
+  const [arquivados, setArquivados] = useState(false);
+  const [archivedHidden, setArchivedHidden] = useState(0);
 
   const load = useCallback(async () => {
     const query = new URLSearchParams();
@@ -55,6 +58,7 @@ export default function BoletosTab() {
     if (ate) query.set("ate", ate);
     if (cliente) query.set("cliente", cliente);
     if (vendedor) query.set("vendedor", vendedor);
+    if (arquivados) query.set("arquivados", "1");
     const { ok, data } = await api(`/api/admin/b2b/boletos?${query.toString()}`);
 
     if (!ok) {
@@ -63,9 +67,10 @@ export default function BoletosTab() {
     }
 
     setRows(data.installments ?? []);
+    setArchivedHidden(data.archivedHidden ?? 0);
     setClients(data.clients ?? []);
     setResponsibles(data.responsibles ?? []);
-  }, [api, situacao, de, ate, cliente, vendedor]);
+  }, [api, situacao, de, ate, cliente, vendedor, arquivados]);
 
   useEffect(() => {
     // Carga inicial vinda da API: o setState só ocorre depois do fetch.
@@ -167,6 +172,17 @@ export default function BoletosTab() {
         Uma linha por parcela. A baixa registra a data e o valor pagos, alimenta a comissão da parcela (dia 10 do
         mês seguinte à baixa, nunca pelo vencimento) e, com todas as parcelas baixadas, marca o pedido como Pago.
       </p>
+      <p className="max-w-3xl rounded-xl bg-[#fff8e6] p-3 text-sm text-[#6b5320]">
+        <strong>Como dar baixa:</strong> ache a parcela na lista, clique em &quot;Dar baixa&quot;, confira a data e o valor
+        pagos (se o valor for diferente, escreva uma observação) e confirme. &quot;Desfazer baixa&quot; volta a parcela para
+        em aberto.
+      </p>
+      {archivedHidden > 0 && !arquivados && (
+        <p className="max-w-3xl rounded-xl bg-[#fbe7e7] p-3 text-sm text-[#8f2727]">
+          {archivedHidden} parcela(s) de pedidos <strong>arquivados como teste</strong> não aparecem aqui. Marque
+          &quot;Mostrar pedidos arquivados&quot; para vê-las (ou desfaça o arquivamento em Dados de teste).
+        </p>
+      )}
       {message && <p className="rounded-xl bg-[#f6eef7] p-3 text-sm font-semibold">{message}</p>}
 
       <div className="flex flex-wrap items-end gap-3">
@@ -208,6 +224,11 @@ export default function BoletosTab() {
         </label>
       </div>
 
+      <label className="flex items-center gap-2 text-sm font-bold text-[#7b6a77]">
+        <input type="checkbox" className="h-4 w-4" checked={arquivados} onChange={(e) => setArquivados(e.target.checked)} />
+        Mostrar pedidos arquivados (teste)
+      </label>
+
       <div className="overflow-x-auto rounded-2xl border border-[#eadfd9] bg-white">
         <table className="w-full min-w-[1000px] text-left text-sm">
           <thead className="bg-[#fbf5f1] text-xs uppercase tracking-[0.08em] text-[#7b6a77]">
@@ -231,7 +252,10 @@ export default function BoletosTab() {
             )}
             {rows.map((row) => (
               <tr key={`${row.orderId}-${row.installment}`} className={row.status === "vencido" ? "bg-red-50" : ""}>
-                <td className="px-4 py-3">#{row.orderNumber}</td>
+                <td className="px-4 py-3">
+                  #{row.orderNumber}
+                  {row.archived && <span className="ml-2 rounded-full bg-[#f3eef2] px-2 py-0.5 text-[10px] font-extrabold text-[#7b6a77]">arquivado (teste)</span>}
+                </td>
                 <td className="px-4 py-3">{row.clientName || "—"}</td>
                 <td className="px-4 py-3">{row.responsibleName || "—"}</td>
                 <td className="px-4 py-3">{row.installment}/{row.installments}</td>

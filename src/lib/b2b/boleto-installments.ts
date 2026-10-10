@@ -14,7 +14,7 @@
  * SQL puro sobre SqlRunner (roda no Neon e no PGlite dos testes).
  */
 
-import { andNotArchived } from "@/lib/b2b/archive";
+import { notArchivedCondition } from "@/lib/b2b/archive";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { isUuid } from "@/lib/b2b/admin-input";
 
@@ -33,6 +33,8 @@ export type BoletoInstallment = {
   paidAt: string | null; // AAAA-MM-DD
   paidCents: number | null;
   note: string | null;
+  /** Pedido arquivado como teste (só aparece quando includeArchived). */
+  archived?: boolean;
 };
 
 const CANCELLED = ["cancelled", "canceled", "failed", "expired", "refunded", "rejected"];
@@ -60,6 +62,8 @@ export type InstallmentFilters = {
   dueTo?: string | null;
   clientId?: string | null;
   responsibleId?: string | null;
+  /** Inclui as solicitações de pedidos arquivados (marcadas com archived = true). */
+  includeArchived?: boolean;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -76,7 +80,8 @@ export async function loadBoletoInstallments(
   const dueFrom = filters.dueFrom && DATE_RE.test(filters.dueFrom) ? filters.dueFrom : null;
   const dueTo = filters.dueTo && DATE_RE.test(filters.dueTo) ? filters.dueTo : null;
 
-  const notArchived = await andNotArchived(run, "orders", "o");
+  const live = await notArchivedCondition(run, "orders", "o");
+  const notArchived = filters.includeArchived ? "" : ` AND ${live}`;
   const rows = await run(
     `SELECT o.id AS order_id, o.status AS order_status,
             coalesce(c.display_name, '') AS client_name,
@@ -87,7 +92,8 @@ export async function loadBoletoInstallments(
             e.item ->> 'dueDate' AS due_date,
             coalesce((e.item ->> 'amountCents')::int,
                      CASE WHEN e.n = br.installments THEN br.last_installment_amount_cents ELSE br.installment_amount_cents END) AS amount_cents,
-            to_char(bp.paid_at, 'YYYY-MM-DD') AS paid_at, bp.paid_cents, bp.note
+            to_char(bp.paid_at, 'YYYY-MM-DD') AS paid_at, bp.paid_cents, bp.note,
+            NOT (${live}) AS archived
        FROM b2b_boleto_requests br
        JOIN orders o ON o.id = br.order_id
        LEFT JOIN b2b_clients c ON c.id = o.b2b_client_id
@@ -98,7 +104,7 @@ export async function loadBoletoInstallments(
              FROM jsonb_array_elements(CASE WHEN br.schedule IS NOT NULL AND jsonb_typeof(br.schedule) = 'array'
                                             THEN br.schedule ELSE '[]'::jsonb END) WITH ORDINALITY AS t(item, ord)
            UNION ALL
-           SELECT NULL::jsonb, g FROM generate_series(1, br.installments) g
+           SELECT NULL::jsonb, g FROM generate_series(1, greatest(coalesce(br.installments, 1), 1)) g
             WHERE br.schedule IS NULL OR jsonb_typeof(br.schedule) <> 'array' OR jsonb_array_length(br.schedule) = 0
          ) x
        ) e
@@ -106,7 +112,7 @@ export async function loadBoletoInstallments(
               ON bp.order_id = o.id
              AND bp.installment = CASE WHEN br.schedule IS NOT NULL AND jsonb_typeof(br.schedule) = 'array' AND jsonb_array_length(br.schedule) > 0
                                        THEN (e.item ->> 'installment')::int ELSE e.n END
-      WHERE o.b2b_offer_id IS NOT NULL${notArchived}
+      WHERE TRUE${notArchived}
         AND ($1::uuid IS NULL OR o.b2b_client_id = $1::uuid)
         AND ($2::uuid IS NULL OR o.b2b_responsible_id = $2::uuid)
       ORDER BY due_date NULLS LAST, o.created_at, installment`,
@@ -124,7 +130,8 @@ export async function loadBoletoInstallments(
         clientName: String(row.client_name ?? ""),
         responsibleName: String(row.responsible_name ?? ""),
         installment: Number(row.installment),
-        installments: Number(row.installments),
+        installments: Math.max(1, Number(row.installments ?? 1)),
+        archived: row.archived === true,
         dueDate,
         amountCents: Number(row.amount_cents ?? 0),
         status: installmentStatus({ orderStatus: String(row.order_status ?? ""), dueDate, paid, today }),

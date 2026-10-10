@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ "Boletos a receber" vazio com solicitação no Acompanhamento (10/10/2026), sobre `6d93e57`
+
+**SEM SQL.** Item 3 do teste do Luis.
+- **Causa:** o Acompanhamento listava TODA solicitação de boleto (inclusive de pedido arquivado como teste), enquanto "Boletos a receber" esconde pedido arquivado (V5) e ainda exigia oferta gravada no pedido e pelo menos 1 parcela. O pedido da solicitação do Luis estava nesse caso (ou sem parcelas/oferta); o código não conseguia explicar de outro jeito.
+- **Correção:** toda solicitação de boleto de pedido NÃO arquivado aparece em "Boletos a receber", com ou sem cronograma, mesmo sem oferta no pedido ou com número de parcelas vazio/zero (vira 1 parcela). O Acompanhamento passou a esconder as solicitações de pedido arquivado (as duas telas agora concordam). Quando houver parcelas de pedidos arquivados, aparece o aviso em vermelho "n parcela(s) de pedidos arquivados como teste não aparecem aqui" e a caixa "Mostrar pedidos arquivados (teste)" para vê-las (marcadas "arquivado (teste)"); desfazer o arquivamento: Dados de teste → Lotes arquivados.
+- **Onde o Luis dá a baixa:** Admin → B2B → **Boletos a receber** → na linha da parcela, botão **"Dar baixa"** → confirmar data e valor pagos (se o valor for diferente, escrever uma observação) → "Desfazer baixa" volta a parcela para em aberto. Com todas as parcelas baixadas o pedido vira Pago e entra na separação; a comissão da parcela vence no dia 10 do mês seguinte à baixa. A explicação agora está escrita no topo da tela.
+- Testes: `scripts/b2b-boletos-solicitacoes.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Admin → Pedidos: "Marcar como teste e arquivar" para QUALQUER pedido (10/10/2026), sobre `5ab75d8`
 
 **SEM SQL novo** (usa o 32b já aplicado). Itens 1 e 2 do teste do Luis.

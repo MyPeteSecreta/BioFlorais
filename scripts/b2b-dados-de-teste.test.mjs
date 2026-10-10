@@ -144,7 +144,7 @@ test("filtros ligados em comissões, boletos, acompanhamento, histórico, client
     "src/app/api/admin/b2b/commissions/route.ts",
     "src/app/api/admin/b2b/boletos/route.ts",
   ]) {
-    assert.ok(read(f).includes("andNotArchived"), f);
+    assert.ok(/andNotArchived|notArchivedCondition/.test(read(f)), f);
   }
   for (const f of ["src/app/admin/(protected)/pedidos/page.tsx", "src/app/api/admin/b2b/tracking/route.ts", "src/app/api/admin/b2b/responsibles/route.ts"]) {
     assert.ok(read(f).includes("notArchivedCondition"), f);

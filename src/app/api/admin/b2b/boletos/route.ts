@@ -31,13 +31,18 @@ export async function GET(request: NextRequest) {
     const status = params.get("situacao") ?? "";
     const run = getAppSqlRunner();
 
-    const installments = await loadBoletoInstallments(run, {
+    const all = await loadBoletoInstallments(run, {
       status: STATUSES.includes(status) ? (status as InstallmentStatus) : null,
       dueFrom: params.get("de"),
       dueTo: params.get("ate"),
       clientId: params.get("cliente"),
       responsibleId: params.get("vendedor"),
+      includeArchived: true,
     });
+    // Pedidos arquivados (dados de teste) ficam de fora; o contador explica por que a lista pode estar vazia.
+    const showArchived = params.get("arquivados") === "1";
+    const installments = showArchived ? all : all.filter((item) => !item.archived);
+    const archivedHidden = showArchived ? 0 : all.filter((item) => item.archived).length;
 
     const [clients, responsibles] = await Promise.all([
       run(`SELECT id, display_name FROM b2b_clients WHERE TRUE${await andNotArchived(run, "b2b_clients")} ORDER BY display_name`),
@@ -46,6 +51,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       installments,
+      archivedHidden,
       clients: clients.map((row) => ({ id: String(row.id), name: String(row.display_name) })),
       responsibles: responsibles.map((row) => ({ id: String(row.id), name: String(row.name) })),
     });

@@ -129,6 +129,8 @@ export async function GET(request: NextRequest) {
       .from(b2bBoletoRequests)
       .innerJoin(orders, eq(orders.id, b2bBoletoRequests.orderId))
       .leftJoin(customers, eq(customers.id, orders.customerId))
+      // Pedido arquivado (dado de teste) não aparece aqui nem em "Boletos a receber".
+      .where(sql.raw(await notArchivedCondition(getAppSqlRunner(), "orders")))
       .orderBy(desc(b2bBoletoRequests.requestedAt))
       .limit(LIMIT);
 
