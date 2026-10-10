@@ -1,6 +1,8 @@
 "use client";
 
 import TrackOrderCard from "@/components/TrackOrderCard";
+import { cartItemDisplay } from "@/lib/cart-display";
+import { useCartImages } from "@/lib/cart-images";
 
 import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
 
@@ -114,6 +116,7 @@ export default function CheckoutPage() {
     offers,
     clearCart,
   } = useCart();
+  const cartImages = useCartImages(items.map((item) => item.productSlug));
 
   const [
     quote,
@@ -2436,14 +2439,29 @@ export default function CheckoutPage() {
 
             <div className="mt-6 space-y-4">
               {quote?.items.map(
-                (item) => (
+                (item) => {
+                  // Nome completo (tipo + nome + linha + volume) e foto pelo catálogo.
+                  const display = cartItemDisplay({
+                    slug: item.productSlug,
+                    name: item.name,
+                    image: cartImages[item.productSlug],
+                  });
+
+                  return (
                   <div
                     key={item.productSlug}
-                    className="flex justify-between gap-5 text-sm"
+                    className="flex items-center justify-between gap-4 text-sm"
                   >
-                    <span className="text-[#26352c]/70">
-                      {item.qty}×{" "}
-                      {item.name}
+                    <span className="flex min-w-0 items-center gap-3 text-[#26352c]/70">
+                      {display.image ? (
+                        <span className="flex h-14 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2eee5]">
+                          <img src={display.image} alt="" className="h-full w-full object-contain p-1" />
+                        </span>
+                      ) : null}
+                      <span className="min-w-0">
+                        {item.qty}×{" "}
+                        {display.name}
+                      </span>
                     </span>
 
                     <strong className="shrink-0 font-medium">
@@ -2453,7 +2471,8 @@ export default function CheckoutPage() {
                       )}
                     </strong>
                   </div>
-                )
+                  );
+                }
               )}
             </div>
 

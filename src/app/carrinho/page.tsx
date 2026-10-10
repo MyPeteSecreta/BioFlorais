@@ -10,6 +10,8 @@ import {
 import {
   useCart,
 } from "@/components/cart/CartProvider";
+import { cartItemDisplay } from "@/lib/cart-display";
+import { useCartImages } from "@/lib/cart-images";
 
 interface QuoteItem {
   productSlug: string;
@@ -169,6 +171,8 @@ export default function CartPage() {
     void loadQuote();
   }, [loadQuote]);
 
+  const cartImages = useCartImages(items.map((item) => item.productSlug));
+
   const quoteBySlug =
     new Map(
       quote?.items.map(
@@ -247,6 +251,12 @@ export default function CartPage() {
                     quoteBySlug.get(
                       cartItem.productSlug
                     );
+                  // Nome completo (tipo + nome + linha + volume) e foto pelo catálogo.
+                  const display = cartItemDisplay({
+                    slug: cartItem.productSlug,
+                    name: cartItem.name,
+                    image: cartImages[cartItem.productSlug],
+                  });
 
                   return (
                     <article
@@ -256,11 +266,11 @@ export default function CartPage() {
                       className="rounded-[24px] border border-[#26352c]/10 bg-white/80 p-5 shadow-sm md:p-6"
                     >
                       <div className="flex gap-4 md:gap-6">
-                        {cartItem.image ? (
+                        {display.image ? (
                           <div className="h-24 w-20 shrink-0 overflow-hidden rounded-2xl bg-[#f2eee5] md:h-28 md:w-24">
                             <img
                               src={
-                                cartItem.image
+                                display.image
                               }
                               alt=""
                               className="h-full w-full object-contain p-2"
@@ -271,7 +281,7 @@ export default function CartPage() {
                         <div className="min-w-0 flex-1">
                           <h2 className="text-lg font-medium leading-snug">
                             {
-                              cartItem.name
+                              display.name
                             }
                           </h2>
 
