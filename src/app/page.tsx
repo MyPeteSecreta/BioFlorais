@@ -156,15 +156,15 @@ export default function Home() {
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm font-semibold lg:flex">
-            <Link href="#linhas" className="transition hover:text-[#7f4189]">
+            <Link href="/linha/adulto" className="transition hover:text-[#7f4189]">
               Adulto
             </Link>
 
-            <Link href="#linhas" className="transition hover:text-[#7f4189]">
+            <Link href="/linha/pet" className="transition hover:text-[#7f4189]">
               Pet
             </Link>
 
-            <Link href="#linhas" className="transition hover:text-[#7f4189]">
+            <Link href="/linha/infantil" className="transition hover:text-[#7f4189]">
               Infantil
             </Link>
 
