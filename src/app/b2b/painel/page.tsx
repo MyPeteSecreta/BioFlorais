@@ -69,6 +69,12 @@ export default async function B2BPanelPage() {
 
       <QuickLinkPanel clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
 
+      <p className="mt-4">
+        <Link href="/b2b/painel/modelos" className="inline-block rounded-full border-2 border-[#55245f] px-5 py-2.5 text-sm font-extrabold text-[#55245f]">
+          Minhas ofertas padrão
+        </Link>
+      </p>
+
       <NewClientForm />
 
       {interests.filter((item) => ownedIds.has(item.clientId)).length > 0 && (

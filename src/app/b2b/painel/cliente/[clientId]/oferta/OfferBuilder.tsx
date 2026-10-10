@@ -56,6 +56,8 @@ type Props = {
   windowTextByLine: Record<string, string>;
   initialSelected: string[];
   initialChoices: Record<string, BuilderChoice>;
+  /** L2: edita um MODELO de oferta (sem cliente): nome do modelo e salvar no lugar de revisar. */
+  templateMode?: { id: string | null; name: string };
 };
 
 function CommissionBadge({
@@ -128,8 +130,10 @@ export default function OfferBuilder({
   windowTextByLine,
   initialSelected,
   initialChoices,
+  templateMode,
 }: Props) {
   const router = useRouter();
+  const [templateName, setTemplateName] = useState(templateMode?.name ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
   const [choices, setChoices] = useState<Record<string, BuilderChoice>>(initialChoices);
   const [modalLineId, setModalLineId] = useState<string | null>(null);
@@ -207,6 +211,37 @@ export default function OfferBuilder({
     setSaving(true);
     setError("");
 
+    if (templateMode) {
+      try {
+        const response = await fetch("/api/b2b/offer-templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: templateMode.id,
+            name: templateName,
+            commercialGroupIds: lines.filter((line) => selected.has(line.id)).map((line) => line.id),
+            promotions: Object.entries(choices)
+              .filter(([lineId]) => lines.some((line) => line.id === lineId) && selected.has(lineId))
+              .map(([commercialGroupId, choice]) => ({ commercialGroupId, ...choice })),
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          setError(data.error ?? "Erro ao salvar o modelo.");
+          return;
+        }
+
+        router.push("/b2b/painel/modelos");
+      } catch {
+        setError("Erro ao salvar o modelo.");
+      } finally {
+        setSaving(false);
+      }
+
+      return;
+    }
+
     try {
       const response = await fetch("/api/b2b/offers/draft", {
         method: "POST",
@@ -246,13 +281,28 @@ export default function OfferBuilder({
           Marque as linhas que o cliente poderá acessar. Nas linhas com condição especial, clique em Ver
           promoções.
         </p>
-        <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-x-2 rounded-full border border-[#eadfd9] bg-white px-5 py-2.5 text-sm shadow-sm">
-          <strong>{clientName}</strong>
-          <span>·</span>
-          <span>
-            Atendido por <strong>{responsibleName}</strong>
-          </span>
-        </div>
+        {templateMode ? (
+          <div className="mt-4 mx-auto max-w-md">
+            <label className="block text-left text-xs font-extrabold text-[#746471]">
+              Nome do modelo
+              <input
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+                maxLength={80}
+                placeholder="Ex.: Pet shop padrão"
+                className="mt-1 w-full rounded-xl border border-[#d9c7dc] bg-white px-4 py-3 text-base font-bold"
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-x-2 rounded-full border border-[#eadfd9] bg-white px-5 py-2.5 text-sm shadow-sm">
+            <strong>{clientName}</strong>
+            <span>·</span>
+            <span>
+              Atendido por <strong>{responsibleName}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {!matrix.configured && (
@@ -362,16 +412,18 @@ export default function OfferBuilder({
           <div>
             <p className="font-extrabold">{selectedCount} {selectedCount === 1 ? "linha selecionada" : "linhas selecionadas"}</p>
             <p className="mt-1 text-sm text-[#746471]">
-              Você revisa as condições antes de gerar qualquer link para o cliente.
+              {templateMode
+                ? "O modelo vale para qualquer cliente; na hora de gerar o link a Bio confere o que está disponível para ele."
+                : "Você revisa as condições antes de gerar qualquer link para o cliente."}
             </p>
           </div>
           <button
             type="button"
             onClick={saveAndReview}
-            disabled={saving || selectedCount === 0}
+            disabled={saving || selectedCount === 0 || (Boolean(templateMode) && templateName.trim().length < 2)}
             className="rounded-full bg-[#55245f] px-8 py-4 font-extrabold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {saving ? "Salvando…" : "Salvar e revisar oferta →"}
+            {saving ? "Salvando…" : templateMode ? "Salvar modelo →" : "Salvar e revisar oferta →"}
           </button>
         </div>
       </div>

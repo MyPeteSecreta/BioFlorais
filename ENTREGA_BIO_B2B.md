@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L2 "Minha oferta padrão" (10/10/2026), sobre L1
+
+**SQL, nesta ordem:** `34a_modelos_de_oferta_preflight_one_shot.sql` (somente leitura, uma linha JSON) e `34b_modelos_de_oferta.sql` (BEGIN/COMMIT, `CREATE TABLE IF NOT EXISTS b2b_offer_templates`, índice; só aditivo). Sem o 34b a tela "Minhas ofertas padrão" abre com o aviso "falta aplicar o SQL 34b"; o resto do painel não muda.
+- **Painel → "Minhas ofertas padrão"** (`/b2b/painel/modelos`): cada vendedor cria 1 ou mais modelos com o **MESMO Offer Builder** (cards das linhas, "Ver promoções", elegibilidade por compras/dias, comissão base + extra) e as mesmas regras, inclusive abertura/reconquista e a escolha por (promoção, LINHA) da rodada anterior. O modelo tem um nome ("Salvar modelo"); editar e excluir (exclusão só arquiva).
+- **"Gerar link com minha oferta padrão":** escolhe o modelo + cliente existente ou só o nome → **"Conferir a oferta"** mostra, linha a linha, o que vai e os AVISOS (promoção de abertura indisponível para aquele cliente, promoção desativada/fora da vigência, linha despublicada, elegibilidade sem regra de comissão): a promoção sai daquela oferta e a linha vai com preço B2B normal, ou a linha sai se deixou de estar publicada. Só depois "Gerar link" (ou "Gerar link mesmo assim") cria a oferta já revisada e ativa, com Copiar, WhatsApp e QR.
+- Tudo é revalidado no servidor na hora de gerar (`validateDraftInput`, ativação com vigência por compras/prazo, `quick-offer.ts`); só modelos e clientes do próprio vendedor.
+- Testado no navegador em 375 px (rede simulada, página temporária removida): conferência com aviso amarelo e botão "Gerar link mesmo assim". Testes: `scripts/b2b-ofertas-padrao.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L1 "Link padrão" (10/10/2026)
 
 **SEM SQL.** No painel do vendedor, logo acima de "+ Novo cliente": botão grande **"Link padrão (preço B2B, todas as linhas)"**.
