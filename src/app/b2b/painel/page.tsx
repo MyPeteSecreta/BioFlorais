@@ -13,6 +13,7 @@ import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { getAppSqlRunner, listOwnedClients } from "@/lib/b2b/ownership";
 import NewClientForm from "@/components/b2b/NewClientForm";
 import QuickLinkPanel from "@/components/b2b/QuickLinkPanel";
+import { loadDemoState } from "@/lib/b2b/demo";
 import ReferralLinkPanel from "@/components/b2b/ReferralLinkPanel";
 import { ensureReferralCode, partnersPath } from "@/lib/b2b/partners";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -59,7 +60,9 @@ export default async function B2BPanelPage() {
   ]);
 
   const ownedIds = new Set(clients.map((client) => client.id));
-  const referralCode = await ensureReferralCode(getAppSqlRunner(), responsible.id);
+  const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
+  // Demonstração não tem link de captação (não recebe lojistas reais).
+  const referralCode = demo.isDemo ? null : await ensureReferralCode(getAppSqlRunner(), responsible.id);
 
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
@@ -71,7 +74,7 @@ export default async function B2BPanelPage() {
         </p>
       </div>
 
-      <QuickLinkPanel clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
+      <QuickLinkPanel demo={demo.isDemo} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
 
       {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}
 

@@ -19,7 +19,17 @@ function fileSafe(text: string) {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "cliente";
 }
 
-export default function QrCodeModal({ url, clientName, onClose }: { url: string; clientName?: string | null; onClose: () => void }) {
+export default function QrCodeModal({
+  url,
+  clientName,
+  demo = false,
+  onClose,
+}: {
+  url: string;
+  clientName?: string | null;
+  demo?: boolean;
+  onClose: () => void;
+}) {
   const [image, setImage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -64,6 +74,12 @@ export default function QrCodeModal({ url, clientName, onClose }: { url: string;
           <p className="text-sm text-[#6c5b69]">{failed ? "Não foi possível gerar o QR Code. Use o link." : "Gerando o QR Code…"}</p>
         )}
       </div>
+
+      {demo && (
+        <p className="mb-3 max-w-sm rounded-xl bg-amber-100 px-4 py-2 text-center text-xs font-extrabold text-amber-950">
+          DEMONSTRAÇÃO — link fictício, compras desativadas.
+        </p>
+      )}
 
       <p className="max-w-sm text-center text-base font-bold">Aponte a câmera do seu celular para abrir sua loja personalizada.</p>
 

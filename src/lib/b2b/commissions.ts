@@ -19,6 +19,7 @@
  */
 
 import { notArchivedCondition } from "@/lib/b2b/archive";
+import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { loadCompletedVendorIds } from "@/lib/b2b/vendor-profile";
@@ -159,6 +160,7 @@ export async function loadCommissionRows(run: SqlRunner, filters: CommissionFilt
           WHERE i.order_id = o.id AND i.unit_price_cents > 0 AND i.commission_total_percent IS NOT NULL
        ) w ON true
       WHERE o.b2b_offer_id IS NOT NULL${notArchived}
+        AND ${NOT_DEMO_SQL("r")}
         AND ($1::uuid IS NULL OR o.b2b_responsible_id = $1::uuid)
         AND ($2::uuid IS NULL OR o.b2b_client_id = $2::uuid)
         AND ($3::text IS NULL OR to_char(o.created_at, 'YYYY-MM') = $3::text)

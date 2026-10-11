@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import QrCodeModal from "@/components/b2b/QrCodeModal";
+import DemoLinksPanel from "./DemoLinksPanel";
 import ShareLink from "./ShareLink";
 import { accessText, accessWhatsAppUrl, isReleasedEmail, matchesSearch, sellerBadge, type SellerBadge } from "@/lib/b2b/seller-card";
 
@@ -444,6 +445,8 @@ export default function ResponsiblesTab() {
           {creating ? "Gerando…" : "Gerar convite"}
         </button>
       </form>
+
+      <DemoLinksPanel />
 
       {sharedLink && <ShareLink {...sharedLink} onClose={() => setSharedLink(null)} />}
       {qr && <QrCodeModal url={qr.url} clientName={qr.name} onClose={() => setQr(null)} />}

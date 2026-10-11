@@ -10,6 +10,7 @@ import {
   B2B_SESSION_COOKIE,
   readB2BResponsibleSession,
 } from "@/lib/b2b/responsible-session";
+import { loadDemoState } from "@/lib/b2b/demo";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 export type CurrentResponsible = { id: string; name: string; type: string };
@@ -29,6 +30,13 @@ export async function requireResponsiblePage(): Promise<CurrentResponsible> {
 
   if (!row) {
     redirect("/b2b/login");
+  }
+
+  // Demonstração expirada: página própria (os dados serão apagados pela limpeza diária).
+  const demo = await loadDemoState(getAppSqlRunner(), String(row.id));
+
+  if (demo.isDemo && demo.expired) {
+    redirect("/b2b/demo-expirada");
   }
 
   return { id: String(row.id), name: String(row.name), type: String(row.type) };

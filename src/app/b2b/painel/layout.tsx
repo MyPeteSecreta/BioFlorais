@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
+import DemoBanner from "@/components/b2b/DemoBanner";
+import DemoWelcome from "@/components/b2b/DemoWelcome";
 import LogoutButton from "@/components/b2b/LogoutButton";
+import { demoCtaUrl, loadDemoState } from "@/lib/b2b/demo";
 import CompleteProfileForm from "@/components/b2b/CompleteProfileForm";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { bannerText, loadVendorAccess } from "@/lib/b2b/vendor-profile";
@@ -13,9 +16,17 @@ export const dynamic = "force-dynamic";
 export default async function B2BPanelLayout({ children }: { children: ReactNode }) {
   const responsible = await requireResponsiblePage();
   const access = await loadVendorAccess(getAppSqlRunner(), responsible.id);
+  const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
 
   return (
     <div className="min-h-screen bg-[#fffaf6] text-[#422347]">
+      {/* Modo demonstração: faixa fixa em TODAS as telas do painel + boas-vindas na primeira entrada. */}
+      {demo.isDemo ? (
+        <>
+          <DemoBanner ctaUrl={demoCtaUrl(process.env.B2B_DEMO_CTA_URL)} />
+          <DemoWelcome />
+        </>
+      ) : null}
       <header className="border-b border-[#eadfd9] bg-white">
         <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-10">
           <Link href="/b2b/painel" className="leading-tight">

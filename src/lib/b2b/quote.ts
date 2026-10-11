@@ -13,6 +13,7 @@ import { db } from "@/lib/db/client";
 import { products } from "@/lib/db/schema";
 import type { PublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { resolveB2BCouponDiscount } from "@/lib/b2b/coupon-resolver";
+import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import {
   resolveB2BPromotionBonusLines,
   type B2BPromotionBonusLine,
@@ -184,7 +185,11 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
     );
   }
 
-  // ---- Cupom B2B (scope='b2b').
+  // ---- Cupom B2B (scope='b2b'). Demonstração: cupom recusado (compras desativadas).
+  if (context.isDemo && typeof input.couponCode === "string" && input.couponCode.trim() !== "") {
+    return fail(403, DEMO_PURCHASE_DISABLED_MESSAGE);
+  }
+
   const coupon = await resolveB2BCouponDiscount(
     typeof input.couponCode === "string" ? input.couponCode : null,
     subtotalCents,

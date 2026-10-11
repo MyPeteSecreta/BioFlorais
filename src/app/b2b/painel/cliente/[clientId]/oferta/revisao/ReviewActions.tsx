@@ -15,11 +15,13 @@ export default function ReviewActions({
   offerId,
   blocked,
   clientName,
+  demo = false,
 }: {
   clientId: string;
   offerId: string;
   blocked: boolean;
   clientName?: string | null;
+  demo?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -51,7 +53,7 @@ export default function ReviewActions({
   if (link) {
     return (
       <div className="w-full max-w-2xl space-y-4">
-        <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} clientName={clientName} />
+        <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} clientName={clientName} demo={demo} />
         <div className="text-center">
           <Link href={`/b2b/painel/cliente/${clientId}`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
             Voltar ao cliente

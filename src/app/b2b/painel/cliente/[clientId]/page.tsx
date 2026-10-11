@@ -7,6 +7,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
+import { loadDemoState } from "@/lib/b2b/demo";
 import {
   findOwnedClient,
   getAppSqlRunner,
@@ -35,6 +36,7 @@ export default async function B2BClientPage({
 }) {
   const { clientId } = await params;
   const responsible = await requireResponsiblePage();
+  const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
   const run = getAppSqlRunner();
   const client = await findOwnedClient(run, responsible.id, clientId);
 
@@ -138,7 +140,7 @@ export default async function B2BClientPage({
                       Ver condições
                     </Link>
                     {!offer.revokedAt && (
-                      <OfferLinkActions offerId={offer.id} hasActiveLink={offer.hasActiveLink} clientName={client.displayName} />
+                      <OfferLinkActions offerId={offer.id} hasActiveLink={offer.hasActiveLink} clientName={client.displayName} demo={demo.isDemo} />
                     )}
                   </>
                 )}

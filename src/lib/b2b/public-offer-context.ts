@@ -23,6 +23,8 @@ import {
 } from "@/lib/db/schema";
 import { hashToken } from "@/lib/b2b/token";
 import { isTestCommercialGroup } from "@/lib/b2b/offer-builder";
+import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 export type PublicB2BProduct = {
   id: string;
@@ -45,6 +47,8 @@ export type PublicB2BOfferContext = {
   responsiblePhone: string | null;
   commercialGroups: Array<{ id: string; slug: string; name: string }>;
   products: PublicB2BProduct[];
+  /** Oferta de vendedor de DEMONSTRAÇÃO: navega e simula, mas não compra. */
+  isDemo: boolean;
 };
 
 export type PublicB2BOfferResolutionError =
@@ -118,6 +122,24 @@ export async function loadPublicB2BOfferContext(
 
   if (!client || !client.active || !responsible || responsible.status !== "active") {
     return { ok: false, error: "client_relationship_inactive" };
+  }
+
+  // Demonstração (SQL 36b): lida por to_jsonb, então segue funcionando antes do SQL. Expirada: o link deixa de abrir.
+  let isDemo = false;
+
+  try {
+    const [demoRow] = await getAppSqlRunner()(
+      `SELECT to_jsonb(r) ->> 'is_demo' AS is_demo, to_jsonb(r) ->> 'demo_expires_at' AS demo_expires_at FROM b2b_responsibles r WHERE r.id = $1::uuid`,
+      [responsible.id]
+    );
+
+    isDemo = demoRow?.is_demo === "true";
+
+    if (isDemo && (!demoRow?.demo_expires_at || new Date(String(demoRow.demo_expires_at)).getTime() <= Date.now())) {
+      return { ok: false, error: "link_revoked_or_expired" };
+    }
+  } catch {
+    isDemo = false;
   }
 
   const [relationship] = await db
@@ -218,6 +240,7 @@ export async function loadPublicB2BOfferContext(
       responsiblePhone: responsible.phone,
       commercialGroups,
       products: offerProducts,
+      isDemo,
     },
   };
 }
@@ -253,6 +276,11 @@ export async function verifyB2BOrderOfferToken(
       status: 403,
       error: "O token informado não corresponde a este pedido.",
     };
+  }
+
+  // Demonstração: pagamento nunca (defesa em profundidade; o pedido já é recusado na criação).
+  if (resolution.context.isDemo) {
+    return { ok: false, status: 403, error: DEMO_PURCHASE_DISABLED_MESSAGE };
   }
 
   return { ok: true };

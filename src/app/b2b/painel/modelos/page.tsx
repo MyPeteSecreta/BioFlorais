@@ -8,6 +8,7 @@ import Link from "next/link";
 import TemplatesPanel, { type TemplateView } from "@/components/b2b/TemplatesPanel";
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
+import { loadDemoState } from "@/lib/b2b/demo";
 import { listTemplates } from "@/lib/b2b/offer-templates";
 import { getAppSqlRunner, listOwnedClients } from "@/lib/b2b/ownership";
 import { promotionShortLabel } from "@/lib/b2b/commission";
@@ -28,7 +29,11 @@ export default async function TemplatesPage() {
     missingTable = true;
   }
 
-  const [clients, lines] = await Promise.all([listOwnedClients(run, responsible.id), loadBuilderLines(new Date(), null)]);
+  const [clients, lines, demo] = await Promise.all([
+    listOwnedClients(run, responsible.id),
+    loadBuilderLines(new Date(), null),
+    loadDemoState(run, responsible.id),
+  ]);
   const lineById = new Map(lines.map((line) => [line.id, line]));
 
   const views: TemplateView[] = templates.map((template) => ({
@@ -78,7 +83,7 @@ export default async function TemplatesPage() {
       )}
 
       <section className="mt-8 max-w-3xl">
-        <TemplatesPanel templates={views} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
+        <TemplatesPanel demo={demo.isDemo} templates={views} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
       </section>
     </main>
   );

@@ -13,7 +13,13 @@ import LinkSharePanel from "@/components/b2b/LinkSharePanel";
 
 type Result = { url: string; whatsappUrl: string; clientName: string; lines: string[] };
 
-export default function QuickLinkPanel({ clients }: { clients: Array<{ id: string; displayName: string }> }) {
+export default function QuickLinkPanel({
+  clients,
+  demo = false,
+}: {
+  clients: Array<{ id: string; displayName: string }>;
+  demo?: boolean;
+}) {
   const router = useRouter();
   const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
@@ -99,7 +105,7 @@ export default function QuickLinkPanel({ clients }: { clients: Array<{ id: strin
           <p className="text-sm font-bold text-[#26352c]">
             Link de <strong>{result.clientName}</strong> pronto ({result.lines.length} linha(s), preço B2B normal).
           </p>
-          <LinkSharePanel url={result.url} whatsappUrl={result.whatsappUrl} clientName={result.clientName} />
+          <LinkSharePanel url={result.url} whatsappUrl={result.whatsappUrl} clientName={result.clientName} demo={demo} />
         </div>
       )}
     </section>

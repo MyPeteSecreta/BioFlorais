@@ -12,10 +12,12 @@ export default function OfferLinkActions({
   offerId,
   hasActiveLink,
   clientName,
+  demo = false,
 }: {
   offerId: string;
   hasActiveLink: boolean;
   clientName?: string | null;
+  demo?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -133,8 +135,8 @@ export default function OfferLinkActions({
         )}
       </div>
       {error && <p className="text-xs text-red-700">{error}</p>}
-      {link && <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} clientName={clientName} />}
-      {qrUrl && <QrCodeModal url={qrUrl} clientName={clientName} onClose={() => setQrUrl(null)} />}
+      {link && <LinkSharePanel url={link.url} whatsappUrl={link.whatsappUrl} clientName={clientName} demo={demo} />}
+      {qrUrl && <QrCodeModal url={qrUrl} clientName={clientName} demo={demo} onClose={() => setQrUrl(null)} />}
     </div>
   );
 }

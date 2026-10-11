@@ -8,6 +8,7 @@ import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { notArchivedCondition } from "@/lib/b2b/archive";
+import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { adminSituation } from "@/lib/b2b/vendor-profile";
 import {
@@ -78,7 +79,8 @@ export async function GET(request: NextRequest) {
       .from(b2bResponsibles)
       .leftJoin(b2bResponsibleInvites, eq(b2bResponsibleInvites.id, b2bResponsibles.inviteId))
       // V5: vendedores arquivados (dados de teste) saem da lista.
-      .where(sql.raw(await notArchivedCondition(getAppSqlRunner(), "b2b_responsibles")))
+      // Demonstração (SQL 36b) também fica fora da lista e das métricas.
+      .where(sql.raw(`${await notArchivedCondition(getAppSqlRunner(), "b2b_responsibles")} AND ${NOT_DEMO_SQL("b2b_responsibles")}`))
       .orderBy(desc(b2bResponsibles.createdAt));
 
     const clientCounts = await db

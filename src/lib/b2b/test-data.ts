@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { isUuid } from "@/lib/b2b/admin-input";
+import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 
 export const TEST_COUPON = "TESTEB2B95";
 
@@ -48,10 +49,12 @@ export async function listTestCandidates(run: SqlRunner): Promise<TestCandidates
   const notArchived = (alias: string) => (ready ? `AND ${alias}.archived_at IS NULL` : "");
 
   const responsibles = await run(
-    `SELECT r.id, r.name, r.email, r.status FROM b2b_responsibles r WHERE ${IS_TEST_VENDOR} ${notArchived("r")} ORDER BY r.created_at DESC`
+    `SELECT r.id, r.name, r.email, r.status FROM b2b_responsibles r WHERE ${IS_TEST_VENDOR} AND ${NOT_DEMO_SQL("r")} ${notArchived("r")} ORDER BY r.created_at DESC`
   );
   const clients = await run(
-    `SELECT c.id, c.display_name, c.email FROM b2b_clients c WHERE ${IS_TEST_CLIENT} ${notArchived("c")} ORDER BY c.created_at DESC`
+    `SELECT c.id, c.display_name, c.email FROM b2b_clients c WHERE ${IS_TEST_CLIENT} ${notArchived("c")}
+        AND NOT EXISTS (SELECT 1 FROM b2b_client_relationships dcr JOIN b2b_responsibles dr ON dr.id = dcr.responsible_id
+                         WHERE dcr.client_id = c.id AND to_jsonb(dr) ->> 'is_demo' = 'true') ORDER BY c.created_at DESC`
   );
   const orders = await run(
     `SELECT o.id, o.status, o.total_cents,

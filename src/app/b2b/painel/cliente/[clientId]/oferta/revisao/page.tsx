@@ -9,6 +9,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
+import { loadDemoState } from "@/lib/b2b/demo";
 import { findOwnedClient, findOwnedOffer, getAppSqlRunner } from "@/lib/b2b/ownership";
 import { formatPercent, loadCommissionMatrix, promotionShortLabel } from "@/lib/b2b/commission";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
@@ -28,6 +29,7 @@ export default async function OfferReviewPage({
   const { clientId } = await params;
   const { offerId } = await searchParams;
   const responsible = await requireResponsiblePage();
+  const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
   const run = getAppSqlRunner();
 
   const client = await findOwnedClient(run, responsible.id, clientId);
@@ -163,7 +165,7 @@ export default async function OfferReviewPage({
 
       <div className="mt-8 flex flex-col items-center gap-3">
         {isDraft ? (
-          <ReviewActions clientId={client.id} offerId={offer.id} blocked={blocked} clientName={client.displayName} />
+          <ReviewActions clientId={client.id} offerId={offer.id} blocked={blocked} clientName={client.displayName} demo={demo.isDemo} />
         ) : (
           <Link
             href={`/b2b/painel/cliente/${client.id}`}

@@ -33,6 +33,7 @@ async function fresh({ withColumns = true } = {}) {
   await pg.exec(`
     CREATE TABLE b2b_responsibles (id uuid PRIMARY KEY, name text, email text, status text, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now());
     CREATE TABLE b2b_clients (id uuid PRIMARY KEY, display_name text, contact_name text, email text, active boolean DEFAULT true, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now());
+    CREATE TABLE b2b_client_relationships (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), client_id uuid, responsible_id uuid);
     CREATE TABLE customers (id uuid PRIMARY KEY, name text, email text, cpf text, cnpj text);
     CREATE TABLE orders (id uuid PRIMARY KEY, customer_id uuid, status text, fulfillment_status text, total_cents int, payment_method text, coupon_code text,
       b2b_responsible_id uuid, b2b_client_id uuid, b2b_offer_id uuid, created_at timestamp DEFAULT now());

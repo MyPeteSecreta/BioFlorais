@@ -22,6 +22,7 @@ import {
   orderItems,
   orders,
 } from "@/lib/db/schema";
+import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
@@ -88,6 +89,11 @@ export async function POST(request: NextRequest) {
     }
 
     const context = resolution.context;
+
+    /* Demonstração: nada de pedido real (a oferta é de vendedor is_demo). */
+    if (context.isDemo) {
+      return NextResponse.json({ error: DEMO_PURCHASE_DISABLED_MESSAGE, code: "DEMO_PURCHASE_DISABLED" }, { status: 403 });
+    }
 
     // ---- Comprador
     const personType = body.customer?.personType === "pj" ? "pj" : "pf";

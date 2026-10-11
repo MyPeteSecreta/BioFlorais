@@ -26,7 +26,15 @@ type Evaluation = {
 
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-3 text-base";
 
-function TemplateCard({ template, clients }: { template: TemplateView; clients: Array<{ id: string; displayName: string }> }) {
+function TemplateCard({
+  template,
+  clients,
+  demo,
+}: {
+  template: TemplateView;
+  clients: Array<{ id: string; displayName: string }>;
+  demo: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState("");
@@ -184,7 +192,7 @@ function TemplateCard({ template, clients }: { template: TemplateView; clients: 
             </>
           )}
 
-          {result && <LinkSharePanel url={result.url} whatsappUrl={result.whatsappUrl} clientName={result.clientName} />}
+          {result && <LinkSharePanel url={result.url} whatsappUrl={result.whatsappUrl} clientName={result.clientName} demo={demo} />}
           {error && (
             <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-700">
               {error}
@@ -199,9 +207,11 @@ function TemplateCard({ template, clients }: { template: TemplateView; clients: 
 export default function TemplatesPanel({
   templates,
   clients,
+  demo = false,
 }: {
   templates: TemplateView[];
   clients: Array<{ id: string; displayName: string }>;
+  demo?: boolean;
 }) {
   if (templates.length === 0) {
     return (
@@ -214,7 +224,7 @@ export default function TemplatesPanel({
   return (
     <ul className="space-y-4">
       {templates.map((template) => (
-        <TemplateCard key={template.id} template={template} clients={clients} />
+        <TemplateCard key={template.id} template={template} clients={clients} demo={demo} />
       ))}
     </ul>
   );

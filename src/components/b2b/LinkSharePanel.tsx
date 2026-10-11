@@ -5,7 +5,18 @@ import { useState } from "react";
 import QrCodeModal from "@/components/b2b/QrCodeModal";
 
 /** Link do cliente (aparece só uma vez): Copiar + Enviar pelo WhatsApp. */
-export default function LinkSharePanel({ url, whatsappUrl, clientName }: { url: string; whatsappUrl: string; clientName?: string | null }) {
+export default function LinkSharePanel({
+  url,
+  whatsappUrl,
+  clientName,
+  demo = false,
+}: {
+  url: string;
+  whatsappUrl: string;
+  clientName?: string | null;
+  /** Modo demonstração: link fictício, aviso e "Abrir como cliente". */
+  demo?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
@@ -44,7 +55,22 @@ export default function LinkSharePanel({ url, whatsappUrl, clientName }: { url: 
         </a>
         <button type="button" onClick={() => setShowQr(true)} className="rounded-full bg-[#26352c] px-4 py-2 text-xs font-extrabold text-white">Mostrar QR Code</button>
       </div>
-      {showQr && <QrCodeModal url={url} clientName={clientName} onClose={() => setShowQr(false)} />}
+      {demo && (
+        <>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded-full bg-amber-400 px-5 py-2.5 text-sm font-extrabold text-[#2b1836]"
+          >
+            Abrir como cliente
+          </a>
+          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            Este é um link FICTÍCIO de demonstração. Abra para ver exatamente o site que o seu cliente receberia.
+          </p>
+        </>
+      )}
+      {showQr && <QrCodeModal url={url} clientName={clientName} demo={demo} onClose={() => setShowQr(false)} />}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   readB2BResponsibleSession,
 } from "@/lib/b2b/responsible-session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { loadDemoState } from "@/lib/b2b/demo";
 import { loadVendorAccess } from "@/lib/b2b/vendor-profile";
 
 export async function requireResponsibleAnyState(request: NextRequest) {
@@ -42,6 +43,13 @@ export async function requireResponsibleAnyState(request: NextRequest) {
     .limit(1);
 
   if (!responsible || responsible.status !== "active") {
+    return null;
+  }
+
+  // Demonstração expirada: as APIs recusam (a limpeza diária apaga os dados em seguida).
+  const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
+
+  if (demo.isDemo && demo.expired) {
     return null;
   }
 

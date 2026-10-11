@@ -6,6 +6,7 @@
 
 import { randomInt } from "node:crypto";
 
+import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 
 export const HOUSE_SETTING_KEY = "house_responsible_id";
@@ -40,8 +41,8 @@ export async function findSellerByCode(run: SqlRunner, codeInput: unknown): Prom
 
   try {
     const [row] = await run(
-      `SELECT id, name, type, referral_code FROM b2b_responsibles
-        WHERE upper(referral_code) = $1 AND status = 'active' LIMIT 1`,
+      `SELECT id, name, type, referral_code FROM b2b_responsibles r
+        WHERE upper(referral_code) = $1 AND status = 'active' AND ${NOT_DEMO_SQL("r")} LIMIT 1`,
       [code]
     );
 
@@ -58,7 +59,7 @@ export async function findHouseSeller(run: SqlRunner): Promise<PartnerSeller | n
 
     if (!setting?.value) return null;
 
-    const [row] = await run(`SELECT id, name, type, referral_code FROM b2b_responsibles WHERE id = $1::uuid AND status = 'active'`, [
+    const [row] = await run(`SELECT id, name, type, referral_code FROM b2b_responsibles r WHERE id = $1::uuid AND status = 'active' AND ${NOT_DEMO_SQL("r")}`, [
       String(setting.value),
     ]);
 

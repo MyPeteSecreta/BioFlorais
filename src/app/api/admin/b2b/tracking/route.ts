@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { notArchivedCondition } from "@/lib/b2b/archive";
+import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 
 export const runtime = "nodejs";
@@ -50,6 +51,8 @@ export async function GET(request: NextRequest) {
       .from(b2bOffers)
       .innerJoin(b2bResponsibles, eq(b2bResponsibles.id, b2bOffers.responsibleId))
       .innerJoin(b2bClients, eq(b2bClients.id, b2bOffers.clientId))
+      // Demonstração (SQL 36b) fica fora do Acompanhamento.
+      .where(sql.raw(NOT_DEMO_SQL("b2b_responsibles")))
       .orderBy(desc(b2bOffers.createdAt))
       .limit(LIMIT);
 
@@ -150,6 +153,7 @@ export async function GET(request: NextRequest) {
       .innerJoin(b2bClients, eq(b2bClients.id, b2bOfferLineViews.clientId))
       .innerJoin(b2bResponsibles, eq(b2bResponsibles.id, b2bOfferLineViews.responsibleId))
       .innerJoin(b2bCommercialGroups, eq(b2bCommercialGroups.id, b2bOfferLineViews.commercialGroupId))
+      .where(sql.raw(NOT_DEMO_SQL("b2b_responsibles")))
       .groupBy(
         b2bOfferLineViews.offerId,
         b2bClients.displayName,
