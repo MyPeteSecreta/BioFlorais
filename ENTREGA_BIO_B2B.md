@@ -9,6 +9,10 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Mapa técnico do B2B (11/10/2026)
+
+**SEM SQL, sem código.** Novo `docs/B2B_MAPA_TECNICO.md` (complemento do PLAYBOOK_B2B_ANGEL_BLANC.md): rotas (vendedor, cliente, admin, `/api/central/*`, cron), tabelas e colunas B2B com a função de cada uma, SQL na ordem em que foi aplicado, onde ficam as regras (preço, promoção, comissão, frete), testes principais, diferenças da Bio em relação às outras marcas, variáveis e checklist para replicar numa marca nova. Conferido contra o código no commit `65f7640` (rotas, colunas do `schema.ts` e dos SQL, lista de testes). **Para o Luis revisar:** a seção 6 (diferenças entre marcas) foi escrita só com o que se vê no código da Bio e no playbook; conferir os itens das outras marcas.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Modo demonstração B2B (11/10/2026), sobre `8ee0547` — referência: My Pet `6585957`
 
 **ORDEM: backup Neon (`bio-florais`) → `36a_modo_demonstracao_preflight_one_shot.sql` (1 linha JSON, só leitura) → `36b_modo_demonstracao.sql` (BEGIN/COMMIT, aditivo, idempotente) → push → Admin → B2B → Vendedores → "Gerar link de demonstração".** Variáveis: `CRON_SECRET` (já existe; o cron novo usa a mesma) e opcional `B2B_DEMO_CTA_URL` (botão "Quero ser representante"; sem ela abre o WhatsApp (21) 3955-3713). SQL 36b: `b2b_responsibles.is_demo/demo_expires_at/demo_link_id`, tabelas `b2b_demo_links` (só o hash do token) e `b2b_demo_creations` (limite por IP, IP só em hash). Nenhum dado existente muda; sem o 36b nada do demo aparece e o resto segue igual (as consultas leem a coluna por `to_jsonb`).
