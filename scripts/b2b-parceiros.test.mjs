@@ -124,6 +124,9 @@ test("página e rotas: noindex, preço B2B normal, isca anti-robô, sem vendedor
   const route = read("src/app/api/parceiros/cadastro/route.ts");
   assert.ok(route.includes("body.website") && route.includes("MAX_PER_WINDOW") && route.includes("resolvePartnerSeller") && route.includes("promotions: []"));
   assert.ok(read("src/components/b2b/PartnerSignupForm.tsx").includes('tabIndex={-1}'));
+  const form = read("src/components/b2b/PartnerSignupForm.tsx");
+  assert.ok(form.includes("Seus dados serão usados para contato comercial, conforme nossa") && form.includes('href="/privacidade"'));
+  assert.ok(form.indexOf("Quero comprar") < form.indexOf("Seus dados serão usados"), "LGPD abaixo do botão");
   assert.ok(read("src/app/b2b/painel/page.tsx").includes("<ReferralLinkPanel"));
   const panel = read("src/components/b2b/ReferralLinkPanel.tsx");
   assert.ok(panel.includes("Meu link de captação") && panel.includes("Copiar link") && panel.includes("WhatsApp") && panel.includes("Mostrar QR Code"));

@@ -2,6 +2,7 @@
 
 /** /parceiros — "Quero comprar": cadastro rápido do lojista; ao concluir abre o link padrão (preço B2B). */
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-3 text-base";
@@ -74,6 +75,14 @@ export default function PartnerSignupForm({ referralCode }: { referralCode: stri
       >
         {busy ? "Abrindo sua loja…" : "Quero comprar"}
       </button>
+
+      <p className="text-center text-xs leading-5 text-[#746471]" data-testid="lgpd">
+        Seus dados serão usados para contato comercial, conforme nossa{" "}
+        <Link href="/privacidade" className="font-bold text-[#63326d] underline">
+          Política de Privacidade
+        </Link>
+        .
+      </p>
     </form>
   );
 }

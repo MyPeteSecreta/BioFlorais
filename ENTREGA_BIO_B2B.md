@@ -9,6 +9,10 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ LGPD no /parceiros (11/10/2026), sobre `2e93c1d`
+
+**SEM SQL.** Abaixo do botão "Quero comprar": "Seus dados serão usados para contato comercial, conforme nossa Política de Privacidade." com link para `/privacidade`. Teste: `scripts/b2b-parceiros.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 6 · L3 Página /parceiros (11/10/2026), sobre `679ec93`
 
 **SQL, nesta ordem:** `35a_parceiros_preflight_one_shot.sql` (somente leitura, uma linha JSON) e `35b_parceiros.sql` (BEGIN/COMMIT, só aditivo): `b2b_responsibles.referral_code` (+ índice único sem diferenciar maiúsculas; gera o código de 6 letras/números para quem já existe) e `b2b_clients.document/city/state/lead_source/lead_referral_code`. O vendedor da casa fica em `b2b_settings` (`house_responsible_id`), sem coluna nova. Sem o 35b a página abre só com a apresentação; o painel e o admin não mostram o código.
