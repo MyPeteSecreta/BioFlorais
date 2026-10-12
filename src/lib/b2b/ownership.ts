@@ -106,6 +106,7 @@ export async function listOwnedClients(
        FROM b2b_clients c
        JOIN b2b_client_relationships r ON r.client_id = c.id
       WHERE ${ACTIVE_RELATIONSHIP}${notArchived}
+        AND COALESCE(to_jsonb(c) ->> 'lead_source', '') <> 'vitrine'
       ORDER BY c.display_name ASC`,
     [responsibleId]
   );

@@ -126,6 +126,7 @@ export default function B2BCheckoutContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<CreatedOrder | null>(null);
+  const [storeLink, setStoreLink] = useState<string | null>(null);
   const [pix, setPix] = useState<PixData | null>(null);
   const [finalMessage, setFinalMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -332,6 +333,7 @@ export default function B2BCheckoutContent() {
       };
 
       setOrder(created);
+      setStoreLink(typeof data.storeLink === "string" ? data.storeLink : null);
       cart.clear();
 
       if (created.paymentMethod === "pix") await startPix(created.id);
@@ -372,7 +374,8 @@ export default function B2BCheckoutContent() {
           </p>
         )}
         {order && <TrackOrderCard orderId={order.id} />}
-        <ReorderLink token={token} />
+        {/* Loja pública: o link permanente do lojista (oferta padrão dele); nos demais, o próprio link da oferta. */}
+        {storeLink ? <ReorderLink token={token} url={storeLink} /> : <ReorderLink token={token} />}
         <Link
           href={`/b2b/oferta/${encodeURIComponent(token)}`}
           className="mt-6 inline-block text-sm font-bold text-[#63326d] underline underline-offset-4"
@@ -747,6 +750,14 @@ export default function B2BCheckoutContent() {
           >
             {submitting ? "Processando…" : "Confirmar pedido"}
           </button>
+
+          <p className="text-center text-xs leading-5 text-[#746471]" data-testid="lgpd">
+            Seus dados serão usados para contato comercial, conforme nossa{" "}
+            <Link href="/privacidade" className="font-bold text-[#63326d] underline">
+              Política de Privacidade
+            </Link>
+            .
+          </p>
         </aside>
       </div>
     </main>

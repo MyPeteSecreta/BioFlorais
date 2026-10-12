@@ -49,6 +49,8 @@ export type PublicB2BOfferContext = {
   products: PublicB2BProduct[];
   /** Oferta de vendedor de DEMONSTRAÇÃO: navega e simula, mas não compra. */
   isDemo: boolean;
+  /** Vitrine pública (/parceiros): o cliente e o vendedor do pedido são resolvidos no checkout. */
+  isStorefront: boolean;
 };
 
 export type PublicB2BOfferResolutionError =
@@ -126,6 +128,7 @@ export async function loadPublicB2BOfferContext(
 
   // Demonstração (SQL 36b): lida por to_jsonb, então segue funcionando antes do SQL. Expirada: o link deixa de abrir.
   let isDemo = false;
+  let isStorefront = false;
 
   try {
     const [demoRow] = await getAppSqlRunner()(
@@ -135,11 +138,19 @@ export async function loadPublicB2BOfferContext(
 
     isDemo = demoRow?.is_demo === "true";
 
+    const [storefrontRow] = await getAppSqlRunner()(
+      `SELECT to_jsonb(o) ->> 'is_storefront' AS is_storefront FROM b2b_offers o WHERE o.id = $1::uuid`,
+      [offer.id]
+    );
+
+    isStorefront = storefrontRow?.is_storefront === "true";
+
     if (isDemo && (!demoRow?.demo_expires_at || new Date(String(demoRow.demo_expires_at)).getTime() <= Date.now())) {
       return { ok: false, error: "link_revoked_or_expired" };
     }
   } catch {
     isDemo = false;
+    isStorefront = false;
   }
 
   const [relationship] = await db
@@ -241,6 +252,7 @@ export async function loadPublicB2BOfferContext(
       commercialGroups,
       products: offerProducts,
       isDemo,
+      isStorefront,
     },
   };
 }
@@ -271,6 +283,21 @@ export async function verifyB2BOrderOfferToken(
   }
 
   if (resolution.context.offerId !== orderB2BOfferId) {
+    // Loja pública: o pedido aponta para a oferta padrão do lojista (resolvida no checkout), e o token que
+    // ele tem é o da vitrine. Vale só para pedido de origem "parceiros" daquela oferta.
+    if (resolution.context.isStorefront) {
+      try {
+        const [row] = await getAppSqlRunner()(
+          `SELECT 1 FROM orders WHERE b2b_offer_id = $1::uuid AND to_jsonb(orders) ->> 'origin' = 'parceiros' LIMIT 1`,
+          [orderB2BOfferId]
+        );
+
+        if (row) return { ok: true };
+      } catch {
+        // SQL 37b ausente: cai na recusa abaixo.
+      }
+    }
+
     return {
       ok: false,
       status: 403,

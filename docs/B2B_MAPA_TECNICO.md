@@ -38,7 +38,7 @@ Complemento de `PLAYBOOK_B2B_ANGEL_BLANC.md` (regras de negócio, papéis e orde
 | `/b2b/oferta/[token]/linha/[slug]` | produtos da linha, bonificação/desconto ao vivo |
 | `/b2b/oferta/[token]/pedidos` | Meus pedidos |
 | `/b2b/carrinho`, `/b2b/checkout` | sacola por link (`?b2b=<token>`) e checkout (Pix padrão, cartão até 3x, boleto PJ) |
-| `/parceiros` | página pública para o flyer (noindex): linhas, preço B2B, cadastro rápido do lojista (`?v=<código>`) |
+| `/parceiros` | **loja B2B pública** (noindex): redireciona para a vitrine do vendedor do `?v=<código>` ou do vendedor da casa (oferta padrão sem promoção, mesmas telas do link do cliente); a identificação do lojista é no checkout |
 | `/acompanhe-seu-pedido`, `/acompanhe/[token]` | busca por e-mail + CPF/CNPJ (ou nº do pedido) e andamento do pedido |
 
 ### 1.3 Admin (`/admin`, sessão `ADMIN_SESSION_SECRET`)
@@ -59,7 +59,7 @@ Complemento de `PLAYBOOK_B2B_ANGEL_BLANC.md` (regras de negócio, papéis e orde
 | `offer-templates`, `offers/from-template` | modelos do vendedor e geração com conferência (`preview`) |
 | `line-views` | "cliente abriu linha fora da oferta" |
 | `shipping/quote` | cotação autoritativa (`computeB2BQuote`) |
-| `orders/create` | cria o pedido B2B + snapshot de promoção/comissão por item |
+| `orders/create` | cria o pedido B2B + snapshot de promoção/comissão por item; na vitrine resolve cliente e vendedor (dono do CNPJ/CPF ou vendedor da loja) e devolve `storeLink` |
 | `payments/mercadopago/pix`, `payments/mercadopago/card`, `payments/lunium/pix`, `payments/boleto` | pagamentos (todos conferem token da oferta; demo é recusado) |
 | `retailer-messages/seen` | marca o pop-up de 1º acesso como visto |
 | `demo-status` | "este link é de demonstração?" (faixa nas telas do cliente) |
@@ -115,7 +115,7 @@ A Bio **chama** a Central (`CENTRAL_URL`) em `lib/central/central-client.ts`: `G
 ### 2.3 Oferta e link
 | Tabela | Função |
 |---|---|
-| `b2b_offers` | oferta do cliente (`status` draft/active, `activated_at`, `revoked_at`) |
+| `b2b_offers` | oferta do cliente (`status` draft/active, `activated_at`, `revoked_at`); `is_storefront` (37b) = vitrine pública do vendedor (no máximo uma) |
 | `b2b_offer_commercial_groups` | linhas da oferta |
 | `b2b_offer_promotions` | **escolha por (promoção, LINHA):** `commercial_group_id`, `eligibility_mode`, `max_uses`, `duration_days`, `valid_from/valid_until`. Chave única `(offer_id, promotion_id, commercial_group_id)` (33b) |
 | `b2b_offer_links` | link opaco (`token_hash`, `token_ciphertext`, `revoked_at`) |
@@ -125,7 +125,7 @@ A Bio **chama** a Central (`CENTRAL_URL`) em `lib/central/central-client.ts`: `G
 ### 2.4 Pedido, pagamento e andamento (compartilhado com o B2C)
 | Tabela | Colunas B2B / função |
 |---|---|
-| `orders` | `b2b_client_id`, `b2b_offer_id`, `b2b_responsible_id/type/name`, `payment_method`, `payment_method_discount_cents`, `shipping_*`, `tracking_code`, `fulfillment_status`; `is_test`, `archived_at` (32b) |
+| `orders` | `b2b_client_id`, `b2b_offer_id`, `b2b_responsible_id/type/name`, `payment_method`, `payment_method_discount_cents`, `shipping_*`, `tracking_code`, `fulfillment_status`; `is_test`, `archived_at` (32b); `origin`, `origin_code` (37b: veio de /parceiros e o código ?v=) |
 | `order_items` | **snapshot congelado por item:** `paid_qty`, `bonus_qty`, `physical_qty`, `promotion_id/name/buy_quantity/free_quantity`, `commission_base/extra/total_percent`, `commission_basis` (13b), `promotion_type/percent/discount_cents` (17b), `product_name_snapshot` (21b, o que Central/Omie leem). Bonificado = linha de preço 0 |
 | `payments` | tentativas/status do Pix e cartão |
 | `b2b_boleto_requests`* | solicitação de boleto: `installments`, `schedule` jsonb (vencimentos 28/42/56) (04b) |
@@ -180,6 +180,7 @@ Sempre `a` (preflight, só leitura) antes do `b` (aditivo). Backup do Neon antes
 | `34a/34b` | `b2b_offer_templates` |
 | `35a/35b` | `referral_code`, dados do lojista captado |
 | `36a/36b` | modo demonstração |
+| `37a/37b` | loja B2B pública: `b2b_offers.is_storefront`, `orders.origin/origin_code` |
 
 (Não existe `24b` na Bio.)
 
@@ -203,7 +204,7 @@ Sempre `a` (preflight, só leitura) antes do `b` (aditivo). Backup do Neon antes
 | Período de teste e cadastro completo | `vendor-profile.ts`, `rca-terms.ts` |
 | Identidade (editar e-mail, liberar e-mail) | `vendor-identity.ts` |
 | Arquivamento de dados de teste | `archive.ts`, `test-data.ts` |
-| Parceiros (código, vendedor da casa, lead) | `partners.ts` |
+| Parceiros (código, vendedor da casa, lead) | `partners.ts`; loja pública (vitrine, atribuição do pedido) `storefront.ts` |
 | Demonstração | `demo.ts` |
 | Contrato Central ⇄ marca | `src/lib/central/` (`contract.ts`, `brand-api.ts`, `order-progress.ts`, `central-client.ts`, `secret.ts`) |
 | Nome completo do produto (tipo + nome + linha + volume) | `product-label.ts`, `src/lib/cart-display.ts` |
@@ -223,7 +224,7 @@ Sempre `a` (preflight, só leitura) antes do `b` (aditivo). Backup do Neon antes
 | `b2b-vendor-isolation`, `b2b-vendor-login`, `b2b-vendor-trial`, `b2b-invites`, `b2b-email-preso`, `b2b-vendedores-cartao`, `b2b-omie-vendor` | isolamento, login, teste de 7 dias, convites, e-mail, tela de vendedores |
 | `b2b-central` | contrato `/api/central/*`, replicação de cadastro, Analytics |
 | `b2b-dados-de-teste`, `b2b-pedidos-arquivar`, `b2b-comissoes-arquivados` | arquivar/desfazer, pago real com confirmação |
-| `b2b-link-padrao`, `b2b-ofertas-padrao`, `b2b-qrcode`, `b2b-parceiros`, `b2b-demo` | L1, L2, QR, /parceiros, demonstração |
+| `b2b-link-padrao`, `b2b-ofertas-padrao`, `b2b-qrcode`, `b2b-parceiros`, `b2b-loja-publica`, `b2b-demo` | L1, L2, QR, código de captação, loja pública, demonstração |
 | `b2b-retailer-messages`, `b2b-tracking`, `b2c-p1-*` | mensagens, acompanhamento, melhorias do B2C |
 
 Antes de publicar: `npx tsc --noEmit`, `npm test`, `npm run build` (com `DATABASE_URL` e `ADMIN_SESSION_SECRET` de mentira) e `git diff --check`.

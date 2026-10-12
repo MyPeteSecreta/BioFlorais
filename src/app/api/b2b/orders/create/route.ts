@@ -23,6 +23,7 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
+import { STOREFRONT_ORIGIN, attributeStorefrontOrder } from "@/lib/b2b/storefront";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
       return badRequest("Este link de oferta não é mais válido.", 403);
     }
 
-    const context = resolution.context;
+    let context = resolution.context;
+    let storefront: { storeUrl: string; keptOwner: boolean; originCode: string | null } | null = null;
 
     /* Demonstração: nada de pedido real (a oferta é de vendedor is_demo). */
     if (context.isDemo) {
@@ -141,6 +143,38 @@ export async function POST(request: NextRequest) {
 
     if (!chosenServiceName) {
       return badRequest("Escolha uma opção de entrega antes de continuar.");
+    }
+
+    // ---- Loja pública (/parceiros): resolve cliente e vendedor do pedido (dono do CNPJ/CPF ou vendedor da vitrine).
+    if (context.isStorefront) {
+      const [storeSeller] = await getAppSqlRunner()(
+        `SELECT referral_code FROM b2b_responsibles WHERE id = $1::uuid`,
+        [context.responsibleId]
+      ).catch(() => [undefined]);
+      const originCode = storeSeller?.referral_code ? String(storeSeller.referral_code) : null;
+
+      const attribution = await attributeStorefrontOrder(getAppSqlRunner(), {
+        storeSeller: { id: context.responsibleId, name: context.responsibleName, type: context.responsibleType },
+        documentDigits: personType === "pj" ? cnpj : cpf,
+        lead: { name, document: personType === "pj" ? cnpj : cpf, phone, email, city, state },
+        referralCode: originCode,
+      });
+
+      if (!attribution) {
+        return badRequest("Não foi possível identificar o seu cadastro agora. Tente novamente em instantes.", 409);
+      }
+
+      context = {
+        ...context,
+        offerId: attribution.offerId,
+        clientId: attribution.clientId,
+        clientDisplayName: attribution.clientDisplayName,
+        responsibleId: attribution.responsibleId,
+        responsibleName: attribution.responsibleName,
+        responsibleType: attribution.responsibleType,
+        isStorefront: false,
+      };
+      storefront = { storeUrl: attribution.storeUrl, keptOwner: attribution.keptOwner, originCode };
     }
 
     // ---- Recalcula tudo no servidor
@@ -247,6 +281,15 @@ export async function POST(request: NextRequest) {
         paymentMethodDiscountCents,
       })
       .returning({ id: orders.id });
+
+    // Origem do pedido (relatório): loja pública /parceiros + código ?v=. Tolera o SQL 37b ausente.
+    if (storefront) {
+      await getAppSqlRunner()(`UPDATE orders SET origin = $2, origin_code = $3 WHERE id = $1::uuid`, [
+        order.id,
+        STOREFRONT_ORIGIN,
+        storefront.originCode,
+      ]).catch((error) => console.error("[b2b/orders/create] sem orders.origin (SQL 37b)", error));
+    }
 
     // Snapshot imutável por item: promoção aplicada e comissão do vendedor
     // (base + extra = total) congeladas no pedido. O cliente não vê isso.
@@ -362,6 +405,8 @@ export async function POST(request: NextRequest) {
         shippingCents: option.priceCents,
         totalCents,
       },
+      // Loja pública: link permanente do lojista para comprar de novo.
+      storeLink: storefront ? storefront.storeUrl : null,
     });
   } catch (error) {
     console.error("[b2b/orders/create]", error);

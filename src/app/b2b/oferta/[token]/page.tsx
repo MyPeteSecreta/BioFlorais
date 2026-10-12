@@ -12,6 +12,7 @@
 import Link from "next/link";
 
 import B2BLineCard from "@/components/b2b/B2BLineCard";
+import { demoCtaUrl } from "@/lib/b2b/demo";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
 import { describeScope } from "@/lib/b2b/product-label";
@@ -78,43 +79,55 @@ export default async function B2BOfferPage({
     return <Unavailable message="Esta oferta ainda não tem produtos liberados." />;
   }
 
+  const store = context.isStorefront;
+
   return (
     <main className="min-h-screen bg-[#fffaf6] pb-16 text-[#422347]">
       <header className="border-b border-[#eadfd9] bg-white">
         <div className="mx-auto max-w-[1180px] px-5 py-6 lg:px-10">
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#9b6c24]">
-            Bio Florais · Área B2B
+            Bio Florais · {store ? "Desde 1997" : "Área B2B"}
           </p>
           <h1 className="mt-2 font-serif text-3xl font-semibold text-[#55245f]">
-            Oferta para {context.clientDisplayName}
+            {store ? "Preço de lojista" : `Oferta para ${context.clientDisplayName}`}
           </h1>
-          <p className="mt-2 text-sm font-semibold text-[#6c5b69]">
-            Atendido por {context.responsibleName}
-          </p>
-          <Link
-            href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}
-            className="mt-3 mr-2 inline-block rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white"
-          >
-            Meus pedidos
-          </Link>
+          {store ? (
+            <p className="mt-2 text-sm font-semibold text-[#6c5b69]" data-testid="hero-loja">
+              Pedido mínimo R$ 250 · frete especial B2B a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ
+            </p>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-[#6c5b69]">Atendido por {context.responsibleName}</p>
+          )}
+          {!store && (
+            <Link
+              href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}
+              className="mt-3 mr-2 inline-block rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white"
+            >
+              Meus pedidos
+            </Link>
+          )}
           <Link
             href="/acompanhe-seu-pedido"
             className="mt-3 mr-2 inline-block rounded-full border border-[#55245f] bg-white px-4 py-2 text-xs font-extrabold text-[#55245f]"
           >
             Acompanhar pedido
           </Link>
-          <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
-            Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
-          </p>
+          {!store && (
+            <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
+              Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
+            </p>
+          )}
         </div>
       </header>
 
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
         {offerLines.length > 0 && (
           <section>
-            <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Sua oferta</h2>
+            <h2 className="font-serif text-2xl font-semibold text-[#55245f]">{store ? "Nossas linhas" : "Sua oferta"}</h2>
             <p className="mt-1 text-sm text-[#746471]">
-              Linhas escolhidas pelo seu representante. Toque numa linha para ver os produtos.
+              {store
+                ? "Toque numa linha para ver os produtos com o preço B2B."
+                : "Linhas escolhidas pelo seu representante. Toque numa linha para ver os produtos."}
             </p>
             <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2">
               {offerLines.map((line) => (
@@ -151,6 +164,15 @@ export default async function B2BOfferPage({
           </section>
         )}
       </div>
+
+      {store && (
+        <p className="mx-auto mt-6 max-w-[1180px] px-5 text-center text-xs text-[#8a7886] lg:px-10">
+          Quer vender Bio Florais?{" "}
+          <a href={demoCtaUrl(process.env.B2B_DEMO_CTA_URL)} className="font-bold underline">
+            Quero ser representante
+          </a>
+        </p>
+      )}
     </main>
   );
 }

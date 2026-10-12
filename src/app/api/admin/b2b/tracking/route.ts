@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       .innerJoin(b2bResponsibles, eq(b2bResponsibles.id, b2bOffers.responsibleId))
       .innerJoin(b2bClients, eq(b2bClients.id, b2bOffers.clientId))
       // Demonstração (SQL 36b) fica fora do Acompanhamento.
-      .where(sql.raw(NOT_DEMO_SQL("b2b_responsibles")))
+      .where(sql.raw(`${NOT_DEMO_SQL("b2b_responsibles")} AND COALESCE(to_jsonb(b2b_offers) ->> 'is_storefront', 'false') <> 'true'`))
       .orderBy(desc(b2bOffers.createdAt))
       .limit(LIMIT);
 
