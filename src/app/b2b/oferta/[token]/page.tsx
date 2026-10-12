@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 
+import B2BHero from "@/components/b2b/B2BHero";
 import B2BLineCard from "@/components/b2b/B2BLineCard";
 import { demoCtaUrl } from "@/lib/b2b/demo";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
@@ -83,42 +84,25 @@ export default async function B2BOfferPage({
 
   return (
     <main className="min-h-screen bg-[#fffaf6] pb-16 text-[#422347]">
-      <header className="border-b border-[#eadfd9] bg-white">
-        <div className="mx-auto max-w-[1180px] px-5 py-6 lg:px-10">
-          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#9b6c24]">
-            Bio Florais · {store ? "Desde 1997" : "Área B2B"}
-          </p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold text-[#55245f]">
-            {store ? "Preço de lojista" : `Oferta para ${context.clientDisplayName}`}
-          </h1>
-          {store ? (
-            <p className="mt-2 text-sm font-semibold text-[#6c5b69]" data-testid="hero-loja">
-              Pedido mínimo R$ 250 · frete especial B2B a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ
-            </p>
-          ) : (
-            <p className="mt-2 text-sm font-semibold text-[#6c5b69]">Atendido por {context.responsibleName}</p>
-          )}
-          {!store && (
-            <Link
-              href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}
-              className="mt-3 mr-2 inline-block rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white"
-            >
-              Meus pedidos
-            </Link>
-          )}
+      <B2BHero
+        title="Preço de lojista"
+        subtitle={store ? null : `Oferta para ${context.clientDisplayName} · atendido por ${context.responsibleName}`}
+      >
+        {!store && (
           <Link
-            href="/acompanhe-seu-pedido"
-            className="mt-3 mr-2 inline-block rounded-full border border-[#55245f] bg-white px-4 py-2 text-xs font-extrabold text-[#55245f]"
+            href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}
+            className="rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white"
           >
-            Acompanhar pedido
+            Meus pedidos
           </Link>
-          {!store && (
-            <p className="mt-3 inline-block rounded-full border border-[#eadfd9] bg-[#fffaf6] px-4 py-2 text-xs font-bold text-[#6c5b69]">
-              Pedido mínimo R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
-            </p>
-          )}
-        </div>
-      </header>
+        )}
+        <Link
+          href="/acompanhe-seu-pedido"
+          className="rounded-full border border-[#55245f] bg-white px-4 py-2 text-xs font-extrabold text-[#55245f]"
+        >
+          Acompanhar pedido
+        </Link>
+      </B2BHero>
 
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
         {offerLines.length > 0 && (

@@ -9,6 +9,13 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Visual do B2B: hero do B2C da Bio (11/10/2026), sobre `84da354`
+
+**SEM SQL.** Regra visual do Luis (PLAYBOOK 4b). Novo `B2BHero` (`src/components/b2b/B2BHero.tsx`): o MESMO banner do B2C da Bio (`/assets/home/hero/Hero.png`, gradiente, "Bio Florais · Desde 1997", serifa e cores da Home) com texto de lojista: "Preço de lojista" + "Pedido mínimo R$ 250 · frete especial B2B a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ" (no link do cliente, também "Oferta para <cliente> · atendido por <vendedor>").
+- **Onde:** primeira tela do link da oferta e da loja /parceiros (`/b2b/oferta/<token>`), página de linha (`/b2b/oferta/<token>/linha/<slug>`, versão baixa com o nome da linha e o "← Voltar às linhas") e a tela de /parceiros sem vendedor. Cards de linha mantidos; os botões (Meus pedidos, Acompanhar pedido) ficam numa barra fina sob o hero.
+- **Fora do B2B (já era e foi conferido):** trio de cards, quiz, convite UGC/criadora, depoimentos e blocos institucionais; o carrinho/"Seja uma criadora"/barra de linhas do B2C seguem ocultos em `/b2b/*` e `/parceiros` (`HideOnB2B`).
+- **Verificado no navegador** (componente real numa página temporária, depois removida): 375 px sem rolagem lateral, hero idêntico ao mobile do B2C, título e texto legíveis; desktop com o hero em faixa mais baixa que a Home e o texto fora do rosto da imagem. As páginas reais exigem token/banco; a verificação foi do componente + cards de linha. Testes: `scripts/b2b-hero-visual.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 7 · /parceiros vira a LOJA B2B pública (11/10/2026), sobre `684c2d6`
 
 **ORDEM: backup Neon (`bio-florais`) → `37a_loja_publica_preflight_one_shot.sql` (1 linha JSON, só leitura) → `37b_loja_publica.sql` (BEGIN/COMMIT, aditivo, idempotente; confere cada coluna antes de criar, `lock_timeout` de 10 s) → push.** O 35b já precisa estar aplicado. SQL 37b: `b2b_offers.is_storefront` (índice único: no máximo uma vitrine por vendedor), `orders.origin` e `orders.origin_code`. **Sem o 37b a loja não abre** (`/parceiros` mostra só "Falar com um representante"); o resto do site não muda.

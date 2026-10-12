@@ -75,6 +75,6 @@ test("cabeçalho do B2C: abaixo de 1280px igual ao original (frete visível, sem
 
 test("link B2B: botão 'Acompanhar pedido' no topo, ao lado de 'Meus pedidos'", () => {
   const b2b = read("src/app/b2b/oferta/[token]/page.tsx");
-  const topo = b2b.slice(b2b.indexOf("<header"), b2b.indexOf("</header>"));
+  const topo = b2b.slice(b2b.indexOf("<B2BHero"), b2b.indexOf("</B2BHero>"));
   assert.ok(topo.includes("Meus pedidos") && topo.includes('href="/acompanhe-seu-pedido"') && topo.includes("Acompanhar pedido"));
 });

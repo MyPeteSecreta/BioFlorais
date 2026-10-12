@@ -21,6 +21,7 @@ import { loadPublicB2BOfferContext, type PublicB2BProduct } from "@/lib/b2b/publ
 import { getProduct } from "@/lib/catalog/bio-products";
 import { b2bProductLabel, describeScope } from "@/lib/b2b/product-label";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
+import B2BHero from "@/components/b2b/B2BHero";
 import B2BOfferCatalog, { type B2BCatalogProduct } from "@/components/b2b/B2BOfferCatalog";
 import RecordLineView from "./RecordLineView";
 
@@ -129,34 +130,24 @@ export default async function B2BLinePage({
     <main className="min-h-screen bg-[#fffaf6] pb-32 text-[#422347]">
       {otherLine && <RecordLineView token={token} lineSlug={line.slug} />}
 
-      <header className="border-b border-[#eadfd9] bg-white">
-        <div className="mx-auto max-w-[1180px] px-5 py-6 lg:px-10">
-          <Link href={offerHref} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
-            ← Voltar às linhas
-          </Link>
-          <h1 className="mt-3 font-serif text-3xl font-semibold text-[#55245f]">{line.name}</h1>
-          {otherLine ? (
-            <>
-              {whatsappUrl && (
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-4 inline-block rounded-full bg-[#1f9d55] px-5 py-3 text-sm font-extrabold text-white"
-                >
-                  Pedir oferta desta linha ao representante
-                </a>
-              )}
-            </>
-          ) : (
-            promotionNote && (
-              <p className="mt-3 inline-block rounded-2xl border-2 border-blue-500 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-900">
-                {promotionNote}
-              </p>
-            )
-          )}
-        </div>
-      </header>
+      <B2BHero title={line.name} compact>
+        <Link href={offerHref} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
+          ← Voltar às linhas
+        </Link>
+        {otherLine && whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-[#1f9d55] px-5 py-2 text-sm font-extrabold text-white"
+          >
+            Pedir oferta desta linha ao representante
+          </a>
+        )}
+        {!otherLine && promotionNote && (
+          <p className="rounded-2xl border-2 border-blue-500 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-900">{promotionNote}</p>
+        )}
+      </B2BHero>
 
       {catalogProducts.length === 0 ? (
         <p className="mx-auto max-w-[1180px] px-5 py-10 text-[#746471] lg:px-10">

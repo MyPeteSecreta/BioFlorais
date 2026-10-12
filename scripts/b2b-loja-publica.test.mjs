@@ -170,7 +170,7 @@ test("fios: /parceiros abre a vitrine, orders/create resolve o vendedor, boleto 
   const page = read("src/app/parceiros/page.tsx");
   assert.ok(page.includes("redirect(storePath)") && !page.includes("PartnerSignupForm"));
   assert.ok(!read("src/app/b2b/oferta/[token]/page.tsx").includes("Meus pedidos</") || read("src/app/b2b/oferta/[token]/page.tsx").includes("{!store && ("));
-  assert.ok(read("src/app/b2b/oferta/[token]/page.tsx").includes("hero-loja") && read("src/app/b2b/oferta/[token]/page.tsx").includes("Quero ser representante"));
+  assert.ok(read("src/app/b2b/oferta/[token]/page.tsx").includes("<B2BHero") && read("src/app/b2b/oferta/[token]/page.tsx").includes("Quero ser representante"));
 
   const create = read("src/app/api/b2b/orders/create/route.ts");
   assert.ok(create.includes("context.isStorefront") && create.includes("attributeStorefrontOrder") && create.includes("STOREFRONT_ORIGIN"));
