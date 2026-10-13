@@ -486,6 +486,12 @@ export default async function ProductPage({
     isPair &&
     product.lineSlug === "cosmeticos-pet";
 
+  // Cosméticos (humano): Shampoo e Condicionador 300 ml + Combo. Antes só a linha Pet tinha a tabela de
+  // variações; aqui o produto era "par" (preço do cabeçalho escondido) e caía no botão sem preço.
+  const hasHumanPairMatrix =
+    isPair &&
+    product.lineSlug === "cosmeticos";
+
   const isPetPerfume =
     product.lineSlug ===
       "cosmeticos-pet" &&
@@ -779,7 +785,72 @@ export default async function ProductPage({
 
 
 
-          {hasPet5lMatrix ? (
+          {hasHumanPairMatrix ? (
+            <div className="mt-7 overflow-hidden rounded-[24px] border border-[#ddcfda] bg-white" data-testid="variacoes-cosmeticos">
+              {(
+                [
+                  { key: "shampoo", label: "Shampoo", item: shampoo500 },
+                  { key: "condicionador", label: "Condicionador", item: conditioner500 },
+                ] as const
+              )
+                .filter((row) => row.item)
+                .map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-4 border-b border-[#eadfd9] p-4">
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-[#422347]">{row.label}</p>
+                    {row.item?.content && (
+                      <p className="text-xs font-bold text-[#8d7789]">{row.item.content.replace(/(\d)([A-Za-z])/, "$1 $2")}</p>
+                    )}
+                  </div>
+
+                  {row.item ? (
+                    <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                      <p className="text-xl font-extrabold text-[#55245f]">{formatBRL(row.item.priceCents)}</p>
+
+                      <AddToCartButton
+                        mode="product"
+                        product={{
+                          productSlug: row.item.slug,
+                          name: row.item.name,
+                          image: row.item.image ?? null,
+                        }}
+                        className="rounded-full bg-[#63326d] px-5 py-2.5 text-sm font-extrabold text-white"
+                      >
+                        Escolher
+                      </AddToCartButton>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#9b8c98]">Indisponível</p>
+                  )}
+                </div>
+              ))}
+
+              {shampoo500 && conditioner500 && kitPrice500 !== null && (
+              <div className="flex items-center justify-between gap-4 bg-[#fff8e8] p-4">
+                <div className="min-w-0">
+                  <p className="font-extrabold text-[#422347]">Combo</p>
+                  <p className="text-xs font-bold text-[#9b6c24]">Shampoo + Condicionador</p>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[#9b6c24]">10% de desconto</p>
+                </div>
+
+                {(
+                  <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                    <p className="text-xl font-extrabold text-[#55245f]">{formatBRL(kitPrice500)}</p>
+
+                    <AddToCartButton
+                      mode="combo"
+                      shampoo={{ productSlug: shampoo500.slug, name: shampoo500.name, image: shampoo500.image ?? null }}
+                      conditioner={{ productSlug: conditioner500.slug, name: conditioner500.name, image: conditioner500.image ?? null }}
+                      className="rounded-full bg-[#63326d] px-5 py-2.5 text-sm font-extrabold text-white"
+                    >
+                      Escolher
+                    </AddToCartButton>
+                  </div>
+                )}
+              </div>
+              )}
+            </div>
+          ) : hasPet5lMatrix ? (
             <div className="mt-7">
               <div
                 className="

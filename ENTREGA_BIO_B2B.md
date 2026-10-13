@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ URGENTE B2C: variações com preço em Cosméticos (13/10/2026), sobre `1e822a9`
+
+**SEM SQL. Só a página do produto (`/produto/[slug]`); nada mais do B2C mudou.**
+- **Causa:** na página do produto, Shampoo e Condicionador são tratados como "par" (o preço do cabeçalho some) e a tabela de variações (500 ml / 5 L / Combo) só existia para a linha **Cosméticos Pet** (`lineSlug === "cosmeticos-pet"`). Para **Cosméticos (humano)** o produto virava "par" mas não entrava na tabela: ficava sem preço e só com o botão genérico. O catálogo estava correto (todo item tem preço; conferido para Cosméticos, Cosméticos Pet e Home Care).
+- **Correção:** para Cosméticos (humano) aparecem as variações **Shampoo 300 ml**, **Condicionador 300 ml** e **Combo** (Shampoo + Condicionador, 10% de desconto) com preço e "Escolher" (o combo adiciona os dois à sacola). Produto sem par (ex.: "Muru Muru" só shampoo; "Condicionador Premium") mostra só a variação que existe, sem combo. Cosméticos Pet segue com a matriz 500 ml / 5 L; Creme Corpo, Creme Mãos, Sabonete, Aromatizador e perfumes não mudaram.
+- **Sacola:** nome completo pelo catálogo, ex. "Shampoo Uso Diário · Cosméticos · 300 ml" e "Condicionador Uso Diário · Cosméticos · 300 ml".
+- **Conferido no navegador** (375 px e desktop, servidor local): `/produto/cosmeticos-shampoo-uso-diario` mostra Shampoo R$ 36,90, Condicionador R$ 39,90 e Combo R$ 69,12; "Escolher" no shampoo e no combo colocaram `cosmeticos-shampoo-uso-diario x2` e `cosmeticos-condicionador-uso-diario` na sacola. Varri as 103 páginas de produto de Cosméticos, Cosméticos Pet e Home Care: todas com preço e botão; os 21 Shampoo/Condicionador de Cosméticos com o bloco de variações.
+- Observação (já existia, não mexi): o console do modo desenvolvimento mostra um erro do preload da imagem da galeria (`sizes` com quebra de linha no `ProductGallery`); a página renderiza normalmente.
+- Testes: `scripts/b2c-cosmeticos-variacoes.test.mjs`.
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Visual do B2B: hero do B2C da Bio (11/10/2026), sobre `84da354`
 
 **SEM SQL.** Regra visual do Luis (PLAYBOOK 4b). Novo `B2BHero` (`src/components/b2b/B2BHero.tsx`): o MESMO banner do B2C da Bio (`/assets/home/hero/Hero.png`, gradiente, "Bio Florais · Desde 1997", serifa e cores da Home) com texto de lojista: "Preço de lojista" + "Pedido mínimo R$ 250 · frete especial B2B a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ" (no link do cliente, também "Oferta para <cliente> · atendido por <vendedor>").
