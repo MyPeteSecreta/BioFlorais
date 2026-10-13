@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
 
-const { parseOmieVendorInput, OMIE_VENDOR_MAX_LENGTH } = await import("../src/lib/b2b/omie-vendor.ts");
+const { parseOmieVendorInput, OMIE_VENDOR_MAX_LENGTH, defaultOmieVendorName, effectiveOmieVendor, ensureOmieVendorDefault } = await import("../src/lib/b2b/omie-vendor.ts");
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8");
 
@@ -51,7 +51,7 @@ test("admin: campo 'Vendedor no Omie' editável por vendedor, validado no servid
   const list = read("src/app/api/admin/b2b/responsibles/route.ts");
   assert.ok(list.includes("omie_vendor_code") && list.includes("SQL 30b ainda não aplicado"));
   const tab = read("src/components/admin/b2b/ResponsiblesTab.tsx");
-  assert.ok(tab.includes("Vendedor no Omie") && tab.includes("exatamente como no cadastro de Vendedores do Omie") && tab.includes("máx. 70"));
+  assert.ok(tab.includes("Nome no Omie (padrão: nome do cadastro)") && tab.includes("Alterar") && tab.includes("exatamente como lá") && tab.includes("máx. 70"));
   assert.ok(read("src/lib/db/schema.ts").includes('omieVendorCode: text("omie_vendor_code")'));
 });
 
@@ -77,4 +77,51 @@ test("link B2B: botão 'Acompanhar pedido' no topo, ao lado de 'Meus pedidos'", 
   const b2b = read("src/app/b2b/oferta/[token]/page.tsx");
   const topo = b2b.slice(b2b.indexOf("<B2BHero"), b2b.indexOf("</B2BHero>"));
   assert.ok(topo.includes("Meus pedidos") && topo.includes('href="/acompanhe-seu-pedido"') && topo.includes("Acompanhar pedido"));
+});
+
+test("Nome no Omie: padrão = nome completo do cadastro; alterado pelo admin prevalece", () => {
+  assert.equal(defaultOmieVendorName("  Maria   da  Silva  Souza "), "Maria da Silva Souza");
+  assert.equal(effectiveOmieVendor(null, "Maria da Silva"), "Maria da Silva");
+  assert.equal(effectiveOmieVendor("  ", "Maria da Silva"), "Maria da Silva");
+  assert.equal(effectiveOmieVendor("MARIA S. (Omie)", "Maria da Silva"), "MARIA S. (Omie)");
+  assert.equal(defaultOmieVendorName("A".repeat(90)).length, 70);
+});
+
+test("ensureOmieVendorDefault: só preenche onde está vazio; nunca sobrescreve nem toca demonstração; 38b idem", async () => {
+  const pg = new PGlite();
+  await pg.exec(`CREATE TABLE b2b_responsibles (id uuid PRIMARY KEY, name text, omie_vendor_code text, is_demo boolean DEFAULT false);
+    INSERT INTO b2b_responsibles (id, name, omie_vendor_code, is_demo) VALUES
+      ('00000001-0000-4000-8000-000000000000', '  Ana   Souza ', NULL, false),
+      ('00000002-0000-4000-8000-000000000000', 'Bruno Lima', 'BRUNO NO OMIE', false),
+      ('00000003-0000-4000-8000-000000000000', 'Demo Vendedor', NULL, true),
+      ('00000004-0000-4000-8000-000000000000', 'Carla Dias', '', false);`);
+  const run = async (sql, params = []) => (await pg.query(sql, params)).rows;
+
+  assert.equal(await ensureOmieVendorDefault(run, "00000001-0000-4000-8000-000000000000"), true);
+  assert.equal(await ensureOmieVendorDefault(run, "00000002-0000-4000-8000-000000000000"), false);
+  assert.equal(await ensureOmieVendorDefault(run, "00000003-0000-4000-8000-000000000000"), false);
+
+  const after = Object.fromEntries((await pg.query("SELECT name, omie_vendor_code FROM b2b_responsibles")).rows.map((r) => [r.name.trim(), r.omie_vendor_code]));
+  assert.equal(after["Ana   Souza"], "Ana Souza");
+  assert.equal(after["Bruno Lima"], "BRUNO NO OMIE");
+  assert.equal(after["Demo Vendedor"], null);
+
+  const sql = read("sql/b2b/38b_omie_nome_padrao.sql");
+  assert.ok(/BEGIN;/.test(sql) && /COMMIT;/.test(sql) && !/(DROP|DELETE|TRUNCATE)/i.test(sql.replace(/--.*$/gm, "")));
+  await pg.exec(sql);
+  await pg.exec(sql);
+  const final = Object.fromEntries((await pg.query("SELECT name, omie_vendor_code FROM b2b_responsibles")).rows.map((r) => [r.name.trim(), r.omie_vendor_code]));
+  assert.equal(final["Carla Dias"], "Carla Dias");
+  assert.equal(final["Bruno Lima"], "BRUNO NO OMIE");
+  assert.equal(final["Demo Vendedor"], null);
+  const pre = (await pg.query(read("sql/b2b/38a_omie_nome_padrao_preflight_one_shot.sql"))).rows;
+  assert.equal(pre.length, 1);
+  assert.equal(pre[0].preflight_omie_nome_padrao.sem_nome_no_omie, 0);
+});
+
+test("fiação do padrão: pedido, cadastro do vendedor, lista do admin e 'Alterar' vazio volta ao padrão", () => {
+  assert.ok(read("src/app/api/b2b/orders/create/route.ts").includes("ensureOmieVendorDefault"));
+  assert.ok(read("src/app/api/b2b/invites/accept/route.ts").includes("ensureOmieVendorDefault"));
+  assert.ok(read("src/app/api/admin/b2b/responsibles/route.ts").includes("effectiveOmieVendor"));
+  assert.ok(read("src/app/api/admin/b2b/responsibles/[id]/route.ts").includes("defaultOmieVendorName(responsible.name)"));
 });

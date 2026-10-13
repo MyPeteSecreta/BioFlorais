@@ -32,6 +32,7 @@ type Row = {
   paidOrders: number;
   situation?: string | null;
   omieVendor?: string | null;
+  omieCustom?: boolean;
   login?: string | null;
   emailOriginal?: string | null;
   referralCode?: string | null;
@@ -75,6 +76,7 @@ export default function ResponsiblesTab() {
   const [sharedLink, setSharedLink] = useState<SharedLink | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [omieDraft, setOmieDraft] = useState<Record<string, string>>({});
+  const [omieEditing, setOmieEditing] = useState<Record<string, boolean>>({});
   const [siteUrl, setSiteUrl] = useState("");
   const [qr, setQr] = useState<{ url: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
@@ -294,6 +296,7 @@ export default function ResponsiblesTab() {
         delete next[row.id];
         return next;
       });
+      setOmieEditing((current) => ({ ...current, [row.id]: false }));
       setMessage(`Vendedor no Omie de ${row.name} salvo.`);
       void load();
     } finally {
@@ -586,28 +589,62 @@ export default function ResponsiblesTab() {
 
                   {row.kind === "responsible" && !released && (
                     <div className="mt-3 border-t border-[#f1e8e3] pt-3">
-                      <p className="mb-1 text-xs font-bold text-[#7b6a77]">Vendedor no Omie</p>
+                      <p className="mb-1 text-xs font-bold text-[#7b6a77]">Nome no Omie (padrão: nome do cadastro)</p>
                       <div className="w-full max-w-[420px]" data-testid="omie-vendor-field">
-                        <div className="flex gap-1.5">
-                          <input
-                            className={field}
-                            maxLength={70}
-                            placeholder="Nome completo no Omie"
-                            aria-label={`Vendedor no Omie de ${row.name}`}
-                            value={omieDraft[row.id] ?? row.omieVendor ?? ""}
-                            onChange={(e) => setOmieDraft((current) => ({ ...current, [row.id]: e.target.value }))}
-                          />
-                          <button
-                            type="button"
-                            disabled={busy || omieDraft[row.id] === undefined}
-                            onClick={() => saveOmieVendor(row)}
-                            className={`${smallBase} shrink-0 border-[#1f6b3a] text-[#1f6b3a]`}
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                        {!row.omieVendor && <p className="mt-1 text-[11px] font-bold text-[#8f2727]">Sem isso o pedido B2B não é exportado ao Omie.</p>}
-                        <p className="mt-1 text-[11px] text-[#7b6a77]">Nome completo exatamente como no cadastro de Vendedores do Omie (máx. 70 caracteres).</p>
+                        {omieEditing[row.id] ? (
+                          <>
+                            <div className="flex gap-1.5">
+                              <input
+                                className={field}
+                                maxLength={70}
+                                placeholder={row.name}
+                                aria-label={`Nome no Omie de ${row.name}`}
+                                value={omieDraft[row.id] ?? row.omieVendor ?? ""}
+                                onChange={(e) => setOmieDraft((current) => ({ ...current, [row.id]: e.target.value }))}
+                              />
+                              <button
+                                type="button"
+                                disabled={busy || omieDraft[row.id] === undefined}
+                                onClick={() => saveOmieVendor(row)}
+                                className={`${smallBase} shrink-0 border-[#1f6b3a] text-[#1f6b3a]`}
+                              >
+                                Salvar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOmieEditing((current) => ({ ...current, [row.id]: false }));
+                                  setOmieDraft((current) => {
+                                    const next = { ...current };
+                                    delete next[row.id];
+                                    return next;
+                                  });
+                                }}
+                                className={`${smallBase} shrink-0 border-[#d9c9c1] text-[#7b6a77]`}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                            <p className="mt-1 text-[11px] text-[#7b6a77]">
+                              Use só se o vendedor já existe no Omie com outro nome (exatamente como lá, máx. 70 caracteres). Deixe vazio e salve para voltar ao padrão.
+                            </p>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <p className="min-w-0 flex-1 break-words text-sm font-bold text-[#342737]">{row.omieVendor ?? row.name}</p>
+                            <span className="shrink-0 rounded-full bg-[#f3eeee] px-2 py-0.5 text-[10px] font-extrabold text-[#7b5a63]">
+                              {row.omieCustom ? "alterado" : "padrão"}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setOmieEditing((current) => ({ ...current, [row.id]: true }))}
+                              className={`${smallBase} shrink-0 border-[#342737] text-[#342737]`}
+                            >
+                              Alterar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

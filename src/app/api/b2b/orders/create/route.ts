@@ -23,6 +23,7 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
+import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
 import { STOREFRONT_ORIGIN, attributeStorefrontOrder } from "@/lib/b2b/storefront";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
@@ -281,6 +282,9 @@ export async function POST(request: NextRequest) {
         paymentMethodDiscountCents,
       })
       .returning({ id: orders.id });
+
+    // Nome no Omie do vendedor do pedido = nome do cadastro, se ninguém definiu outro (a Central lê a coluna).
+    await ensureOmieVendorDefault(getAppSqlRunner(), context.responsibleId);
 
     // Origem do pedido (relatório): loja pública /parceiros + código ?v=. Tolera o SQL 37b ausente.
     if (storefront) {

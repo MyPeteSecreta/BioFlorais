@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Nome do vendedor no Omie: padrão = nome do cadastro (13/10/2026), sobre `c271aa6`
+
+- **Regra:** sem preencher nada, o "Nome no Omie" é o NOME COMPLETO do cadastro do vendedor (espaços normalizados, máx. 70). Admin → B2B → Vendedores: campo "Nome no Omie (padrão: nome do cadastro)" com selo padrão/alterado e botão **Alterar** (para quem já existe no Omie com outro nome); salvar vazio volta ao padrão.
+- **Leitura sem SQL:** a lista do admin mostra o nome efetivo (gravado ou nome do cadastro). Para a Central (que lê a coluna `omie_vendor_code`), `ensureOmieVendorDefault` grava o padrão onde está vazio no cadastro do vendedor e no primeiro pedido; nunca sobrescreve e nunca toca vendedor de demonstração.
+- **SQL opcional (aditivo, só preenche vazio, sem demo):** `38a_omie_nome_padrao_preflight_one_shot.sql` (leitura) e depois `38b_omie_nome_padrao.sql` (BEGIN/COMMIT, idempotente). Adianta a exportação dos vendedores antigos; o app funciona sem ele.
+- **Arquivos:** `src/lib/b2b/omie-vendor.ts`, `api/b2b/orders/create`, `api/b2b/invites/accept`, `api/admin/b2b/responsibles` (lista e `[id]`), `ResponsiblesTab.tsx`, `scripts/b2b-omie-vendor.test.mjs`.
+- **Teste manual:** vendedor sem nome no Omie aparece com o nome do cadastro e selo "padrão"; Alterar → salvar nome diferente → selo "alterado"; salvar vazio → volta a "padrão"; vendedor demo segue sem nome no Omie.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ URGENTE B2C: variações com preço em Cosméticos (13/10/2026), sobre `1e822a9`
 
 **SEM SQL. Só a página do produto (`/produto/[slug]`); nada mais do B2C mudou.**

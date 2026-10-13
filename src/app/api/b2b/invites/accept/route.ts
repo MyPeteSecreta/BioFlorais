@@ -15,6 +15,7 @@
 
 import { after, NextRequest, NextResponse } from "next/server";
 
+import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
 import { replicateAfterCompletion } from "@/lib/central/central-client";
 import { and, eq, gt, getTableColumns, sql } from "drizzle-orm";
 
@@ -214,6 +215,9 @@ export async function POST(request: NextRequest) {
         return fail(describeSignupError(info), info.code === "23505" ? 409 : 500);
       }
 
+      // Nome no Omie = nome do cadastro (padrão); o admin só altera se o vendedor já existir no Omie com outro nome.
+      await ensureOmieVendorDefault(getAppSqlRunner(), created.id);
+
       const response = NextResponse.json({
         ok: true,
         purpose: "onboarding",
@@ -358,6 +362,7 @@ export async function POST(request: NextRequest) {
     // V4: cadastro completo feito aqui também é replicado pela Central (melhor esforço).
     if (createdId) {
       const sellerId = createdId;
+      await ensureOmieVendorDefault(getAppSqlRunner(), sellerId);
       after(() => replicateAfterCompletion(getAppSqlRunner(), sellerId));
     }
 

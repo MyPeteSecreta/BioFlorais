@@ -3,6 +3,7 @@
  * Exige a sessão do admin.
  */
 
+import { defaultOmieVendorName, effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
@@ -41,8 +42,10 @@ export type AdminResponsibleRow = {
   /** Situação do cadastro: "Em teste até dd/mm" | "Cadastro completo" | "Teste vencido" (null = convite). */
   situation?: string | null;
   trialEndsAt?: string | null;
-  /** Nome no cadastro de Vendedores do Omie (SQL 30b); null = não cadastrado. */
+  /** Nome no Omie EFETIVO: o definido pelo admin ou, por padrão, o nome do cadastro. */
   omieVendor?: string | null;
+  /** true = o admin alterou (difere do nome do cadastro). */
+  omieCustom?: boolean;
   login?: string | null;
   emailOriginal?: string | null;
   /** Código do "Meu link de captação" (SQL 35b); null = ainda sem código. */
@@ -232,7 +235,8 @@ export async function GET(request: NextRequest) {
         paidOrders: paidBy.get(row.id) ?? 0,
         situation: situationBy.get(row.id)?.situation ?? "Cadastro completo",
         trialEndsAt: situationBy.get(row.id)?.trialEndsAt ?? null,
-        omieVendor: omieBy.get(row.id) ?? null,
+        omieVendor: effectiveOmieVendor(omieBy.get(row.id), row.name) || null,
+        omieCustom: Boolean(omieBy.get(row.id)) && defaultOmieVendorName(omieBy.get(row.id)) !== defaultOmieVendorName(row.name),
         login: row.login ?? null,
         emailOriginal: originalBy.get(row.id) ?? null,
         referralCode: codeBy.get(row.id) ?? null,

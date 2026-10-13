@@ -15,7 +15,7 @@ import { db } from "@/lib/db/client";
 import { b2bResponsibles } from "@/lib/db/schema";
 import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
-import { parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
+import { defaultOmieVendorName, parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
 import { ensureReferralCode, setHouseSeller, setReferralCode } from "@/lib/b2b/partners";
 import { changeIdentity, describeIdentityConflict, parseIdentityInput, releaseIdentity } from "@/lib/b2b/vendor-identity";
 import {
@@ -200,7 +200,8 @@ export async function POST(
         try {
           await getAppSqlRunner()(
             `UPDATE b2b_responsibles SET omie_vendor_code = $2, updated_at = now() WHERE id = $1`,
-            [id, parsed.value]
+            // Vazio = volta ao padrão (nome do cadastro).
+            [id, parsed.value ?? defaultOmieVendorName(responsible.name)]
           );
         } catch {
           return NextResponse.json(
@@ -209,7 +210,7 @@ export async function POST(
           );
         }
 
-        return NextResponse.json({ ok: true, omieVendor: parsed.value });
+        return NextResponse.json({ ok: true, omieVendor: parsed.value ?? defaultOmieVendorName(responsible.name) });
       }
 
       case "reset_access": {
