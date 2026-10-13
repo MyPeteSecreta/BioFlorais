@@ -52,6 +52,13 @@ export type CentralOrder = {
   /** paid_to_prepare | separating | ready_to_ship */
   fulfillment: string;
   b2b: boolean;
+  /** Pedido de MOSTRUÁRIO do vendedor (sem comissão, fora do relatório de vendas B2B). */
+  showcase?: boolean;
+  /** Vendedor do pedido (nome do cadastro) e nome dele no Omie (coluna H do Pedido de Venda). */
+  seller?: string | null;
+  omieVendor?: string | null;
+  /** Observação do Pedido de Venda no Omie (preenchida nos pedidos de mostruário). */
+  omieObservation?: string | null;
   items: OrderItemLine[];
   carrier?: string | null;
 };

@@ -78,10 +78,15 @@ export default async function B2BPanelPage() {
 
       {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}
 
-      <p className="mt-4">
+      <p className="mt-4 flex flex-wrap gap-3">
         <Link href="/b2b/painel/modelos" className="inline-block rounded-full border-2 border-[#55245f] px-5 py-2.5 text-sm font-extrabold text-[#55245f]">
           Minhas ofertas padrão
         </Link>
+        {!demo.isDemo && (
+          <Link href="/b2b/painel/mostruario" className="inline-block rounded-full bg-[#55245f] px-5 py-2.5 text-sm font-extrabold text-white">
+            Solicitar mostruário
+          </Link>
+        )}
       </p>
 
       <NewClientForm />

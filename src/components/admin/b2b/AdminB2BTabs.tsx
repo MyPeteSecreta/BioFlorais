@@ -8,6 +8,7 @@ import GroupsTab from "./GroupsTab";
 import MessagesTab from "./MessagesTab";
 import PromotionsTab from "./PromotionsTab";
 import ResponsiblesTab from "./ResponsiblesTab";
+import ShowcaseTab from "./ShowcaseTab";
 import TestDataTab from "./TestDataTab";
 import TrackingTab from "./TrackingTab";
 
@@ -18,6 +19,7 @@ const TABS = [
   { id: "tracking", label: "Acompanhamento" },
   { id: "boletos", label: "Boletos a receber" },
   { id: "commissions", label: "Comissões" },
+  { id: "showcase", label: "Mostruário" },
   { id: "messages", label: "Mensagens ao lojista" },
   { id: "testdata", label: "Dados de teste" },
 ] as const;
@@ -58,6 +60,7 @@ export default function AdminB2BTabs({ initialTab }: { initialTab?: string }) {
         {tab === "tracking" && <TrackingTab />}
         {tab === "boletos" && <BoletosTab />}
         {tab === "commissions" && <CommissionsTab />}
+        {tab === "showcase" && <ShowcaseTab />}
         {tab === "messages" && <MessagesTab />}
       </div>
     </div>

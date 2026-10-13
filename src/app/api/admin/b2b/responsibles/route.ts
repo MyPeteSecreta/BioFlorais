@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         total: sql<number>`count(*)::int`,
       })
       .from(orders)
-      .where(and(isNotNull(orders.b2bResponsibleId), eq(orders.status, "paid"), sql.raw(await notArchivedCondition(getAppSqlRunner(), "orders"))))
+      .where(and(isNotNull(orders.b2bResponsibleId), isNotNull(orders.b2bOfferId), eq(orders.status, "paid"), sql.raw(await notArchivedCondition(getAppSqlRunner(), "orders"))))
       .groupBy(orders.b2bResponsibleId);
 
     const countMap = (rows: Array<{ responsibleId: string | null; total: number }>) =>

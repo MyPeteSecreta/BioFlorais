@@ -3,6 +3,8 @@ import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { db } from "@/lib/db/client";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
 import {
   addresses,
   customers,
@@ -96,6 +98,9 @@ export default async function PedidoDetalhePage({
     notFound();
   }
 
+  // Pedido de MOSTRUÁRIO do vendedor: selo visível; a observação segue para o Omie.
+  const isShowcase = (await loadShowcaseOrderIds(getAppSqlRunner())).has(order.id);
+
   const [
     customerRows,
     addressRows,
@@ -170,9 +175,20 @@ export default async function PedidoDetalhePage({
             <p className="mt-2 text-sm text-stone-500">
               {formatDate(order.createdAt)}
             </p>
+
+            {isShowcase && (
+              <p className="mt-1 text-sm font-bold text-fuchsia-800">
+                PEDIDO DE MOSTRUÁRIO – vendedor {order.b2bResponsibleName ?? "—"}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {isShowcase && (
+              <span className="w-fit rounded-full bg-fuchsia-700 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide text-white" data-testid="showcase-badge">
+                Mostruário
+              </span>
+            )}
             <span className="w-fit rounded-full bg-amber-100 px-5 py-2.5 text-sm font-extrabold text-amber-900">
               {orderStatusLabel(order.status)}
             </span>

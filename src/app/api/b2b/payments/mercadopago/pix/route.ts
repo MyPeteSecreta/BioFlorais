@@ -20,7 +20,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { customers, orders, payments } from "@/lib/db/schema";
-import { verifyB2BOrderOfferToken } from "@/lib/b2b/public-offer-context";
+import { verifyB2BOrderPaymentAccess } from "@/lib/b2b/order-payment-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
     }
 
-    const tokenCheck = await verifyB2BOrderOfferToken(order.b2bOfferId, body.b2bToken);
+    const tokenCheck = await verifyB2BOrderPaymentAccess(request, order, body.b2bToken);
 
     if (!tokenCheck.ok) {
       return NextResponse.json({ error: tokenCheck.error }, { status: tokenCheck.status });

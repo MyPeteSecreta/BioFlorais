@@ -6,6 +6,8 @@
 
 import { isUuid } from "@/lib/b2b/admin-input";
 import { andNotArchived } from "@/lib/b2b/archive";
+import { effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
+import { SHOWCASE_ORIGIN } from "@/lib/b2b/showcase";
 import { B2B_RESPONSIBLE_TYPES, buildInviteMessage, buildWhatsAppUrl } from "@/lib/b2b/invite-links";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
@@ -80,11 +82,15 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
 
   const rows = await run(
     `SELECT o.id, o.fulfillment_status, o.b2b_offer_id, o.shipping_service_name,
+            to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
+            COALESCE(r.name, to_jsonb(o) ->> 'b2b_responsible_name') AS seller_name,
+            to_jsonb(r) ->> 'omie_vendor_code' AS omie_vendor_code,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') || 'Z' AS created_at,
             c.name AS customer_name, a.city, a.state
        FROM orders o
        LEFT JOIN customers c ON c.id = o.customer_id
        LEFT JOIN addresses a ON a.id = o.shipping_address_id
+       LEFT JOIN b2b_responsibles r ON r.id::text = to_jsonb(o) ->> 'b2b_responsible_id'
       WHERE o.status IN ('paid', 'approved')${notArchived}
         AND ${stageFilter}
       ORDER BY o.created_at ASC
@@ -128,18 +134,28 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
     }
   }
 
-  const orders: CentralOrder[] = rows.map((row) => ({
-    id: String(row.id),
-    number: `${ORDER_NUMBER_PREFIX}-${String(row.id).slice(0, 8).toUpperCase()}`,
-    customerName: row.customer_name ? String(row.customer_name) : "Cliente",
-    city: row.city ? String(row.city) : null,
-    state: row.state ? String(row.state) : null,
-    createdAt: String(row.created_at),
-    fulfillment: String(row.fulfillment_status),
-    b2b: row.b2b_offer_id !== null && row.b2b_offer_id !== undefined,
-    items: byOrder.get(String(row.id)) ?? [],
-    carrier: row.shipping_service_name ? String(row.shipping_service_name) : null,
-  }));
+  const orders: CentralOrder[] = rows.map((row) => {
+    const showcase = row.origin === SHOWCASE_ORIGIN;
+    const seller = row.seller_name ? String(row.seller_name) : null;
+
+    return {
+      id: String(row.id),
+      number: `${ORDER_NUMBER_PREFIX}-${String(row.id).slice(0, 8).toUpperCase()}`,
+      customerName: row.customer_name ? String(row.customer_name) : "Cliente",
+      city: row.city ? String(row.city) : null,
+      state: row.state ? String(row.state) : null,
+      createdAt: String(row.created_at),
+      fulfillment: String(row.fulfillment_status),
+      b2b: row.b2b_offer_id !== null && row.b2b_offer_id !== undefined,
+      items: byOrder.get(String(row.id)) ?? [],
+      carrier: row.shipping_service_name ? String(row.shipping_service_name) : null,
+      showcase,
+      seller,
+      // Nome no Omie: o definido pelo admin ou, por padrão, o nome completo do cadastro do vendedor.
+      omieVendor: row.b2b_responsible_id ? effectiveOmieVendor(row.omie_vendor_code, seller) || null : null,
+      omieObservation: showcase ? `PEDIDO DE MOSTRUÁRIO – vendedor ${seller ?? ""}`.trim() : null,
+    };
+  });
 
   return { ok: true, orders };
 }

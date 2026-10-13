@@ -4,6 +4,7 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { notArchivedCondition } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
 
 import { db } from "@/lib/db/client";
 import {
@@ -162,6 +163,9 @@ export default async function AdminOrdersPage() {
       desc(orders.createdAt)
     );
 
+  // Pedidos de MOSTRUÁRIO do vendedor: selo bem visível (a Central separa e envia, sem comissão).
+  const showcaseIds = await loadShowcaseOrderIds(getAppSqlRunner());
+
   return (
     <main className="mx-auto max-w-[1280px] px-5 py-10 lg:px-10">
       <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#a0742b]">
@@ -227,6 +231,11 @@ export default async function AdminOrdersPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {showcaseIds.has(order.id) && (
+                    <span className=" rounded-full bg-fuchsia-700 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-white" data-testid="showcase-badge">
+                      Mostruário
+                    </span>
+                  )}
                   <span className="rounded-full bg-[#f3ece6] px-4 py-2 text-xs font-extrabold text-[#422347]">
                     {orderStatusLabel(order.status)}
                   </span>
