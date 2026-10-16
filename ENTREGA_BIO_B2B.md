@@ -9,6 +9,17 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Área do vendedor sem links para o B2C (16/10/2026), sobre `2895775`
+
+**Conferência:** painel, clientes, ofertas, lançar pedido, mostruário, comissões, modelos, cadastro, login e telas de demonstração. B2C intocado.
+
+- **Já estava ok:** logo do painel leva a `/b2b/painel`; o rodapé e os elementos flutuantes do B2C ficam ocultos em `/b2b/*` (`body > footer` oculto no layout B2B + `HideOnB2B`); "Sair" volta a `/b2b/login`.
+- **Corrigido:** (1) o cabeçalho do vendedor não tinha "Lançar pedido" nem "Mostruário": agora é **Meus clientes · Lançar pedido · Mostruário · Minhas comissões · Sair** (os dois novos só para vendedor real, não na demonstração; com teste vencido só aparece Sair, como antes); (2) telas `demo-expirada` e `demo-invalido` tinham "Ir para o site" (`/`): agora "Entrar na área do representante" (`/b2b/login`); (3) o login do vendedor tinha "Voltar ao site" (`/`): removido.
+- **Fora do escopo (mantido):** a loja do link do CLIENTE (`/b2b/oferta/…`, checkout e "Acompanhe seu pedido"/Política de privacidade) é a página do lojista, não a área do vendedor.
+- **Teste:** `scripts/b2b-area-vendedor-sem-b2c.test.mjs` varre painel + componentes B2B + login/demo e falha se aparecer qualquer `href`/`router.push` fora de `/b2b` ou `/api`; também confere o cabeçalho (logo → painel, menu completo, Sair).
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 9 · Pedido lançado pelo vendedor — "Lançar pedido" (16/10/2026), sobre `50c96a4`
 
 **O que é:** botão grande **"Lançar pedido"** no painel do vendedor (`/b2b/painel/lancar-pedido`). O vendedor escolhe o cliente e a oferta e monta o pedido na **mesma loja do link** (cards de linha → produtos, preço B2B, promoções da oferta) e no **mesmo checkout B2B**; o servidor revalida tudo. **B2C intocado.** Demonstração não cria pedido real.

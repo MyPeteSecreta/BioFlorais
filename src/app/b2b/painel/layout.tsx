@@ -35,12 +35,23 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
             </span>
             <span className="block text-lg font-extrabold text-[#55245f]">Meus clientes</span>
           </Link>
-          <div className="flex items-center gap-4 text-sm">
+          {/* Cabeçalho do VENDEDOR: nada aqui leva ao site B2C. */}
+          <nav aria-label="Área do vendedor" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" data-testid="menu-vendedor">
             {access.state !== "expired" && (
               <>
                 <Link href="/b2b/painel" className="font-bold text-[#63326d] underline underline-offset-4">
-                  Clientes
+                  Meus clientes
                 </Link>
+                {!demo.isDemo && (
+                  <>
+                    <Link href="/b2b/painel/lancar-pedido" className="font-bold text-[#63326d] underline underline-offset-4">
+                      Lançar pedido
+                    </Link>
+                    <Link href="/b2b/painel/mostruario" className="font-bold text-[#63326d] underline underline-offset-4">
+                      Mostruário
+                    </Link>
+                  </>
+                )}
                 <Link href="/b2b/painel/comissoes" className="font-bold text-[#63326d] underline underline-offset-4">
                   Minhas comissões
                 </Link>
@@ -48,7 +59,7 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
             )}
             <span className="font-semibold">{responsible.name}</span>
             <LogoutButton />
-          </div>
+          </nav>
         </div>
       </header>
       {access.state === "trial" && (

@@ -21,8 +21,8 @@ export default async function DemoInvalidPage({ searchParams }: { searchParams: 
         <a href={demoCtaUrl(process.env.B2B_DEMO_CTA_URL)} className="rounded-full bg-[#55245f] px-6 py-3 text-sm font-extrabold text-white">
           Quero ser representante
         </a>
-        <Link href="/" className="rounded-full border border-[#d9c7dc] px-6 py-3 text-sm font-extrabold text-[#63326d]">
-          Ir para o site
+        <Link href="/b2b/login" className="rounded-full border border-[#d9c7dc] px-6 py-3 text-sm font-extrabold text-[#63326d]">
+          Entrar na área do representante
         </Link>
       </div>
     </main>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -85,11 +84,6 @@ export default function B2BLoginPage() {
             pelo WhatsApp em segundos. Depois é só entrar com seu e-mail e a nova senha.
           </p>
         )}
-        <p className="text-center text-xs text-[#8a7886]">
-          <Link href="/" className="underline">
-            Voltar ao site
-          </Link>
-        </p>
       </form>
     </main>
   );
