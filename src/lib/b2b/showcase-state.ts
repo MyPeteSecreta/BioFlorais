@@ -12,6 +12,7 @@ import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { loadVendorAccess } from "@/lib/b2b/vendor-profile";
 import {
   buildShowcaseCatalog,
+  buildShowcaseLineQuotas,
   buildShowcaseQuotas,
   loadShowcaseConfig,
   loadShowcaseUsage,
@@ -20,6 +21,7 @@ import {
   type ShowcaseCatalogEntry,
   type ShowcaseConfig,
   type ShowcaseEligibility,
+  type ShowcaseLineQuota,
   type ShowcaseQuota,
 } from "@/lib/b2b/showcase";
 
@@ -48,6 +50,8 @@ export type ShowcaseState = {
   eligibility: ShowcaseEligibility;
   catalog: Map<string, ShowcaseCatalogEntry>;
   quotas: Map<string, ShowcaseQuota>;
+  /** Teto por linha na janela (chave = código da linha em minúsculas). */
+  lineQuotas: Map<string, ShowcaseLineQuota>;
 };
 
 const text = (value: unknown) => String(value ?? "").trim();
@@ -82,7 +86,7 @@ export async function loadShowcaseVendor(run: SqlRunner, responsibleId: string):
   };
 }
 
-async function loadCandidates(run: SqlRunner): Promise<ShowcaseCandidate[]> {
+export async function loadCandidates(run: SqlRunner): Promise<ShowcaseCandidate[]> {
   const rows = await run(
     `SELECT id, slug, name, category, line_slug, price_cents FROM products WHERE active = true AND price_cents > 0`
   );
@@ -127,7 +131,7 @@ export async function loadShowcaseState(run: SqlRunner, responsibleId: string, n
       });
 
   if (!config.available || !eligibility.ok) {
-    return { config, vendor, eligibility, catalog: new Map(), quotas: new Map() };
+    return { config, vendor, eligibility, catalog: new Map(), quotas: new Map(), lineQuotas: new Map() };
   }
 
   const [candidates, usage] = await Promise.all([
@@ -137,7 +141,9 @@ export async function loadShowcaseState(run: SqlRunner, responsibleId: string, n
   const catalog = buildShowcaseCatalog(config.groups, candidates, config.percent);
   const quotas = buildShowcaseQuotas(catalog, usage, config.windowDays, now);
 
-  return { config, vendor, eligibility, catalog, quotas };
+  const lineQuotas = buildShowcaseLineQuotas(catalog, usage, config.windowDays, config.lineCaps, now);
+
+  return { config, vendor, eligibility, catalog, quotas, lineQuotas };
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +158,17 @@ export type ShowcaseViewProduct = {
   volume: string;
   priceCents: number;
   b2cPriceCents: number;
+  /** Linha do produto (chave do teto da linha). */
+  lineKey: string;
+};
+
+export type ShowcaseViewLine = {
+  key: string;
+  name: string;
+  cap: number;
+  used: number;
+  remaining: number;
+  releasesAt: string | null;
 };
 
 export type ShowcaseViewSection = {
@@ -165,7 +182,7 @@ export type ShowcaseViewSection = {
   products: ShowcaseViewProduct[];
 };
 
-export function buildShowcaseView(state: ShowcaseState): ShowcaseViewSection[] {
+export function buildShowcaseView(state: ShowcaseState): { sections: ShowcaseViewSection[]; lines: ShowcaseViewLine[] } {
   const sections = new Map<string, ShowcaseViewSection>();
   const lineNames = new Map<string, string>();
 
@@ -206,10 +223,24 @@ export function buildShowcaseView(state: ShowcaseState): ShowcaseViewSection[] {
       volume: label.volume,
       priceCents: entry.priceCents,
       b2cPriceCents: entry.product.b2cPriceCents,
+      lineKey: entry.lineSlug.toLowerCase(),
     });
   }
 
-  return Array.from(sections.values())
+  const lines: ShowcaseViewLine[] = Array.from(state.lineQuotas.values())
+    .map((quota) => ({
+      key: quota.lineSlug,
+      name: lineNames.get(quota.lineSlug) ?? Array.from(lineNames.entries()).find(([slug]) => slug.toLowerCase() === quota.lineSlug)?.[1] ?? quota.lineSlug,
+      cap: quota.cap,
+      used: quota.used,
+      remaining: quota.remaining,
+      releasesAt: quota.releasesAt ? quota.releasesAt.toISOString() : null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const ordered = Array.from(sections.values())
     .map((section) => ({ ...section, products: section.products.sort((a, b) => a.label.localeCompare(b.label, "pt-BR")) }))
     .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "pt-BR"));
+
+  return { sections: ordered, lines };
 }

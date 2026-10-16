@@ -31,7 +31,7 @@ export async function computeShowcaseQuote(
     return { ok: false, error: state.eligibility.message, status: 403 };
   }
 
-  const cart = validateShowcaseCart(input.items, state.catalog, state.quotas);
+  const cart = validateShowcaseCart(input.items, state.catalog, state.quotas, state.lineQuotas);
 
   if (!cart.ok) return cart;
 

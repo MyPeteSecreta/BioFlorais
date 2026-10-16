@@ -3,6 +3,7 @@
  *
  *   GET   configuração (percentual, janela, grupos) + pedidos de mostruário
  *   POST  { action: "save_settings", percent, windowDays }
+ *         { action: "save_line_cap", lineSlug, capQty }   (capQty vazio = volta ao padrão: soma dos limites da linha)
  *         { action: "save_group", id?, name, lineSlugs, categories, nameIncludes, nameExcludes,
  *           limitQty, perLine, lowestVolumeOnly, active }   (sem id = grupo novo, DESATIVADO por padrão)
  *         { action: "delete_group", id }
@@ -14,12 +15,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin/session";
 import { isUuid } from "@/lib/b2b/admin-input";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { bioLines } from "@/lib/catalog/bio-products";
 import {
   SHOWCASE_ORIGIN,
+  buildShowcaseCatalog,
+  buildShowcaseLineQuotas,
   loadShowcaseConfig,
   parseShowcasePercent,
   parseShowcaseWindowDays,
 } from "@/lib/b2b/showcase";
+import { loadCandidates } from "@/lib/b2b/showcase-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +80,28 @@ export async function GET(request: NextRequest) {
       // SQL 37b ausente: lista vazia.
     }
 
-    return NextResponse.json({ ok: true, ...config, orders });
+    // Teto por linha: padrão = soma dos limites dos grupos ativos da linha; o admin pode sobrescrever.
+    let lines: Array<{ lineSlug: string; name: string; defaultCap: number; cap: number; custom: boolean }> = [];
+
+    if (config.available) {
+      try {
+        const catalog = buildShowcaseCatalog(config.groups, await loadCandidates(run), config.percent);
+        const names = new Map<string, string>(bioLines.map((line) => [line.slug, line.name]));
+        lines = Array.from(buildShowcaseLineQuotas(catalog, [], config.windowDays, config.lineCaps).values())
+          .map((quota) => ({
+            lineSlug: quota.lineSlug,
+            name: names.get(quota.lineSlug) ?? quota.lineSlug,
+            defaultCap: quota.defaultCap,
+            cap: quota.cap,
+            custom: quota.custom,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      } catch {
+        // sem catálogo: a lista de linhas fica vazia
+      }
+    }
+
+    return NextResponse.json({ ok: true, ...config, lines, orders });
   } catch (error) {
     console.error("[admin/b2b/showcase GET]", error);
     return bad("Erro ao carregar o mostruário.", 500);
@@ -108,6 +134,27 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ ok: true, percent, windowDays });
+    }
+
+    if (body.action === "save_line_cap") {
+      const lineSlug = String(body.lineSlug ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9-]{1,40}$/.test(lineSlug)) return bad("Linha inválida.");
+
+      if (body.capQty === null || body.capQty === undefined || String(body.capQty).trim() === "") {
+        await run(`DELETE FROM b2b_showcase_line_caps WHERE line_slug = $1`, [lineSlug]);
+        return NextResponse.json({ ok: true, lineSlug, capQty: null });
+      }
+
+      const capQty = Number(body.capQty);
+      if (!Number.isInteger(capQty) || capQty < 0 || capQty > 999) return bad("O teto da linha vai de 0 a 999 unidades.");
+
+      await run(
+        `INSERT INTO b2b_showcase_line_caps (line_slug, cap_qty) VALUES ($1, $2::int)
+         ON CONFLICT (line_slug) DO UPDATE SET cap_qty = EXCLUDED.cap_qty, updated_at = now()`,
+        [lineSlug, capQty]
+      );
+
+      return NextResponse.json({ ok: true, lineSlug, capQty });
     }
 
     if (body.action === "save_group") {
@@ -174,6 +221,6 @@ export async function POST(request: NextRequest) {
     return bad("Ação inválida.");
   } catch (error) {
     console.error("[admin/b2b/showcase POST]", error);
-    return bad("Erro ao salvar o mostruário (o SQL 39b foi aplicado?).", 500);
+    return bad("Erro ao salvar o mostruário (os SQL 39b e 40b foram aplicados?).", 500);
   }
 }

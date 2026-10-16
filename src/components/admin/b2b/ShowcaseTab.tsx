@@ -30,6 +30,8 @@ type ApiGroup = Omit<Group, "lineSlugs" | "categories" | "nameIncludes" | "nameE
   nameExcludes: string[];
 };
 
+type LineCap = { lineSlug: string; name: string; defaultCap: number; cap: number; custom: boolean };
+
 type ShowcaseOrder = {
   id: string;
   status: string;
@@ -70,6 +72,8 @@ export default function ShowcaseTab() {
   const [windowDays, setWindowDays] = useState("45");
   const [groups, setGroups] = useState<Group[]>([]);
   const [orders, setOrders] = useState<ShowcaseOrder[]>([]);
+  const [lineCaps, setLineCaps] = useState<LineCap[]>([]);
+  const [capDraft, setCapDraft] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Group | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -87,6 +91,8 @@ export default function ShowcaseTab() {
     setWindowDays(String(data.windowDays ?? 45));
     setGroups(((data.groups ?? []) as ApiGroup[]).map(toGroup));
     setOrders((data.orders ?? []) as ShowcaseOrder[]);
+    setLineCaps((data.lines ?? []) as LineCap[]);
+    setCapDraft({});
   }, [api]);
 
   useEffect(() => {
@@ -101,6 +107,16 @@ export default function ShowcaseTab() {
       body: { action: "save_settings", percent, windowDays },
     });
     setMessage(ok ? "Percentual e janela salvos." : data.error ?? "Erro ao salvar.");
+    if (ok) void load();
+  }
+
+  async function saveCap(line: LineCap, reset = false) {
+    const value = reset ? "" : capDraft[line.lineSlug] ?? String(line.cap);
+    const { ok, data } = await api("/api/admin/b2b/showcase", {
+      method: "POST",
+      body: { action: "save_line_cap", lineSlug: line.lineSlug, capQty: value },
+    });
+    setMessage(ok ? `Teto da linha ${line.name} salvo.` : data.error ?? "Erro ao salvar o teto.");
     if (ok) void load();
   }
 
@@ -297,6 +313,48 @@ export default function ShowcaseTab() {
           ))}
         </ul>
       )}
+
+      <section data-testid="showcase-line-caps">
+        <h2 className="font-extrabold text-[#342737]">Teto por linha (unidades na janela)</h2>
+        <p className="mt-1 max-w-3xl text-xs text-[#7b6a77]">
+          Máximo de unidades somando TODOS os itens da linha na janela. Padrão = soma dos limites dos grupos da linha;
+          ajuste para valer o número que você quiser (ex.: sabonete líquido 2 no total).
+        </p>
+        {lineCaps.length === 0 ? (
+          <p className="mt-2 text-sm text-[#7b6a77]">Nenhuma linha com grupo ativo.</p>
+        ) : (
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {lineCaps.map((line) => (
+              <li key={line.lineSlug} className="rounded-2xl border border-[#eadfd9] bg-white p-3">
+                <p className="text-sm font-extrabold text-[#342737]">{line.name}</p>
+                <p className="text-[11px] text-[#7b6a77]">
+                  padrão {line.defaultCap}
+                  {line.custom ? " · alterado" : ""}
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    className={`${field} w-24`}
+                    type="number"
+                    min={0}
+                    max={999}
+                    aria-label={`Teto da linha ${line.name}`}
+                    value={capDraft[line.lineSlug] ?? String(line.cap)}
+                    onChange={(e) => setCapDraft({ ...capDraft, [line.lineSlug]: e.target.value })}
+                  />
+                  <button type="button" onClick={() => saveCap(line)} className="rounded-full bg-[#342737] px-3 py-1.5 text-xs font-extrabold text-white">
+                    Salvar
+                  </button>
+                  {line.custom && (
+                    <button type="button" onClick={() => saveCap(line, true)} className="rounded-full border border-[#eadfd9] px-3 py-1.5 text-xs font-extrabold">
+                      Padrão
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section>
         <h2 className="font-extrabold text-[#342737]">Pedidos de mostruário</h2>

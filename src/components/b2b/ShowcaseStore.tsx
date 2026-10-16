@@ -11,7 +11,24 @@ import { useEffect, useMemo, useState } from "react";
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
 import { formatB2BCents } from "@/lib/b2b/format";
 
-export type StoreProduct = { id: string; label: string; volume: string; priceCents: number; b2cPriceCents: number };
+export type StoreProduct = {
+  id: string;
+  label: string;
+  volume: string;
+  priceCents: number;
+  b2cPriceCents: number;
+  lineKey: string;
+};
+
+/** Teto da linha na janela (soma de todos os itens da linha). */
+export type StoreLine = {
+  key: string;
+  name: string;
+  cap: number;
+  used: number;
+  remaining: number;
+  releasesAt: string | null;
+};
 
 export type StoreSection = {
   key: string;
@@ -54,11 +71,13 @@ const dateBr = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { time
 
 export default function ShowcaseStore({
   sections,
+  lines,
   vendor,
   windowDays,
   percent,
 }: {
   sections: StoreSection[];
+  lines: StoreLine[];
   vendor: StoreVendor;
   windowDays: number;
   percent: number;
@@ -98,6 +117,16 @@ export default function ShowcaseStore({
     return map;
   }, [qty, productById]);
 
+  const usedByLine = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [id, count] of Object.entries(qty)) {
+      const product = productById.get(id);
+      if (product && count > 0) map.set(product.lineKey, (map.get(product.lineKey) ?? 0) + count);
+    }
+    return map;
+  }, [qty, productById]);
+  const lineByKey = useMemo(() => new Map(lines.map((line) => [line.key, line])), [lines]);
+
   const items = Object.entries(qty)
     .filter(([, count]) => count > 0)
     .map(([productId, count]) => ({ productId, qty: count }));
@@ -115,6 +144,9 @@ export default function ShowcaseStore({
       const used = usedBySection.get(sectionKey) ?? 0;
       const next = Math.max(0, now + delta);
       if (delta > 0 && used >= section.remaining) return current;
+      // Teto da linha: soma de todos os itens da linha (qualquer grupo).
+      const line = lineByKey.get(product.lineKey);
+      if (delta > 0 && line && (usedByLine.get(product.lineKey) ?? 0) >= line.remaining) return current;
       return { ...current, [product.id]: next };
     });
   }
@@ -475,7 +507,11 @@ export default function ShowcaseStore({
         <div className="mt-6 space-y-5">
           {sections.map((section) => {
             const inCart = usedBySection.get(section.key) ?? 0;
-            const blocked = section.remaining <= 0;
+            const sectionLines = Array.from(new Set(section.products.map((product) => product.lineKey)))
+              .map((key) => lineByKey.get(key))
+              .filter((line): line is StoreLine => Boolean(line));
+            const lineBlocked = sectionLines.length > 0 && sectionLines.every((line) => line.remaining <= 0);
+            const blocked = section.remaining <= 0 || lineBlocked;
 
             return (
               <section key={section.key} className="rounded-[24px] border border-[#eadfd9] bg-white p-4 sm:p-5" data-testid="showcase-section">
@@ -497,6 +533,14 @@ export default function ShowcaseStore({
                     <strong>{dateBr(section.releasesAt)}</strong>.
                   </p>
                 )}
+
+                {sectionLines.map((line) => (
+                  <p key={line.key} className="mt-1 text-xs text-[#8a7886]" data-testid="showcase-line-cap">
+                    Você ainda pode pedir <strong>{Math.max(0, line.remaining - (usedByLine.get(line.key) ?? 0))}</strong> desta linha
+                    ({line.name}: teto de {line.cap} a cada {windowDays} dias
+                    {line.used > 0 && line.releasesAt ? `, libera em ${dateBr(line.releasesAt)}` : ""}).
+                  </p>
+                ))}
 
                 <ul className="mt-3 divide-y divide-[#f0e8e3]">
                   {section.products.map((product) => {
@@ -528,7 +572,10 @@ export default function ShowcaseStore({
                             <button
                               type="button"
                               aria-label={`Aumentar ${product.label}`}
-                              disabled={inCart >= section.remaining}
+                              disabled={
+                                inCart >= section.remaining ||
+                                (usedByLine.get(product.lineKey) ?? 0) >= (lineByKey.get(product.lineKey)?.remaining ?? Infinity)
+                              }
                               onClick={() => change(product, section.key, 1)}
                               className="h-9 w-9 rounded-full bg-[#55245f] text-lg font-extrabold text-white disabled:opacity-40"
                             >

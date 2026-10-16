@@ -56,12 +56,14 @@ export default async function ShowcasePage() {
   }
 
   const vendor = state.vendor;
+  const view = buildShowcaseView(state);
 
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
       {header}
       <ShowcaseStore
-        sections={buildShowcaseView(state)}
+        sections={view.sections}
+        lines={view.lines}
         windowDays={state.config.windowDays}
         percent={state.config.percent}
         vendor={{

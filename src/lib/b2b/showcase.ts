@@ -229,6 +229,78 @@ export function buildShowcaseQuotas(
   return quotas;
 }
 
+export type ShowcaseLineQuota = {
+  lineSlug: string;
+  /** Teto de UNIDADES da linha na janela (override do admin ou, por padrão, a soma dos limites dos grupos da linha). */
+  cap: number;
+  /** true = o admin definiu o teto (difere do padrão). */
+  custom: boolean;
+  defaultCap: number;
+  used: number;
+  remaining: number;
+  releasesAt: Date | null;
+};
+
+/**
+ * TETO POR LINHA (adendo 15/10): máximo de unidades somando TODOS os itens da linha na janela.
+ * Padrão = soma dos limites dos grupos/cotas que têm produto da linha; o admin pode sobrescrever.
+ */
+export function buildShowcaseLineQuotas(
+  catalog: ReadonlyMap<string, ShowcaseCatalogEntry>,
+  usage: readonly ShowcaseUsageRow[],
+  windowDays: number,
+  overrides: Readonly<Record<string, number>> = {},
+  now: Date = new Date()
+): Map<string, ShowcaseLineQuota> {
+  const defaults = new Map<string, number>();
+  const seen = new Set<string>();
+
+  for (const entry of catalog.values()) {
+    const line = strip(entry.lineSlug);
+    const mark = `${entry.key}|${line}`;
+    if (seen.has(mark)) continue;
+    seen.add(mark);
+    defaults.set(line, (defaults.get(line) ?? 0) + entry.group.limitQty);
+  }
+
+  const lines = new Map<string, ShowcaseLineQuota>();
+
+  for (const [line, defaultCap] of defaults) {
+    const override = overrides[line];
+    const custom = Number.isInteger(override) && override >= 0 && override !== defaultCap;
+    const cap = Number.isInteger(override) && override >= 0 ? override : defaultCap;
+    lines.set(line, { lineSlug: line, cap, custom, defaultCap, used: 0, remaining: cap, releasesAt: null });
+  }
+
+  const windowStart = now.getTime() - windowDays * DAY_MS;
+
+  for (const row of usage) {
+    if (row.createdAt.getTime() <= windowStart) continue;
+    const entry = catalog.get(row.productId);
+    const quota = entry ? lines.get(strip(entry.lineSlug)) : undefined;
+    if (!quota) continue;
+
+    quota.used += row.qty;
+    const releases = new Date(row.createdAt.getTime() + windowDays * DAY_MS);
+    if (!quota.releasesAt || releases.getTime() < quota.releasesAt.getTime()) quota.releasesAt = releases;
+  }
+
+  for (const quota of lines.values()) quota.remaining = Math.max(0, quota.cap - quota.used);
+
+  return lines;
+}
+
+/** Excedeu algum limite de grupo OU teto de linha? (reconferência depois de gravar o pedido) */
+export function findShowcaseOverLimit(
+  quotas: ReadonlyMap<string, ShowcaseQuota>,
+  lineQuotas: ReadonlyMap<string, ShowcaseLineQuota>
+): boolean {
+  return (
+    Array.from(quotas.values()).some((quota) => quota.used > quota.limit) ||
+    Array.from(lineQuotas.values()).some((quota) => quota.used > quota.cap)
+  );
+}
+
 export type ShowcaseCartLine = {
   productId: string;
   slug: string;
@@ -242,7 +314,8 @@ export type ShowcaseCartLine = {
 export function validateShowcaseCart(
   items: unknown,
   catalog: ReadonlyMap<string, ShowcaseCatalogEntry>,
-  quotas: ReadonlyMap<string, ShowcaseQuota>
+  quotas: ReadonlyMap<string, ShowcaseQuota>,
+  lineQuotas?: ReadonlyMap<string, ShowcaseLineQuota>
 ): { ok: true; lines: ShowcaseCartLine[]; subtotalCents: number } | { ok: false; error: string; status: number } {
   if (!Array.isArray(items) || items.length === 0) {
     return { ok: false, error: "Escolha ao menos um item do mostruário.", status: 400 };
@@ -296,6 +369,31 @@ export function validateShowcaseCart(
             : `Limite do mostruário atingido em ${label}. Aguarde a liberação para pedir de novo.`,
         status: 409,
       };
+    }
+  }
+
+  // Teto da linha: soma de TODAS as unidades da linha (qualquer grupo) no carrinho + o já usado na janela.
+  if (lineQuotas) {
+    const usedByLine = new Map<string, number>();
+
+    for (const line of lines) {
+      const key = strip(line.lineSlug);
+      usedByLine.set(key, (usedByLine.get(key) ?? 0) + line.qty);
+    }
+
+    for (const [key, qty] of usedByLine) {
+      const quota = lineQuotas.get(key);
+      if (!quota || qty > quota.remaining) {
+        const left = quota?.remaining ?? 0;
+        return {
+          ok: false,
+          error:
+            left > 0
+              ? `Teto da linha no mostruário: você ainda pode pedir ${left} desta linha.`
+              : "Teto da linha no mostruário atingido. Aguarde a liberação para pedir de novo.",
+          status: 409,
+        };
+      }
     }
   }
 
@@ -372,6 +470,8 @@ export type ShowcaseConfig = {
   percent: number;
   windowDays: number;
   groups: ShowcaseGroup[];
+  /** Tetos por linha definidos no admin (linha -> unidades). Sem entrada = padrão (soma dos grupos). */
+  lineCaps: Record<string, number>;
 };
 
 export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig> {
@@ -385,11 +485,16 @@ export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig
       run(`SELECT key, value FROM b2b_settings WHERE key IN ('showcase_price_percent', 'showcase_window_days')`).catch(() => []),
     ]);
     const setting = (key: string) => settingRows.find((row) => String(row.key) === key)?.value;
+    // Tetos por linha (SQL 40b). Sem a tabela: só o padrão (soma dos limites dos grupos).
+    const capRows = await run(`SELECT line_slug, cap_qty FROM b2b_showcase_line_caps`).catch(() => []);
+    const lineCaps: Record<string, number> = {};
+    for (const row of capRows) lineCaps[strip(row.line_slug)] = Number(row.cap_qty);
 
     return {
       available: true,
       percent: parseShowcasePercent(setting("showcase_price_percent")) ?? SHOWCASE_DEFAULT_PERCENT,
       windowDays: parseShowcaseWindowDays(setting("showcase_window_days")) ?? SHOWCASE_DEFAULT_WINDOW_DAYS,
+      lineCaps,
       groups: groupRows.map((row) => ({
         id: String(row.id),
         name: String(row.name),
@@ -405,7 +510,7 @@ export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig
       })),
     };
   } catch {
-    return { available: false, percent: SHOWCASE_DEFAULT_PERCENT, windowDays: SHOWCASE_DEFAULT_WINDOW_DAYS, groups: [] };
+    return { available: false, percent: SHOWCASE_DEFAULT_PERCENT, windowDays: SHOWCASE_DEFAULT_WINDOW_DAYS, groups: [], lineCaps: {} };
   }
 }
 

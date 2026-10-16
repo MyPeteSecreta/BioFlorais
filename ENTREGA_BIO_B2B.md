@@ -9,6 +9,23 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Mostruário: adendo 15/10 e TABELA FINAL do Luis (16/10/2026), sobre `ec6276b`
+
+**Prevalece a tabela final.** Todo limite conta UNIDADES somadas na janela móvel (45 dias, admin); novo **teto por linha** (unidades somando todos os itens da linha na janela), configurável no admin.
+
+- **Teto por linha:** padrão = soma dos limites dos grupos que têm produto da linha; o admin sobrescreve em Admin → B2B → Mostruário → "Teto por linha" (Salvar / "Padrão" volta ao automático). Fica em `b2b_showcase_line_caps` (só linhas alteradas; sem linha na tabela vale o padrão).
+- **Valores resultantes (Bio):** Florais Adulto **3** · Pet **3** · Infantil, Baby, Kids, Teen, Virtudes Divinas, Dose Única **2** cada · Cosméticos **5** (shampoo 1, Murumuru 1, creme de mãos 1, creme corporal 1, sabonete líquido 1) · Cosméticos Pet **4** (shampoo 1, perfume 1, floral de ambiente 1, spray para hálito 1) · Home Care **2**. Condicionador segue fora (regra fixa).
+- **Home Care entra com 1 de cada tipo.** Tipos encontrados no catálogo: **Aromatizador Spray** (5 itens: Bem Estar, Harmonia, Limpeza e Proteção, Reequilíbrio do Ambiente, Serenidade; 50 g) e **Sabonete Líquido** (9 fragrâncias; 315 ml). Grupos: "Home Care · Aromatizador" (1) e "Home Care · Sabonete líquido" (1) → teto 2.
+- **Tela:** em cada grupo, "Você ainda pode pedir N desta linha (Linha: teto de X a cada 45 dias, libera em dd/mm)"; o "+" trava no teto da linha (soma entre grupos) e no limite do grupo.
+- **Servidor revalida grupo E teto:** cotação e criação usam a mesma validação (`validateShowcaseCart` com `lineQuotas`); depois de gravar o pedido o servidor reconfere grupo e teto (corrida entre dois pedidos: o excedente é cancelado).
+- **SQL (ordem, depois do 39b):** (1) `40a_mostruario_tabela_final_preflight_one_shot.sql` (somente leitura, 1 linha JSON; roda sem erro mesmo antes do 39b) → (2) `40b_mostruario_tabela_final.sql` (aditivo, idempotente, BEGIN/COMMIT, **não apaga nada**): cria `b2b_showcase_line_caps`; AJUSTA o grupo de florais do 39b (só se ainda estiver como o seed) para as demais linhas com 2 por linha, incluindo Virtudes Divinas e Dose Única, e renomeia para "Florais (por linha)"; cria (só se o nome não existe) "Florais · Adulto" (3), "Florais · Pet" (3) e os 2 grupos de Home Care. Grupo que o admin já editou/renomeou não é sobrescrito.
+- **Sem o 40b** o app continua funcionando com os grupos do 39b (teto padrão calculado; só os valores novos da tabela final não valem).
+- **Arquivos:** `showcase.ts` (linha-quota, `buildShowcaseLineQuotas`, `findShowcaseOverLimit`), `showcase-state.ts`, `showcase-quote.ts`, `api/b2b/showcase/orders`, `api/admin/b2b/showcase`, `ShowcaseStore.tsx`, `ShowcaseTab.tsx`, `painel/mostruario/page.tsx`, `scripts/b2b-mostruario.test.mjs` (+4 testes).
+- **Teste manual:** admin vê os tetos (Adulto 3 … Home Care 2); mudar Cosméticos para 2 e tentar shampoo + creme de mãos + creme corporal → recusado no 3º ("Teto da linha"); comprar florais Adulto: o 4º é recusado; depois do pedido a tela mostra "libera em dd/mm".
+- **Observação:** a alteração de tela (frase do teto) não foi reconferida no navegador nesta rodada; a lógica está coberta pelos testes.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Mostruário do vendedor/RCA (13/10/2026), sobre `8b2b593`
 
 **O que é:** botão **"Solicitar mostruário"** no painel do vendedor (`/b2b/painel/mostruario`): loja interna só com itens liberados, preço de mostruário, só o menor volume, limites por grupo/linha numa janela móvel de dias. Só área do vendedor + admin; **B2C e as rotas B2C intocados**. Decisões do Luis (13/10) aplicadas: condicionador fora de tudo (inclusive combo), frete SEMPRE regional, Pix ou cartão, sem mínimo.

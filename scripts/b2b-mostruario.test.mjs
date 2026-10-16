@@ -317,3 +317,148 @@ test("área do vendedor e admin: botão, loja, aba Mostruário; admin validado e
   assert.ok(/INSERT INTO b2b_showcase_groups[\s\S]*?\$8::boolean, false,/.test(admin) && admin.includes("DESATIVADO"));
   assert.ok(read("src/components/admin/b2b/ShowcaseTab.tsx").includes("entra desativada"));
 });
+
+// ---------------------------------------------------------------------------
+// Adendo 15/10 + tabela final do Luis: unidades, teto por linha, 40a/40b
+// ---------------------------------------------------------------------------
+
+async function finalConfig(caps = []) {
+  const pg = new PGlite();
+  await pg.exec(`CREATE TABLE b2b_settings (key text PRIMARY KEY, value text NOT NULL, updated_at timestamp NOT NULL DEFAULT now());
+    CREATE TABLE orders (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), origin text);`);
+  const pre39 = (await pg.query(read("sql/b2b/40a_mostruario_tabela_final_preflight_one_shot.sql"))).rows;
+  assert.equal(pre39.length, 1);
+  assert.equal(pre39[0].preflight_mostruario_tabela_final.pode_prosseguir, false, "sem o 39b o preflight avisa, sem erro");
+  await pg.exec(read("sql/b2b/39b_mostruario.sql"));
+  const pre = (await pg.query(read("sql/b2b/40a_mostruario_tabela_final_preflight_one_shot.sql"))).rows[0].preflight_mostruario_tabela_final;
+  assert.equal(pre.pode_prosseguir, true);
+  assert.equal(pre.florais_seed_original_a_ajustar, 1);
+  const sql40 = read("sql/b2b/40b_mostruario_tabela_final.sql");
+  await pg.exec(sql40);
+  await pg.exec(sql40); // idempotente
+  for (const [line, cap] of caps) await pg.query(`INSERT INTO b2b_showcase_line_caps (line_slug, cap_qty) VALUES ($1, $2)`, [line, cap]);
+  const run = async (text, params = []) => (await pg.query(text, params)).rows;
+  return { pg, run, config: await showcase.loadShowcaseConfig(run), sql40 };
+}
+
+test("40a/40b: ajusta (sem apagar) os grupos do 39b; idempotente; respeita edição do admin", async () => {
+  const { pg, sql40 } = await finalConfig();
+  assert.ok(/BEGIN;/.test(sql40) && /COMMIT;/.test(sql40) && !/\b(DROP|DELETE|TRUNCATE)\b/i.test(sql40.replace(/--.*$/gm, "")));
+  const groups = (await pg.query("SELECT name, limit_qty, per_line, line_slugs FROM b2b_showcase_groups ORDER BY sort_order, name")).rows;
+  assert.equal(groups.length, 14); // 10 do 39b + Adulto + Pet + 2 Home Care
+  const by = Object.fromEntries(groups.map((group) => [group.name, group]));
+  assert.equal(by["Florais · Adulto"].limit_qty, 3);
+  assert.equal(by["Florais · Pet"].limit_qty, 3);
+  assert.equal(by["Florais (por linha)"].limit_qty, 2);
+  assert.equal(by["Florais (por linha)"].per_line, true);
+  assert.deepEqual(by["Florais (por linha)"].line_slugs, ["infantil", "baby", "kids", "teen", "virtudes-divinas", "dose-unica"]);
+  assert.equal(by["Home Care · Aromatizador"].limit_qty, 1);
+  assert.equal(by["Home Care · Sabonete líquido"].limit_qty, 1);
+  assert.equal((await pg.query("SELECT count(*)::int AS n FROM b2b_showcase_line_caps")).rows[0].n, 0);
+
+  // admin renomeou/editou o grupo de florais antes do 40b: o ajuste não sobrescreve
+  const edited = new PGlite();
+  await edited.exec(`CREATE TABLE b2b_settings (key text PRIMARY KEY, value text NOT NULL, updated_at timestamp NOT NULL DEFAULT now());`);
+  await edited.exec(read("sql/b2b/39b_mostruario.sql"));
+  await edited.exec(`UPDATE b2b_showcase_groups SET name = 'Meus florais', limit_qty = 4, line_slugs = ARRAY['adulto','pet'] WHERE per_line = true`);
+  await edited.exec(sql40);
+  const mine = (await edited.query("SELECT name, limit_qty, line_slugs FROM b2b_showcase_groups WHERE name = 'Meus florais'")).rows;
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].limit_qty, 4);
+});
+
+test("tabela final: florais Adulto/Pet 3, demais 2 (Kids, Teen, Virtudes, Dose Única), Cosméticos 5, Pet 4, Home Care 1 de cada tipo; tetos padrão", async () => {
+  const { config } = await finalConfig();
+  const catalog = showcase.buildShowcaseCatalog(config.groups, candidates, config.percent);
+  const lineQuotas = showcase.buildShowcaseLineQuotas(catalog, [], 45, config.lineCaps, NOW);
+  const cap = (line) => lineQuotas.get(line)?.cap;
+
+  assert.equal(cap("adulto"), 3);
+  assert.equal(cap("pet"), 3);
+  for (const line of ["infantil", "baby", "kids", "teen", "virtudes-divinas", "dose-unica"]) assert.equal(cap(line), 2, line);
+  assert.equal(cap("cosmeticos"), 5);
+  assert.equal(cap("cosmeticos-pet"), 4);
+  assert.equal(cap("home-care"), 2);
+
+  // Home Care: tipos = Aromatizador Spray e Sabonete Líquido; condicionador continua fora
+  const home = Array.from(catalog.values()).filter((entry) => entry.lineSlug === "home-care");
+  assert.deepEqual(Array.from(new Set(home.map((entry) => entry.product.category))).sort(), ["Aromatizador Spray", "Sabonete Líquido"]);
+  assert.equal(new Set(home.map((entry) => entry.key)).size, 2);
+  assert.equal(Array.from(catalog.values()).filter((entry) => /condicionador/i.test(entry.product.category)).length, 0);
+  assert.ok(Array.from(catalog.values()).some((entry) => entry.lineSlug === "virtudes-divinas"));
+  assert.ok(Array.from(catalog.values()).some((entry) => entry.lineSlug === "dose-unica"));
+});
+
+test("teto por linha: soma de todos os grupos da linha na janela, configurável; servidor revalida grupo E teto", async () => {
+  const { config } = await finalConfig([["cosmeticos", 2]]);
+  assert.deepEqual(config.lineCaps, { cosmeticos: 2 });
+  const catalog = showcase.buildShowcaseCatalog(config.groups, candidates, config.percent);
+  const first = (line, category, notName) =>
+    candidates.find((product) => product.lineSlug === line && product.category === category && (!notName || !notName.test(product.name)));
+  const shampoo = first("cosmeticos", "Shampoo", /muru muru/i);
+  const maos = first("cosmeticos", "Creme Mãos");
+  const corpo = first("cosmeticos", "Creme Corpo");
+  const sabonete = first("cosmeticos", "Sabonete Líquido");
+
+  let lineQuotas = showcase.buildShowcaseLineQuotas(catalog, [], 45, config.lineCaps, NOW);
+  let quotas = showcase.buildShowcaseQuotas(catalog, [], 45, NOW);
+  assert.equal(lineQuotas.get("cosmeticos").cap, 2);
+  assert.equal(lineQuotas.get("cosmeticos").custom, true);
+  assert.equal(lineQuotas.get("cosmeticos").defaultCap, 5);
+
+  // cada grupo respeita 1, mas o teto da linha (2) barra o 3º item
+  const ok = showcase.validateShowcaseCart([{ productId: shampoo.id, qty: 1 }, { productId: maos.id, qty: 1 }], catalog, quotas, lineQuotas);
+  assert.equal(ok.ok, true);
+  const over = showcase.validateShowcaseCart(
+    [{ productId: shampoo.id, qty: 1 }, { productId: maos.id, qty: 1 }, { productId: corpo.id, qty: 1 }],
+    catalog, quotas, lineQuotas
+  );
+  assert.equal(over.ok, false);
+  assert.equal(over.status, 409);
+  assert.match(over.error, /Teto da linha/);
+  // sem o argumento de teto (chamada antiga) o grupo continua valendo
+  assert.equal(
+    showcase.validateShowcaseCart([{ productId: shampoo.id, qty: 1 }, { productId: maos.id, qty: 1 }, { productId: corpo.id, qty: 1 }], catalog, quotas).ok,
+    true
+  );
+  // grupo continua valendo sozinho (2 sabonetes > limite 1)
+  assert.equal(showcase.validateShowcaseCart([{ productId: sabonete.id, qty: 2 }], catalog, quotas, lineQuotas).ok, false);
+
+  // uso na janela conta no teto: 2 unidades de cosméticos esgotam a linha; libera 45 dias depois da compra mais antiga
+  const usage = [
+    { productId: shampoo.id, qty: 1, createdAt: new Date(NOW.getTime() - 10 * DAY) },
+    { productId: maos.id, qty: 1, createdAt: new Date(NOW.getTime() - 12 * DAY) },
+  ];
+  lineQuotas = showcase.buildShowcaseLineQuotas(catalog, usage, 45, config.lineCaps, NOW);
+  quotas = showcase.buildShowcaseQuotas(catalog, usage, 45, NOW);
+  assert.equal(lineQuotas.get("cosmeticos").remaining, 0);
+  assert.equal(lineQuotas.get("cosmeticos").releasesAt.toISOString(), new Date(NOW.getTime() + 33 * DAY).toISOString());
+  const blocked = showcase.validateShowcaseCart([{ productId: sabonete.id, qty: 1 }], catalog, quotas, lineQuotas);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, 409);
+  assert.equal(showcase.findShowcaseOverLimit(quotas, lineQuotas), false);
+  // reconferência pós-gravação detecta teto estourado (corrida)
+  const raced = showcase.buildShowcaseLineQuotas(catalog, [...usage, { productId: corpo.id, qty: 1, createdAt: new Date(NOW.getTime() - 1 * DAY) }], 45, config.lineCaps, NOW);
+  assert.equal(showcase.findShowcaseOverLimit(quotas, raced), true);
+
+  // florais Adulto: 3 no total (soma entre produtos diferentes)
+  const adulto = candidates.filter((product) => product.lineSlug === "adulto" && product.category === "Floral em gotas").slice(0, 4);
+  const adultoQuotas = showcase.buildShowcaseQuotas(catalog, [], 45, NOW);
+  const adultoLines = showcase.buildShowcaseLineQuotas(catalog, [], 45, {}, NOW);
+  const cart = (n) => showcase.validateShowcaseCart(adulto.slice(0, n).map((product) => ({ productId: product.id, qty: 1 })), catalog, adultoQuotas, adultoLines);
+  assert.equal(cart(3).ok, true);
+  assert.equal(cart(4).ok, false);
+});
+
+test("teto por linha na tela, no admin e no servidor", () => {
+  const store = read("src/components/b2b/ShowcaseStore.tsx");
+  assert.ok(store.includes("Você ainda pode pedir") && store.includes("desta linha") && store.includes("libera em"));
+  assert.ok(store.includes("showcase-line-cap") && store.includes("usedByLine"));
+  assert.ok(read("src/lib/b2b/showcase-quote.ts").includes("state.lineQuotas"));
+  const create = read("src/app/api/b2b/showcase/orders/route.ts");
+  assert.ok(create.includes("buildShowcaseLineQuotas") && create.includes("findShowcaseOverLimit"));
+  const admin = read("src/app/api/admin/b2b/showcase/route.ts");
+  assert.ok(admin.includes("save_line_cap") && admin.includes("b2b_showcase_line_caps") && admin.includes("isAdminRequest"));
+  assert.ok(read("src/components/admin/b2b/ShowcaseTab.tsx").includes("Teto por linha"));
+  assert.ok(read("src/lib/b2b/showcase.ts").includes("b2b_showcase_line_caps"));
+});

@@ -16,7 +16,13 @@ import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import { isB2BInstallmentCountValid } from "@/lib/b2b/pricing";
 import { requireResponsible } from "@/lib/b2b/require-responsible";
-import { SHOWCASE_ORIGIN, buildShowcaseQuotas, loadShowcaseUsage } from "@/lib/b2b/showcase";
+import {
+  SHOWCASE_ORIGIN,
+  buildShowcaseLineQuotas,
+  buildShowcaseQuotas,
+  findShowcaseOverLimit,
+  loadShowcaseUsage,
+} from "@/lib/b2b/showcase";
 import { computeShowcaseQuote } from "@/lib/b2b/showcase-quote";
 import { loadShowcaseState } from "@/lib/b2b/showcase-state";
 
@@ -186,7 +192,8 @@ export async function POST(request: NextRequest) {
     // Corrida: dois pedidos simultâneos podem passar na cota. Reconfere já com este pedido gravado.
     const usage = await loadShowcaseUsage(run, vendor.id, state.config.windowDays);
     const quotas = buildShowcaseQuotas(state.catalog, usage, state.config.windowDays);
-    const overLimit = Array.from(quotas.values()).some((quota) => quota.used > quota.limit);
+    const lineQuotas = buildShowcaseLineQuotas(state.catalog, usage, state.config.windowDays, state.config.lineCaps);
+    const overLimit = findShowcaseOverLimit(quotas, lineQuotas);
 
     if (overLimit) {
       await run(`UPDATE orders SET status = 'cancelled', fulfillment_status = 'cancelled' WHERE id = $1::uuid`, [orderId]).catch(() => null);
