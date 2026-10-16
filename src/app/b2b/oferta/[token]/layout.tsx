@@ -4,8 +4,9 @@
  * (/b2b/oferta/<token> e /linha/<slug>). Só o B2B: o B2C não passa por aqui.
  */
 
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
+import LaunchModeMarker from "@/components/b2b/LaunchModeMarker";
 import RetailerMessages from "@/components/b2b/RetailerMessages";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
@@ -34,6 +35,10 @@ export default async function OfferLayout({
 
   return (
     <>
+      {/* "Lançar pedido": faixa do modo lançamento (a autorização é do servidor, pela sessão do vendedor). */}
+      <Suspense fallback={null}>
+        <LaunchModeMarker token={token} />
+      </Suspense>
       <RetailerMessages token={token} messages={messages} showPopup={!seen} rotation={rotation} />
       {children}
     </>

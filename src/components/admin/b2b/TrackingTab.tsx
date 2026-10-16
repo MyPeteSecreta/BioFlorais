@@ -32,6 +32,7 @@ type Order = {
   paymentMethod: string | null;
   totalCents: number;
   responsibleName: string | null;
+  origin?: string | null;
   customerName: string | null;
   personType: string | null;
   clientName: string | null;
@@ -177,7 +178,17 @@ export default function TrackingTab() {
                       {order.customerName} {order.personType ? `(${order.personType.toUpperCase()})` : ""}
                     </span>
                   </td>
-                  <td className={td}>{order.responsibleName ?? "—"}</td>
+                  <td className={td}>
+                    {order.responsibleName ?? "—"}
+                    {order.origin === "vendedor" && (
+                      <span className="mt-1 block w-fit rounded-full bg-[#f6eef7] px-2 py-0.5 text-[10px] font-extrabold text-[#55245f]" data-testid="origem-vendedor">
+                        Lançado pelo vendedor
+                      </span>
+                    )}
+                    {order.origin === "parceiros" && (
+                      <span className="mt-1 block w-fit rounded-full bg-[#eef3f8] px-2 py-0.5 text-[10px] font-extrabold text-[#274b8f]">Loja /parceiros</span>
+                    )}
+                  </td>
                   <td className={td}>{order.paymentMethod ? METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod : "—"}</td>
                   <td className={`${td} text-right font-bold`}>{formatB2BCents(order.totalCents)}</td>
                   <td className={`${td} text-xs`}>{order.status} · {order.fulfillmentStatus}</td>

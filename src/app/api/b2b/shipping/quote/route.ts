@@ -5,8 +5,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { buildQuoteItemSnapshots } from "@/lib/b2b/order-snapshots";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
+import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
+import { estimateCommissionCents, verifyLaunchAccess } from "@/lib/b2b/vendor-launch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +21,8 @@ type QuoteBody = {
   state?: string;
   couponCode?: string | null;
   items?: unknown;
+  /** "Lançar pedido": devolve também a comissão estimada, só para o vendedor dono (sessão validada). */
+  launched?: boolean;
 };
 
 export async function POST(request: NextRequest) {
@@ -46,8 +52,26 @@ export async function POST(request: NextRequest) {
 
     const { quote } = result;
 
+    // Prévia da comissão do vendedor (base + extra, já com a promoção da oferta). Cliente nunca recebe isto.
+    let commission: { estimatedCents: number; configured: boolean } | null = null;
+
+    if (body.launched === true) {
+      const access = await verifyLaunchAccess(
+        getAppSqlRunner(),
+        request.cookies.get(B2B_SESSION_COOKIE)?.value,
+        resolution.context.responsibleId
+      );
+
+      if (access.ok) {
+        const snapshots = await buildQuoteItemSnapshots(getAppSqlRunner(), resolution.context, quote);
+        const estimate = estimateCommissionCents(snapshots);
+        commission = { estimatedCents: estimate.cents, configured: estimate.configured };
+      }
+    }
+
     // Só valores finais: o percentual de desconto por método nunca sai daqui.
     return NextResponse.json({
+      commission,
       couponCode: quote.couponCode,
       subtotalCents: quote.subtotalCents,
       couponDiscountCents: quote.couponDiscountCents,

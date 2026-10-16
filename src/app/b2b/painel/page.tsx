@@ -74,6 +74,17 @@ export default async function B2BPanelPage() {
         </p>
       </div>
 
+      {!demo.isDemo && (
+        <Link
+          href="/b2b/painel/lancar-pedido"
+          className="mt-6 block max-w-3xl rounded-[24px] bg-[#55245f] px-6 py-5 text-center text-xl font-extrabold text-white shadow-lg"
+          data-testid="lancar-pedido-botao"
+        >
+          Lançar pedido
+          <span className="mt-1 block text-sm font-semibold text-white/80">O cliente está na loja ou ao telefone? Lance o pedido por ele.</span>
+        </Link>
+      )}
+
       <QuickLinkPanel demo={demo.isDemo} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
 
       {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}

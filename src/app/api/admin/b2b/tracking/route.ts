@@ -105,6 +105,8 @@ export async function GET(request: NextRequest) {
         paymentMethod: orders.paymentMethod,
         totalCents: orders.totalCents,
         responsibleName: orders.b2bResponsibleName,
+        // Origem do pedido (SQL 37b): 'vendedor' = lançado pelo vendedor, 'parceiros' = loja pública; sem a coluna: nulo.
+        origin: sql<string | null>`to_jsonb("orders") ->> 'origin'`,
         customerName: customers.name,
         personType: customers.personType,
         clientName: b2bClients.displayName,

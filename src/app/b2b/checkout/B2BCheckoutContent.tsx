@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
   B2B_MAX_INSTALLMENTS,
   B2B_MIN_INSTALLMENT_CENTS,
@@ -58,6 +59,8 @@ type ShippingOption = {
 
 type Quote = {
   requestKey: string;
+  /** Só no "Lançar pedido": comissão estimada do vendedor (o cliente nunca recebe). */
+  commission?: { estimatedCents: number; configured: boolean } | null;
   couponCode: string | null;
   subtotalCents: number;
   couponDiscountCents: number;
@@ -132,10 +135,53 @@ export default function B2BCheckoutContent() {
   const [copied, setCopied] = useState(false);
   const [boletoSchedule, setBoletoSchedule] = useState<B2BBoletoInstallment[] | null>(null);
 
+  // "Lançar pedido": a loja abriu com ?lancar=1 (marca por token na aba); o servidor valida pela sessão do vendedor.
+  const [launched, setLaunched] = useState(false);
+  const [payLink, setPayLink] = useState("");
+  const [payLinkCopied, setPayLinkCopied] = useState(false);
+
+  useEffect(() => {
+    try {
+      // Marca vinda do sessionStorage (só existe no navegador): lida depois da montagem.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLaunched(Boolean(token) && window.sessionStorage.getItem(launchStorageKey(token)) === "1");
+    } catch {
+      setLaunched(false);
+    }
+  }, [token]);
+
+  // Lançamento: dados do cliente da oferta pré-preenchem o comprador (só o vendedor dono recebe).
+  useEffect(() => {
+    if (!launched || !token) return;
+    let cancelled = false;
+
+    fetch("/api/b2b/launch/buyer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ b2bToken: token }),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { buyer?: { name: string; email: string; phone: string; personType: "pf" | "pj"; document: string } } | null) => {
+        if (cancelled || !data?.buyer) return;
+        const buyer = data.buyer;
+        setPersonType(buyer.personType);
+        setName(buyer.name);
+        setEmail(buyer.email);
+        setPhone(buyer.phone);
+        if (buyer.personType === "pj") setCnpj(buyer.document);
+        else setCpf(buyer.document);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [launched, token]);
+
   const lines = cart.state.offerToken === token ? cart.state.lines : [];
   const itemsPayload = lines.map((line) => ({ productId: line.productId, qty: line.qty }));
   const cepDigits = onlyDigits(cep);
-  const requestKey = JSON.stringify([token, itemsPayload, cepDigits, uf, appliedCoupon]);
+  const requestKey = JSON.stringify([token, itemsPayload, cepDigits, uf, appliedCoupon, launched]);
 
   // ---- CEP -> endereço (conveniência; a UF é conferida no servidor)
   useEffect(() => {
@@ -179,6 +225,7 @@ export default function B2BCheckoutContent() {
           state: uf,
           couponCode: appliedCoupon || null,
           items: itemsPayload,
+          launched,
         }),
       });
 
@@ -315,6 +362,7 @@ export default function B2BCheckoutContent() {
           paymentMethod,
           installments: paymentMethod === "boleto" ? effectiveBoletoInstallments : 1,
           shipping: { serviceName: chosen.serviceName },
+          launched,
         }),
       });
 
@@ -333,6 +381,9 @@ export default function B2BCheckoutContent() {
       };
 
       setOrder(created);
+      if (launched && created.paymentMethod === "card") {
+        setPayLink(`${window.location.origin}${buildCardPayLinkPath(created.id, token)}`);
+      }
       setStoreLink(typeof data.storeLink === "string" ? data.storeLink : null);
       cart.clear();
 
@@ -405,7 +456,43 @@ export default function B2BCheckoutContent() {
           )}
 
           <div className="mt-6">
-            {order.paymentMethod === "card" && (
+            {order.paymentMethod === "card" && launched && payLink && (
+              <section className="rounded-[20px] border border-[#eadfd9] bg-white p-5" data-testid="link-pagamento-cartao">
+                <h2 className="text-lg font-bold">Link de pagamento no cartão</h2>
+                <p className="mt-1 text-sm text-[#746471]">
+                  Envie ao cliente: ele paga no próprio celular. O pedido fica aguardando até o pagamento ser aprovado.
+                </p>
+                <textarea readOnly value={payLink} className="mt-3 h-20 w-full rounded-xl border border-[#d9c7dc] p-2 text-xs" />
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(payLink);
+                        setPayLinkCopied(true);
+                      } catch {
+                        setPayLinkCopied(false);
+                      }
+                    }}
+                    className="rounded-full bg-[#55245f] py-3 text-sm font-extrabold text-white"
+                  >
+                    {payLinkCopied ? "Link copiado" : "Copiar link"}
+                  </button>
+                  <a
+                    href={`https://wa.me/${onlyDigits(phone).startsWith("55") ? onlyDigits(phone) : `55${onlyDigits(phone)}`}?text=${encodeURIComponent(
+                      `Olá! Segue o link para pagar seu pedido (${formatB2BCents(order.totalCents)}) no cartão: ${payLink}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border-2 border-[#55245f] py-3 text-center text-sm font-extrabold text-[#55245f]"
+                  >
+                    Enviar por WhatsApp
+                  </a>
+                </div>
+              </section>
+            )}
+
+            {order.paymentMethod === "card" && !launched && (
               <B2BMercadoPagoCardPayment
                 orderId={order.id}
                 b2bToken={token}
@@ -452,6 +539,19 @@ export default function B2BCheckoutContent() {
                 >
                   {copied ? "Código copiado" : "Copiar código Pix"}
                 </button>
+                {launched && (
+                  <a
+                    href={`https://wa.me/${onlyDigits(phone).startsWith("55") ? onlyDigits(phone) : `55${onlyDigits(phone)}`}?text=${encodeURIComponent(
+                      `Olá! Segue o Pix copia e cola do seu pedido (${formatB2BCents(order.totalCents)}):\n${pix.qrCode}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 block rounded-full border-2 border-[#55245f] py-3 text-center text-sm font-extrabold text-[#55245f]"
+                    data-testid="pix-whatsapp"
+                  >
+                    Enviar Pix por WhatsApp
+                  </a>
+                )}
                 <p className="mt-3 text-xs text-[#8a7886]">
                   Aguardando confirmação do pagamento… esta tela atualiza sozinha.
                 </p>
@@ -522,6 +622,16 @@ export default function B2BCheckoutContent() {
               ← Voltar ao pedido
             </Link>
             <h1 className="mt-4 font-serif text-3xl font-semibold text-[#55245f]">Checkout B2B</h1>
+            {launched && (
+              <p className="mt-3 rounded-xl bg-[#f6eef7] p-3 text-sm font-bold text-[#55245f]" data-testid="checkout-lancamento">
+                Pedido lançado por você. Confira os dados do cliente, o endereço de entrega e a forma de pagamento.
+                {quoteIsCurrent && quote?.commission?.configured && (
+                  <span className="mt-1 block text-xs font-extrabold text-[#2f7a4a]" data-testid="comissao-estimada">
+                    Sua comissão estimada neste pedido: {formatB2BCents(quote.commission.estimatedCents)} (só você vê).
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           <section className="space-y-3">

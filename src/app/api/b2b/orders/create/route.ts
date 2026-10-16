@@ -12,25 +12,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
-import {
-  addresses,
-  b2bOfferPromotions,
-  b2bPromotions,
-  couponRedemptions,
-  coupons,
-  customers,
-  orderItems,
-  orders,
-} from "@/lib/db/schema";
+import { addresses, couponRedemptions, coupons, customers, orderItems, orders } from "@/lib/db/schema";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
-import { STOREFRONT_ORIGIN, attributeStorefrontOrder } from "@/lib/b2b/storefront";
+import { STOREFRONT_ORIGIN, attributeStorefrontOrder, findDocumentOwner } from "@/lib/b2b/storefront";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
-import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
-import { buildOrderItemSnapshots } from "@/lib/b2b/order-commission";
-import { commissionWindowForItem, loadClientPurchases, loadReconquistaMonths } from "@/lib/b2b/purchase-history";
+import { buildQuoteItemSnapshots } from "@/lib/b2b/order-snapshots";
+import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
+import { LAUNCH_ORIGIN, LAUNCH_OTHER_REP_MESSAGE, verifyLaunchAccess } from "@/lib/b2b/vendor-launch";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import {
   isB2BInstallmentCountValid,
@@ -66,6 +57,8 @@ type CreateB2BOrderBody = {
   paymentMethod?: string;
   installments?: number;
   shipping?: { serviceName?: string };
+  /** "Lançar pedido": o vendedor dono da oferta fecha o pedido pelo cliente (validado pela sessão dele). */
+  launched?: boolean;
 };
 
 function onlyDigits(value: unknown) {
@@ -96,6 +89,19 @@ export async function POST(request: NextRequest) {
     /* Demonstração: nada de pedido real (a oferta é de vendedor is_demo). */
     if (context.isDemo) {
       return NextResponse.json({ error: DEMO_PURCHASE_DISABLED_MESSAGE, code: "DEMO_PURCHASE_DISABLED" }, { status: 403 });
+    }
+
+    // Pedido lançado pelo vendedor: só o dono da oferta, com sessão válida (servidor revalida; a tela não decide).
+    const launched = body.launched === true;
+
+    if (launched) {
+      const access = await verifyLaunchAccess(
+        getAppSqlRunner(),
+        request.cookies.get(B2B_SESSION_COOKIE)?.value,
+        context.responsibleId
+      );
+
+      if (!access.ok) return badRequest(access.error, access.status);
     }
 
     // ---- Comprador
@@ -144,6 +150,15 @@ export async function POST(request: NextRequest) {
 
     if (!chosenServiceName) {
       return badRequest("Escolha uma opção de entrega antes de continuar.");
+    }
+
+    // Lançamento: documento que já é cliente de OUTRO representante não pode ser lançado por este.
+    if (launched) {
+      const owner = await findDocumentOwner(getAppSqlRunner(), personType === "pj" ? cnpj : cpf).catch(() => null);
+
+      if (owner && owner.responsibleId !== context.responsibleId) {
+        return badRequest(LAUNCH_OTHER_REP_MESSAGE, 409);
+      }
     }
 
     // ---- Loja pública (/parceiros): resolve cliente e vendedor do pedido (dono do CNPJ/CPF ou vendedor da vitrine).
@@ -286,8 +301,19 @@ export async function POST(request: NextRequest) {
     // Nome no Omie do vendedor do pedido = nome do cadastro, se ninguém definiu outro (a Central lê a coluna).
     await ensureOmieVendorDefault(getAppSqlRunner(), context.responsibleId);
 
-    // Origem do pedido (relatório): loja pública /parceiros + código ?v=. Tolera o SQL 37b ausente.
-    if (storefront) {
+    // Origem do pedido (relatório): lançado pelo vendedor ('vendedor') ou loja pública /parceiros + código ?v=.
+    // Tolera o SQL 37b ausente.
+    if (launched) {
+      await getAppSqlRunner()(`UPDATE orders SET origin = $2 WHERE id = $1::uuid`, [order.id, LAUNCH_ORIGIN]).catch((error) =>
+        console.error("[b2b/orders/create] sem orders.origin (SQL 37b)", error)
+      );
+
+      // O documento passa a identificar o cliente para a regra de dono (só preenche onde está vazio).
+      await getAppSqlRunner()(
+        `UPDATE b2b_clients SET document = $2 WHERE id = $1::uuid AND COALESCE(to_jsonb(b2b_clients) ->> 'document', '') = ''`,
+        [context.clientId, personType === "pj" ? cnpj : cpf]
+      ).catch(() => null);
+    } else if (storefront) {
       await getAppSqlRunner()(`UPDATE orders SET origin = $2, origin_code = $3 WHERE id = $1::uuid`, [
         order.id,
         STOREFRONT_ORIGIN,
@@ -297,48 +323,7 @@ export async function POST(request: NextRequest) {
 
     // Snapshot imutável por item: promoção aplicada e comissão do vendedor
     // (base + extra = total) congeladas no pedido. O cliente não vê isso.
-    const runSql = getAppSqlRunner();
-    const productIds = quote.lines.map((line) => line.productId);
-
-    const [matrix, purchases, reconquistaMonths, groupRows, offerPromotionTerms] = await Promise.all([
-      loadCommissionMatrix(runSql, context.responsibleId, context.clientId),
-      // Janela de 180 dias por CLIENTE e LINHA (R4/R6), avaliada agora e congelada no item.
-      loadClientPurchases(runSql, context.clientId),
-      loadReconquistaMonths(runSql),
-      runSql(
-        `SELECT product_id, commercial_group_id FROM b2b_commercial_group_products WHERE product_id = ANY($1::uuid[])`,
-        [productIds]
-      ),
-      db
-        .select({
-          promotionId: b2bOfferPromotions.promotionId,
-          commercialGroupId: b2bOfferPromotions.commercialGroupId,
-          name: b2bPromotions.name,
-          buyQuantity: b2bPromotions.buyQuantity,
-          freeQuantity: b2bPromotions.freeQuantity,
-          eligibilityMode: b2bOfferPromotions.eligibilityMode,
-          maxUses: b2bOfferPromotions.maxUses,
-          durationDays: b2bOfferPromotions.durationDays,
-        })
-        .from(b2bOfferPromotions)
-        .innerJoin(b2bPromotions, eq(b2bPromotions.id, b2bOfferPromotions.promotionId))
-        .where(eq(b2bOfferPromotions.offerId, context.offerId)),
-    ]);
-
-    const itemSnapshots = buildOrderItemSnapshots({
-      matrix,
-      offerPromotions: offerPromotionTerms,
-      lines: quote.lines,
-      bonusLines: quote.bonusLines,
-      discountLines: quote.discountLines,
-      window: (productId) => {
-        const nowAt = new Date();
-        const groups = groupRows
-          .filter((row) => String(row.product_id) === productId)
-          .map((row) => String(row.commercial_group_id));
-        return commissionWindowForItem(purchases, groups, nowAt, reconquistaMonths);
-      },
-    });
+    const itemSnapshots = await buildQuoteItemSnapshots(getAppSqlRunner(), context, quote);
 
     // Colunas novas são opcionais: se um SQL (13b commission_basis, 17b desconto %) ainda não
     // foi aplicado, o pedido é gravado sem elas em vez de falhar.
@@ -411,6 +396,7 @@ export async function POST(request: NextRequest) {
       },
       // Loja pública: link permanente do lojista para comprar de novo.
       storeLink: storefront ? storefront.storeUrl : null,
+      launched,
     });
   } catch (error) {
     console.error("[b2b/orders/create]", error);

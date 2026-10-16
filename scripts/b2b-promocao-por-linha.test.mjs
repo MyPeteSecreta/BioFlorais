@@ -196,7 +196,7 @@ test("fios: ativação grava só a linha certa, resolvedor usa a parte pura, not
   const activate = read("src/app/api/b2b/offers/[offerId]/activate/route.ts");
   assert.ok(activate.includes("eq(b2bOfferPromotions.commercialGroupId, line.id)"));
   assert.ok(read("src/lib/b2b/promotion-resolver.ts").includes("matchPromotionLines({ active, productsById, explicitRows, groupRows, cartItems })"));
-  assert.ok(read("src/app/api/b2b/orders/create/route.ts").includes("commercialGroupId: b2bOfferPromotions.commercialGroupId"));
+  assert.ok(read("src/lib/b2b/order-snapshots.ts").includes("commercialGroupId: b2bOfferPromotions.commercialGroupId"));
   assert.ok(!read("src/lib/db/schema.ts").match(/primaryKey\(\{ columns: \[t\.offerId, t\.promotionId\] \}\)/));
   assert.ok(read("src/app/api/b2b/offers/draft/route.ts").includes("SQL 33b"));
   assert.ok(!read("src/lib/b2b/offer-draft-input.ts").includes("duas linhas"));
