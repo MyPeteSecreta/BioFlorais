@@ -10,8 +10,10 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { b2bClients, b2bCommercialGroups, b2bOfferLineViews } from "@/lib/db/schema";
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
-import { getAppSqlRunner, listOwnedClients } from "@/lib/b2b/ownership";
-import NewClientForm from "@/components/b2b/NewClientForm";
+import { getAppSqlRunner, listOwnedClients, listOwnedOffersForClient } from "@/lib/b2b/ownership";
+import ClientCardActions from "@/components/b2b/ClientCardActions";
+import LinkChooser from "@/components/b2b/LinkChooser";
+import OfferForClientCard from "@/components/b2b/OfferForClientCard";
 import QuickLinkPanel from "@/components/b2b/QuickLinkPanel";
 import { loadDemoState } from "@/lib/b2b/demo";
 import ReferralLinkPanel from "@/components/b2b/ReferralLinkPanel";
@@ -60,47 +62,75 @@ export default async function B2BPanelPage() {
   ]);
 
   const ownedIds = new Set(clients.map((client) => client.id));
+  const firstName = responsible.name.trim().split(/\s+/)[0] || "representante";
+
+  // Oferta ativa (com link) mais recente de cada cliente: "Oferta ativa desde dd/mm" e os botões de link.
+  const activeOfferByClient = new Map<string, { offerId: string; since: Date }>();
+  await Promise.all(
+    clients.map(async (client) => {
+      const offers = await listOwnedOffersForClient(getAppSqlRunner(), responsible.id, client.id).catch(() => []);
+      const active = offers.find((offer) => offer.activatedAt && !offer.revokedAt && offer.hasActiveLink);
+      if (active && active.activatedAt) activeOfferByClient.set(client.id, { offerId: active.id, since: active.activatedAt });
+    })
+  );
   const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
   // Demonstração não tem link de captação (não recebe lojistas reais).
   const referralCode = demo.isDemo ? null : await ensureReferralCode(getAppSqlRunner(), responsible.id);
 
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
-      <div className="max-w-3xl">
-        <h1 className="font-serif text-4xl font-semibold text-[#55245f]">Seus clientes</h1>
-        <p className="mt-2 text-[#746471]">
-          Escolha um cliente para montar a oferta: linhas, condição comercial de cada uma e revisão
-          antes de gerar o link.
-        </p>
-      </div>
+      <h1 className="font-serif text-3xl font-semibold text-[#55245f] sm:text-4xl" data-testid="saudacao">
+        Olá, {firstName}. O que você quer fazer agora?
+      </h1>
 
+      {/* 1. Card principal: a oferta personalizada é o que mais vende. */}
+      <OfferForClientCard clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
+
+      {/* 2. Lançar pedido */}
       {!demo.isDemo && (
-        <Link
-          href="/b2b/painel/lancar-pedido"
-          className="mt-6 block max-w-3xl rounded-[24px] bg-[#55245f] px-6 py-5 text-center text-xl font-extrabold text-white shadow-lg"
-          data-testid="lancar-pedido-botao"
-        >
-          Lançar pedido
-          <span className="mt-1 block text-sm font-semibold text-white/80">O cliente está na loja ou ao telefone? Lance o pedido por ele.</span>
-        </Link>
+        <section className="mt-5 rounded-[24px] border border-[#eadfd9] bg-white p-5 shadow-sm" data-testid="card-lancar-pedido">
+          <h2 className="text-xl font-extrabold text-[#422347]">Lançar pedido</h2>
+          <p className="mt-1 text-sm text-[#746471]">
+            O lojista está com você (na loja ou ao telefone) e não quer link? Lance o pedido por ele: Pix para mostrar ou enviar,
+            boleto PJ ou link de pagamento do cartão.
+          </p>
+          <Link
+            href="/b2b/painel/lancar-pedido"
+            className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#55245f] px-6 text-base font-extrabold text-white sm:w-auto sm:inline-flex"
+            data-testid="lancar-pedido-botao"
+          >
+            Lançar pedido
+          </Link>
+        </section>
       )}
 
-      <QuickLinkPanel demo={demo.isDemo} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
+      {/* 3. Links rápidos */}
+      <section className="mt-8" data-testid="links-rapidos">
+        <h2 className="text-xl font-extrabold text-[#422347]">Links rápidos — preço de lojista, sem promoção</h2>
+        <p className="mt-1 text-sm text-[#746471]">Todas as linhas, preço B2B cheio (sem promoção). Comissão normal para você.</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <QuickLinkPanel demo={demo.isDemo} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
+          {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}
+        </div>
+        <LinkChooser />
+      </section>
 
-      {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}
-
-      <p className="mt-4 flex flex-wrap gap-3">
-        <Link href="/b2b/painel/modelos" className="inline-block rounded-full border-2 border-[#55245f] px-5 py-2.5 text-sm font-extrabold text-[#55245f]">
-          Minhas ofertas padrão
-        </Link>
-        {!demo.isDemo && (
-          <Link href="/b2b/painel/mostruario" className="inline-block rounded-full bg-[#55245f] px-5 py-2.5 text-sm font-extrabold text-white">
+      {/* 4. Mostruário */}
+      {!demo.isDemo && (
+        <section className="mt-8 rounded-[24px] border border-[#eadfd9] bg-white p-5 shadow-sm" data-testid="card-mostruario">
+          <h2 className="text-xl font-extrabold text-[#422347]">Mostruário</h2>
+          <p className="mt-1 text-sm text-[#746471]">
+            Peça amostras para mostrar aos lojistas, com preço de mostruário e limite por linha a cada 45 dias.
+          </p>
+          <Link
+            href="/b2b/painel/mostruario"
+            className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-full border-2 border-[#55245f] px-6 text-base font-extrabold text-[#55245f] sm:w-auto sm:inline-flex"
+          >
             Solicitar mostruário
           </Link>
-        )}
-      </p>
+        </section>
+      )}
 
-      <NewClientForm />
 
       {interests.filter((item) => ownedIds.has(item.clientId)).length > 0 && (
         <section className="mt-8 rounded-[24px] border border-blue-200 bg-blue-50/60 p-5">
@@ -136,30 +166,43 @@ export default async function B2BPanelPage() {
         </section>
       )}
 
-      <section className="mt-8">
+      <section className="mt-10" data-testid="meus-clientes">
+        <h2 className="text-xl font-extrabold text-[#422347]">Meus clientes</h2>
         {clients.length === 0 ? (
-          <p className="rounded-[24px] border border-dashed border-[#d9c7dc] bg-white p-8 text-center text-[#746471]">
-            Você ainda não tem clientes. Cadastre o primeiro acima — só o nome é obrigatório.
+          <p className="mt-4 rounded-[24px] border border-dashed border-[#d9c7dc] bg-white p-8 text-center text-[#746471]">
+            Você ainda não tem clientes. Toque em &quot;+ Cliente novo&quot; no card acima — só o nome é obrigatório.
           </p>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {clients.map((client) => (
-              <li key={client.id}>
-                <Link
-                  href={`/b2b/painel/cliente/${client.id}`}
-                  className="block h-full rounded-[24px] border border-[#eadfd9] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <p className="text-lg font-extrabold text-[#422347]">{client.displayName}</p>
-                  <p className="mt-1 text-sm text-[#8a7886]">
-                    {[client.contactName, client.phone, client.email].filter(Boolean).join(" · ") ||
-                      "Sem contato cadastrado"}
-                  </p>
-                  <span className="mt-4 inline-block text-sm font-extrabold text-[#63326d]">
-                    Abrir cliente →
-                  </span>
-                </Link>
-              </li>
-            ))}
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {clients.map((client) => {
+              const active = activeOfferByClient.get(client.id) ?? null;
+
+              return (
+                <li key={client.id} className="flex h-full flex-col rounded-[24px] border border-[#eadfd9] bg-white p-5 shadow-sm">
+                  <Link href={`/b2b/painel/cliente/${client.id}`} className="block">
+                    <p className="text-lg font-extrabold text-[#422347]">{client.displayName}</p>
+                    <p className="mt-1 text-sm text-[#8a7886]">
+                      {[client.contactName, client.phone, client.email].filter(Boolean).join(" · ") || "Sem contato cadastrado"}
+                    </p>
+                  </Link>
+                  {active ? (
+                    <p className="mt-2 text-xs font-bold text-[#1f6b3a]" data-testid="oferta-ativa-desde">
+                      Oferta ativa desde {active.since.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" })}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs font-semibold text-[#8a7886]">Ainda sem oferta ativa</p>
+                  )}
+                  <div className="mt-auto">
+                    <ClientCardActions
+                      clientId={client.id}
+                      clientName={client.displayName}
+                      offerId={active?.offerId ?? null}
+                      demo={demo.isDemo}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

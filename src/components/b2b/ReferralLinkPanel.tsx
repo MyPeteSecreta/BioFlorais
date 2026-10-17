@@ -27,21 +27,22 @@ export default function ReferralLinkPanel({ url }: { url: string }) {
   }
 
   return (
-    <section className="mt-6 max-w-3xl rounded-[24px] border border-[#eadfd9] bg-white p-5" data-testid="meu-link-captacao">
-      <h2 className="text-lg font-extrabold text-[#422347]">Meu link de captação</h2>
+    <section className="rounded-[24px] border border-[#eadfd9] bg-white p-5" data-testid="meu-link-captacao">
+      <h3 className="text-lg font-extrabold text-[#422347]">Link geral para divulgar</h3>
       <p className="mt-1 text-sm text-[#746471]">
-        Coloque no seu flyer ou cartão. Quem se cadastrar por ele fica na sua carteira e já recebe o link com os preços B2B.
+        <strong>Quando usar:</strong> flyer, cartão, Instagram, grupo de WhatsApp ou lojista que você ainda não conhece. Não leva
+        nome: o lojista se identifica na hora de comprar e fica na sua carteira.
       </p>
       <input readOnly value={url} onFocus={(event) => event.target.select()} className="mt-3 w-full rounded-xl border border-[#eadfd9] bg-[#fbf7f4] px-3 py-2 text-xs" />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={copy} className="rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white">
-          {copied ? "Copiado ✓" : "Copiar link"}
+        <button type="button" onClick={copy} className="inline-flex min-h-[44px] items-center rounded-full bg-[#55245f] px-5 text-sm font-extrabold text-white">
+          {copied ? "Copiado ✓" : "Copiar"}
         </button>
-        <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#1f9d55] px-4 py-2 text-xs font-extrabold text-white">
-          Enviar pelo WhatsApp
+        <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-[44px] items-center rounded-full bg-[#1f9d55] px-5 text-sm font-extrabold text-white">
+          WhatsApp
         </a>
-        <button type="button" onClick={() => setShowQr(true)} className="rounded-full bg-[#26352c] px-4 py-2 text-xs font-extrabold text-white">
-          Mostrar QR Code
+        <button type="button" onClick={() => setShowQr(true)} className="inline-flex min-h-[44px] items-center rounded-full bg-[#26352c] px-5 text-sm font-extrabold text-white">
+          QR Code
         </button>
       </div>
       {showQr && <QrCodeModal url={url} clientName={null} onClose={() => setShowQr(false)} />}

@@ -9,6 +9,21 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 10 · Painel do vendedor claro (17/10/2026), sobre `c427fe4`
+
+**Sem SQL.** Só nomes e layout; rotas e dados não mudam. Mesmos textos das 3 marcas (muda só o nome da marca). Botões ≥ 44 px.
+
+- **Ordem do painel (375 px primeiro):** "Olá, {primeiro nome}. O que você quer fazer agora?" → **1. Montar oferta para um cliente** (card maior, cor da marca, título 3xl; botões [Escolher cliente ▾] e [+ Cliente novo]; abaixo [Usar uma oferta pronta]) → **2. Lançar pedido** (texto + botão) → **3. Links rápidos — preço de lojista, sem promoção** (3a "Link com o nome do cliente", era "Link padrão"; 3b "Link geral para divulgar", era "Meu link de captação"; "Não sabe qual usar?" abre o comparativo) → **4. Mostruário** → **5. Meus clientes**.
+- **Comparativo "Qual link eu uso?"** (fechado por padrão): 3 colunas (empilham no celular) com Promoção / Nome do cliente / Quando usar / Sua comissão e uma **miniatura HTML/CSS ~120 px** (sem foto) de como o cliente vê: "Olá, Pet Honjo" + "Leve 3 pague 2"; "Olá, Pet Honjo" + "Preço de lojista"; "Preço de lojista" + "Identifique-se ao finalizar".
+- **Meus clientes:** cada cartão tem [Nova oferta] (principal, nunca escondido), [Copiar link] [WhatsApp] [QR] e "Oferta ativa desde dd/mm" (ou "Ainda sem oferta ativa"). O link é lido na hora (só do próprio vendedor).
+- **Ofertas prontas** (era "Minhas ofertas padrão"): título novo, explicação "Monte uma vez as linhas e promoções que você mais usa e aplique em qualquer cliente em 1 clique.", botão grande **[+ Criar oferta pronta]**, e em cada modelo botões **[Usar com um cliente]** e **[Editar]** (+ Excluir). Rotas/dados iguais.
+- **Demonstração:** mesmos cards; "Lançar pedido" e "Mostruário" ficam ocultos (ações que criam pedido real seguem bloqueadas como antes).
+- **Resumo do mês:** opcional na especificação, não incluído (não empurra o card principal).
+- **Arquivos:** `b2b/painel/page.tsx`, `modelos/page.tsx`, componentes novos `OfferForClientCard`, `ClientCardActions`, `LinkChooser`; `NewClientForm` (props de botão), `QuickLinkPanel`, `ReferralLinkPanel`, `TemplatesPanel`; testes: novo `b2b-painel-clareza.test.mjs` e 3 asserções de texto antigas atualizadas.
+- **Prints (375 px e desktop):** `docs/prints-r10-r11/r10-*.jpg` (painel, comparativo aberto, Ofertas prontas), tirados com os componentes reais numa página de QA com dados de exemplo (removida antes do commit; o painel real exige sessão e banco).
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Área do vendedor sem links para o B2C (16/10/2026), sobre `2895775`
 
 **Conferência:** painel, clientes, ofertas, lançar pedido, mostruário, comissões, modelos, cadastro, login e telas de demonstração. B2C intocado.

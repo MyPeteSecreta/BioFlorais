@@ -60,10 +60,11 @@ export default function QuickLinkPanel({
   const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-3 text-base";
 
   return (
-    <section className="mt-6 max-w-3xl rounded-[24px] border-2 border-[#55245f] bg-[#fbf6fc] p-5" data-testid="link-padrao">
-      <h2 className="text-xl font-extrabold text-[#55245f]">Link padrão (preço B2B, todas as linhas)</h2>
+    <section className="rounded-[24px] border border-[#eadfd9] bg-white p-5" data-testid="link-padrao">
+      <h3 className="text-lg font-extrabold text-[#422347]">Link com o nome do cliente</h3>
       <p className="mt-1 text-sm text-[#746471]">
-        Digite só o nome do cliente (ou escolha um que você já tem) e gere o link na hora, sem promoção.
+        <strong>Quando usar:</strong> o cliente só quer ver a tabela e comprar. Digite o nome dele: o link sai na hora e ele abre
+        vendo &quot;Olá, {"{loja}"}&quot;.
       </p>
 
       <form onSubmit={generate} className="mt-4 space-y-3">
@@ -92,9 +93,9 @@ export default function QuickLinkPanel({
         <button
           type="submit"
           disabled={busy || (!clientId && clientName.trim().length < 2)}
-          className="w-full rounded-full bg-[#55245f] px-6 py-4 text-base font-extrabold text-white shadow disabled:opacity-50"
+          className="min-h-[48px] w-full rounded-full bg-[#55245f] px-6 py-3 text-base font-extrabold text-white shadow disabled:opacity-50"
         >
-          {busy ? "Gerando…" : "Gerar link padrão"}
+          {busy ? "Gerando…" : "Gerar link"}
         </button>
       </form>
 

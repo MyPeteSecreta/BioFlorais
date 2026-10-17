@@ -37,9 +37,10 @@ test("rota: só vendedor logado e cliente dele; sem promoção; cria o cliente s
 
 test("painel: botão grande no topo, cliente novo ou existente, Copiar/WhatsApp/QR no resultado", () => {
   const page = read("src/app/b2b/painel/page.tsx");
-  assert.ok(page.indexOf("<QuickLinkPanel") > 0 && page.indexOf("<QuickLinkPanel") < page.indexOf("<NewClientForm"));
+  // Rodada 10: o card principal é "Montar oferta" e o link com o nome do cliente fica em "Links rápidos" (depois dele).
+  assert.ok(page.indexOf("<OfferForClientCard") > 0 && page.indexOf("<OfferForClientCard") < page.indexOf("<QuickLinkPanel"));
   const panel = read("src/components/b2b/QuickLinkPanel.tsx");
-  assert.ok(panel.includes("Link padrão (preço B2B, todas as linhas)") && panel.includes("Gerar link padrão"));
+  assert.ok(panel.includes("Link com o nome do cliente") && panel.includes("Gerar link"));
   assert.ok(panel.includes("<LinkSharePanel") && panel.includes("clientName={result.clientName}"));
   const share = read("src/components/b2b/LinkSharePanel.tsx");
   assert.ok(share.includes("Copiar link") && share.includes("Enviar pelo WhatsApp") && share.includes("Mostrar QR Code"));

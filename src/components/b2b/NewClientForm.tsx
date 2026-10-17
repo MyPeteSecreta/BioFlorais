@@ -7,7 +7,13 @@ import { useState, type FormEvent } from "react";
 
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-2.5 text-sm";
 
-export default function NewClientForm() {
+export default function NewClientForm({
+  triggerClassName = "mt-6 rounded-full bg-[#55245f] px-6 py-3 text-sm font-extrabold text-white shadow",
+  triggerLabel = "+ Novo cliente",
+}: {
+  triggerClassName?: string;
+  triggerLabel?: string;
+} = {}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -46,15 +52,15 @@ export default function NewClientForm() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-6 rounded-full bg-[#55245f] px-6 py-3 text-sm font-extrabold text-white shadow"
+        className={triggerClassName}
       >
-        + Novo cliente
+        {triggerLabel}
       </button>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 max-w-3xl space-y-3 rounded-[24px] border border-[#eadfd9] bg-white p-5">
+    <form onSubmit={handleSubmit} className="mt-6 max-w-3xl space-y-3 rounded-[24px] border border-[#eadfd9] bg-white p-5 text-[#422347] sm:col-span-2">
       <h2 className="font-extrabold">Novo cliente</h2>
       <input
         className={input}

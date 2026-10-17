@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * L2 — "Minhas ofertas padrão": lista de modelos do vendedor e "Gerar link com este modelo": escolhe o
+ * L2 — "Ofertas prontas" (era "Minhas ofertas padrão"): lista de modelos do vendedor e "Gerar link com este modelo": escolhe o
  * cliente (novo, só o nome, ou existente), CONFERE (avisos de promoção indisponível/desativada para
  * aquele cliente) e só então gera a oferta ativa com Copiar, WhatsApp e QR Code.
  */
@@ -99,10 +99,13 @@ function TemplateCard({
           </ul>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/b2b/painel/modelos/${template.id}`} className="rounded-full border border-[#55245f] px-4 py-2 text-xs font-extrabold text-[#55245f]">
+          <Link
+            href={`/b2b/painel/modelos/${template.id}`}
+            className="inline-flex min-h-[44px] items-center rounded-full border border-[#55245f] px-5 text-sm font-extrabold text-[#55245f]"
+          >
             Editar
           </Link>
-          <button type="button" onClick={remove} className="rounded-full border border-[#b33] px-4 py-2 text-xs font-extrabold text-[#b33]">
+          <button type="button" onClick={remove} className="inline-flex min-h-[44px] items-center rounded-full border border-[#b33] px-5 text-sm font-extrabold text-[#b33]">
             Excluir
           </button>
         </div>
@@ -112,9 +115,9 @@ function TemplateCard({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-4 w-full rounded-full bg-[#55245f] px-6 py-3.5 text-sm font-extrabold text-white sm:w-auto"
+          className="mt-4 min-h-[48px] w-full rounded-full bg-[#55245f] px-6 py-3.5 text-base font-extrabold text-white sm:w-auto"
         >
-          Gerar link com minha oferta padrão
+          Usar com um cliente
         </button>
       ) : (
         <div className="mt-4 space-y-3 rounded-2xl bg-[#fbf6fc] p-4">

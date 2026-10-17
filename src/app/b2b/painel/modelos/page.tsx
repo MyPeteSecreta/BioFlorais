@@ -1,5 +1,5 @@
 /**
- * BIO FLORAIS B2B — L2 "Minhas ofertas padrão": modelos do vendedor (nome + linhas + promoção/
+ * BIO FLORAIS B2B — L2 "Ofertas prontas" (era "Minhas ofertas padrão"): modelos do vendedor (nome + linhas + promoção/
  * elegibilidade por linha) e "Gerar link com minha oferta padrão".
  */
 
@@ -61,18 +61,22 @@ export default async function TemplatesPage() {
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
       <Link href="/b2b/painel" className="text-sm font-bold text-[#63326d]">
-        ← Seus clientes
+        ← Painel
       </Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-3xl">
-          <h1 className="font-serif text-4xl font-semibold text-[#55245f]">Minhas ofertas padrão</h1>
+          <h1 className="font-serif text-4xl font-semibold text-[#55245f]">Ofertas prontas</h1>
           <p className="mt-2 text-[#746471]">
-            Monte um modelo uma vez (linhas e promoção de cada uma) e gere o link para qualquer cliente em segundos. Se uma
-            promoção não estiver disponível para aquele cliente, você vê o aviso antes de gerar.
+            Monte uma vez as linhas e promoções que você mais usa e aplique em qualquer cliente em 1 clique. Se uma promoção não
+            estiver disponível para aquele cliente, você vê o aviso antes de gerar.
           </p>
         </div>
-        <Link href="/b2b/painel/modelos/novo" className="rounded-full bg-[#55245f] px-6 py-3 text-sm font-extrabold text-white shadow">
-          + Novo modelo
+        <Link
+          href="/b2b/painel/modelos/novo"
+          className="flex min-h-[56px] w-full items-center justify-center rounded-full bg-[#55245f] px-8 text-lg font-extrabold text-white shadow-lg sm:w-auto"
+          data-testid="criar-oferta-pronta"
+        >
+          + Criar oferta pronta
         </Link>
       </div>
 

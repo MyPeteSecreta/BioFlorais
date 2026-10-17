@@ -122,7 +122,7 @@ test("página e rotas: noindex, preço B2B normal, isca anti-robô, sem vendedor
   assert.ok(!page.includes("PartnerSignupForm") && !page.includes("seller.email"));
   assert.ok(read("src/app/b2b/painel/page.tsx").includes("<ReferralLinkPanel"));
   const panel = read("src/components/b2b/ReferralLinkPanel.tsx");
-  assert.ok(panel.includes("Meu link de captação") && panel.includes("Copiar link") && panel.includes("WhatsApp") && panel.includes("Mostrar QR Code"));
+  assert.ok(panel.includes("Link geral para divulgar") && panel.includes("Copiar") && panel.includes("WhatsApp") && panel.includes("QR Code"));
   const admin = read("src/app/api/admin/b2b/responsibles/[id]/route.ts");
   assert.ok(["set_referral_code", "ensure_referral_code", "set_house"].every((action) => admin.includes(`case "${action}"`)));
   const tab = read("src/components/admin/b2b/ResponsiblesTab.tsx");

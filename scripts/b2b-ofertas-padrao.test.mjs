@@ -114,13 +114,13 @@ test("34b: tabela aditiva e idempotente; cada vendedor só vê e arquiva os pró
 });
 
 test("telas e rotas: modelos no painel, mesmo Offer Builder, conferência antes de gerar, rotas protegidas", () => {
-  assert.ok(read("src/app/b2b/painel/page.tsx").includes("Minhas ofertas padrão"));
+  assert.ok(read("src/components/b2b/OfferForClientCard.tsx").includes("Usar uma oferta pronta") && read("src/app/b2b/painel/modelos/page.tsx").includes("Ofertas prontas"));
   const builderPage = read("src/app/b2b/painel/modelos/[id]/page.tsx");
   assert.ok(builderPage.includes("<OfferBuilder") && builderPage.includes("templateMode"));
   const builder = read("src/app/b2b/painel/cliente/[clientId]/oferta/OfferBuilder.tsx");
   assert.ok(builder.includes("/api/b2b/offer-templates") && builder.includes("Salvar modelo"));
   const panel = read("src/components/b2b/TemplatesPanel.tsx");
-  assert.ok(panel.includes("Gerar link com minha oferta padrão") && panel.includes("Conferir a oferta") && panel.includes("Atenção antes de gerar"));
+  assert.ok(panel.includes("Usar com um cliente") && panel.includes("Conferir a oferta") && panel.includes("Atenção antes de gerar"));
   assert.ok(panel.includes("<LinkSharePanel") && panel.includes("clientName={result.clientName}"), "Copiar, WhatsApp e QR");
   for (const f of ["src/app/api/b2b/offer-templates/route.ts", "src/app/api/b2b/offers/from-template/route.ts"]) {
     assert.ok(read(f).includes("requireResponsible(request)"), f);
