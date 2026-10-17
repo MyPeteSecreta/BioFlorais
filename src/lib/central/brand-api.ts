@@ -8,6 +8,7 @@ import { isUuid } from "@/lib/b2b/admin-input";
 import { andNotArchived } from "@/lib/b2b/archive";
 import { effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
 import { SHOWCASE_ORIGIN } from "@/lib/b2b/showcase";
+import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { B2B_RESPONSIBLE_TYPES, buildInviteMessage, buildWhatsAppUrl } from "@/lib/b2b/invite-links";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
@@ -82,7 +83,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
 
   const rows = await run(
     `SELECT o.id, o.fulfillment_status, o.b2b_offer_id, o.shipping_service_name,
-            to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
+            to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
             COALESCE(r.name, to_jsonb(o) ->> 'b2b_responsible_name') AS seller_name,
             to_jsonb(r) ->> 'omie_vendor_code' AS omie_vendor_code,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') || 'Z' AS created_at,
@@ -137,6 +138,21 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
   const orders: CentralOrder[] = rows.map((row) => {
     const showcase = row.origin === SHOWCASE_ORIGIN;
     const seller = row.seller_name ? String(row.seller_name) : null;
+    // Displays do kit (brinde): não viram item; vão ao Omie só como observação do Pedido de Venda.
+    const observations: string[] = [];
+
+    if (showcase) observations.push(`PEDIDO DE MOSTRUÁRIO – vendedor ${seller ?? ""}`.trim());
+
+    try {
+      const adjustments = row.adjustments ? (JSON.parse(String(row.adjustments)) as { displays?: Array<{ key?: string; count?: number }> }) : null;
+
+      for (const entry of adjustments?.displays ?? []) {
+        const display = displayByKey(String(entry.key ?? ""));
+        if (display) observations.push(displayOmieObservation(display, Math.max(1, Number(entry.count ?? 1))));
+      }
+    } catch {
+      // ajuste ilegível: sem observação de display
+    }
 
     return {
       id: String(row.id),
@@ -153,7 +169,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
       seller,
       // Nome no Omie: o definido pelo admin ou, por padrão, o nome completo do cadastro do vendedor.
       omieVendor: row.b2b_responsible_id ? effectiveOmieVendor(row.omie_vendor_code, seller) || null : null,
-      omieObservation: showcase ? `PEDIDO DE MOSTRUÁRIO – vendedor ${seller ?? ""}`.trim() : null,
+      omieObservation: observations.length > 0 ? observations.join(" | ") : null,
     };
   });
 

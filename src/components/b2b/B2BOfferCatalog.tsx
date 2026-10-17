@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useB2BCart } from "@/lib/b2b/cart-context";
+import type { KitCardView, KitOption } from "@/lib/b2b/displays-view";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { applyB2BPercentDiscount, calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
 
 export type B2BCatalogProduct = {
@@ -31,6 +33,112 @@ export type B2BCatalogGroup = {
   products: B2BCatalogProduct[];
   promotionNote?: string | null;
 };
+
+/**
+ * Card de KIT COM DISPLAY: mesmo componente/tamanho/proporção de foto dos cards de produto. Um kit = a composição
+ * FIXA da linha + display GRÁTIS (brinde). Com várias opções ("Escolha seu display") aparecem como variações.
+ * Sem foto própria do display, usa a imagem da linha + selo "Display".
+ */
+function KitCard({
+  card,
+  focused,
+  onAdd,
+}: {
+  card: KitCardView;
+  focused: boolean;
+  onAdd: (option: KitOption) => void;
+}) {
+  const [selected, setSelected] = useState(card.options[0]?.key ?? "");
+  const [added, setAdded] = useState(false);
+  const ref = useRef<HTMLLIElement>(null);
+  const option = card.options.find((item) => item.key === selected) ?? card.options[0];
+
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focused]);
+
+  if (!option) return null;
+
+  const image = option.photo ?? card.lineImage;
+  const belowMinimum = option.totalCents < B2B_MIN_ORDER_CENTS;
+
+  return (
+    <li
+      ref={ref}
+      data-testid="kit-card"
+      className={[
+        "flex flex-col rounded-[20px] border bg-white p-4 shadow-sm",
+        card.featured || focused ? "border-blue-500 ring-[3px] ring-blue-500 ring-offset-2 ring-offset-[#fffaf6]" : "border-[#eadfd9]",
+      ].join(" ")}
+    >
+      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-[#fbf5f1]">
+        <span className="absolute left-2 top-2 z-10 rounded-full bg-[#55245f] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white shadow">
+          Display
+        </span>
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt={option.displayName} className="h-full w-full object-contain" />
+        ) : (
+          <span className="text-xs text-[#9c8c98]">Display</span>
+        )}
+      </div>
+
+      <h3 className="mt-3 text-sm font-bold leading-snug text-[#422347]">{card.title}</h3>
+      <p className="mt-1 text-xs text-[#6c5b69]">
+        {card.options.length > 1 ? "Toque para escolher o tamanho do display." : option.summary}
+      </p>
+
+      {card.featured && (
+        <p className="mt-2 inline-flex self-start rounded-full bg-blue-600 px-3 py-1 text-[11px] font-extrabold text-white">Destaque</p>
+      )}
+
+      {card.options.length > 1 && (
+        <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Escolha seu display">
+          {card.options.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="radio"
+              aria-checked={item.key === option.key}
+              onClick={() => setSelected(item.key)}
+              className={[
+                "rounded-full border px-3 py-1.5 text-xs font-extrabold",
+                item.key === option.key ? "border-[#55245f] bg-[#55245f] text-white" : "border-[#d9c7dc] bg-white text-[#55245f]",
+              ].join(" ")}
+            >
+              {item.label} · {item.units} un.
+            </button>
+          ))}
+        </div>
+      )}
+
+      {card.options.length > 1 && <p className="mt-2 text-xs text-[#6c5b69]">{option.summary}</p>}
+
+      <p className="mt-2 text-lg font-extrabold text-[#55245f]">
+        {formatB2BCents(option.totalCents)}
+        <span className="ml-1 text-xs font-semibold text-[#8a7886]">/ kit</span>
+      </p>
+      <p className="mt-1 text-xs font-semibold text-[#2f7a4a]">{option.displayName} grátis</p>
+      {belowMinimum && (
+        <p className="mt-1 text-xs font-semibold text-[#8a5a12]">Pedido mínimo de {formatB2BCents(B2B_MIN_ORDER_CENTS)}: complete com outros itens.</p>
+      )}
+
+      <div className="mt-auto pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            onAdd(option);
+            setAdded(true);
+            window.setTimeout(() => setAdded(false), 2500);
+          }}
+          className="w-full rounded-full bg-[#63326d] px-3 py-2.5 text-xs font-extrabold text-white"
+        >
+          {added ? "Kit no pedido ✓" : "Adicionar kit"}
+        </button>
+      </div>
+    </li>
+  );
+}
 
 function ProductCard({
   product,
@@ -158,9 +266,15 @@ function ProductCard({
 export default function B2BOfferCatalog({
   token,
   groups,
+  kits = [],
+  focusKit,
 }: {
   token: string;
   groups: B2BCatalogGroup[];
+  /** Cards de kit com display da linha (aparecem como PRIMEIROS cards). */
+  kits?: KitCardView[];
+  /** ?kit=<chave do display>: o card desse kit abre destacado. */
+  focusKit?: string;
 }) {
   const cart = useB2BCart();
   const { setOfferToken, hydrated } = cart;
@@ -170,10 +284,24 @@ export default function B2BOfferCatalog({
   }, [hydrated, setOfferToken, token]);
 
   const qtyByProduct = new Map(cart.state.lines.map((line) => [line.productId, line.qty]));
+  // ?kit=<chave>: só o PRIMEIRO card que tem esse display abre destacado.
+  const focusCardId = focusKit ? kits.find((card) => card.options.some((option) => option.key === focusKit))?.id : undefined;
 
   return (
     <>
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
+        {cart.notice && (
+          <p
+            role="alert"
+            data-testid="aviso-display"
+            className="mb-5 flex items-start justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950"
+          >
+            <span>{cart.notice}</span>
+            <button type="button" onClick={cart.dismissNotice} className="shrink-0 text-xs font-extrabold underline">
+              OK
+            </button>
+          </p>
+        )}
         {groups.map((group) => (
           <section key={group.id} className="mb-10">
             <h2 className="sr-only">{group.name}</h2>
@@ -183,6 +311,31 @@ export default function B2BOfferCatalog({
               </p>
             )}
             <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {kits.map((card) => (
+                <KitCard
+                  key={card.id}
+                  card={card}
+                  focused={card.id === focusCardId}
+                  onAdd={(option) =>
+                    cart.addKit(
+                      {
+                        key: option.key,
+                        name: option.displayName,
+                        composition: option.items.map((item) => ({ productId: item.productId, qty: item.qty })),
+                      },
+                      option.items.map((item) => ({
+                        productId: item.productId,
+                        slug: item.slug,
+                        name: item.name,
+                        image: item.image,
+                        priceCents: item.priceCents,
+                        discountPercent: null,
+                        qty: item.qty,
+                      }))
+                    )
+                  }
+                />
+              ))}
               {group.products.map((product) => (
                 <ProductCard
                   key={product.id}

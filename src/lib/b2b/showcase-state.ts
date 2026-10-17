@@ -16,6 +16,7 @@ import {
   buildShowcaseQuotas,
   loadShowcaseConfig,
   loadShowcaseUsage,
+  maxShowcaseWindowDays,
   showcaseEligibility,
   type ShowcaseCandidate,
   type ShowcaseCatalogEntry,
@@ -136,7 +137,7 @@ export async function loadShowcaseState(run: SqlRunner, responsibleId: string, n
 
   const [candidates, usage] = await Promise.all([
     loadCandidates(run),
-    loadShowcaseUsage(run, responsibleId, config.windowDays),
+    loadShowcaseUsage(run, responsibleId, maxShowcaseWindowDays(config)),
   ]);
   const catalog = buildShowcaseCatalog(config.groups, candidates, config.percent);
   const quotas = buildShowcaseQuotas(catalog, usage, config.windowDays, now);
@@ -174,6 +175,10 @@ export type ShowcaseViewLine = {
 export type ShowcaseViewSection = {
   key: string;
   order: number;
+  /** Grupo em destaque (topo da loja, selo "Destaque"). */
+  highlight: boolean;
+  /** Preço fixo (fora do %): a tela não mostra o preço de loja riscado. */
+  fixedPrice: boolean;
   title: string;
   limit: number;
   used: number;
@@ -205,6 +210,8 @@ export function buildShowcaseView(state: ShowcaseState): { sections: ShowcaseVie
       section = {
         key: entry.key,
         order: entry.group.sortOrder,
+        highlight: entry.group.highlight,
+        fixedPrice: entry.group.fixedPriceCents !== null,
         title: quota.lineSlug ? `${entry.group.name.replace(/\s*\(.*\)\s*$/, "")} · ${label.line || quota.lineSlug}` : entry.group.name,
         limit: quota.limit,
         used: quota.used,
@@ -240,7 +247,7 @@ export function buildShowcaseView(state: ShowcaseState): { sections: ShowcaseVie
 
   const ordered = Array.from(sections.values())
     .map((section) => ({ ...section, products: section.products.sort((a, b) => a.label.localeCompare(b.label, "pt-BR")) }))
-    .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "pt-BR"));
+    .sort((a, b) => Number(b.highlight) - Number(a.highlight) || a.order - b.order || a.title.localeCompare(b.title, "pt-BR"));
 
   return { sections: ordered, lines };
 }

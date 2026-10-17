@@ -13,6 +13,7 @@ export default function B2BCartContent() {
 
   const tokenMatches = Boolean(token) && cart.state.offerToken === token;
   const lines = tokenMatches ? cart.state.lines : [];
+  const displays = tokenMatches ? cart.state.displays : [];
   const missingCents = Math.max(0, B2B_MIN_ORDER_CENTS - cart.subtotalCents);
 
   if (!token) {
@@ -34,6 +35,19 @@ export default function B2BCartContent() {
         </Link>
 
         <h1 className="mt-4 font-serif text-3xl font-semibold text-[#55245f]">Seu pedido B2B</h1>
+
+        {cart.notice && (
+          <p
+            role="alert"
+            data-testid="aviso-display"
+            className="mt-4 flex items-start justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950"
+          >
+            <span>{cart.notice}</span>
+            <button type="button" onClick={cart.dismissNotice} className="shrink-0 text-xs font-extrabold underline">
+              OK
+            </button>
+          </p>
+        )}
 
         {!cart.hydrated ? null : lines.length === 0 ? (
           <p className="mt-6 text-[#746471]">Nenhum produto no pedido ainda.</p>
@@ -83,6 +97,22 @@ export default function B2BCartContent() {
                 </li>
               ))}
             </ul>
+
+            {displays.length > 0 && (
+              <ul className="mt-3 divide-y divide-[#eadfd9] rounded-[20px] border border-[#cfe6d6] bg-[#f4fbf6]" data-testid="displays-brinde">
+                {displays.map((display, index) => (
+                  <li key={`${display.key}-${index}`} className="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p className="text-sm font-bold">
+                        {display.name} <span className="text-[#2f7a4a]">(brinde)</span>
+                      </p>
+                      <p className="text-xs text-[#5f7a69]">O display vem grátis com o kit completo.</p>
+                    </div>
+                    <p className="text-sm font-extrabold text-[#2f7a4a]">{formatB2BCents(0)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="mt-6 rounded-[20px] border border-[#eadfd9] bg-white p-5">
               <div className="flex items-center justify-between text-lg font-extrabold">

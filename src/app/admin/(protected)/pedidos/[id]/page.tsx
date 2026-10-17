@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { db } from "@/lib/db/client";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
 import {
   addresses,
@@ -101,6 +102,22 @@ export default async function PedidoDetalhePage({
   // Pedido de MOSTRUÁRIO do vendedor: selo visível; a observação segue para o Omie.
   const isShowcase = (await loadShowcaseOrderIds(getAppSqlRunner())).has(order.id);
 
+  // Displays do kit (brinde): não são item do pedido; seguem ao Omie como observação.
+  const displayNotes: string[] = [];
+
+  try {
+    const adjustments = order.commercialAdjustmentsJson
+      ? (JSON.parse(order.commercialAdjustmentsJson) as { displays?: Array<{ key?: string; count?: number }> })
+      : null;
+
+    for (const entry of adjustments?.displays ?? []) {
+      const display = displayByKey(String(entry.key ?? ""));
+      if (display) displayNotes.push(displayOmieObservation(display, Math.max(1, Number(entry.count ?? 1))));
+    }
+  } catch {
+    // ajuste ilegível: sem observação
+  }
+
   const [
     customerRows,
     addressRows,
@@ -175,6 +192,12 @@ export default async function PedidoDetalhePage({
             <p className="mt-2 text-sm text-stone-500">
               {formatDate(order.createdAt)}
             </p>
+
+            {displayNotes.length > 0 && (
+              <p className="mt-1 text-sm font-bold text-emerald-800" data-testid="pedido-display">
+                {displayNotes.join(" | ")}
+              </p>
+            )}
 
             {isShowcase && (
               <p className="mt-1 text-sm font-bold text-fuchsia-800">

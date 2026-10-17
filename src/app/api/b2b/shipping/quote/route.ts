@@ -23,6 +23,8 @@ type QuoteBody = {
   items?: unknown;
   /** "Lançar pedido": devolve também a comissão estimada, só para o vendedor dono (sessão validada). */
   launched?: boolean;
+  /** Displays do kit (brinde). */
+  displays?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
       cep: body.cep,
       state: body.state,
       couponCode: body.couponCode,
+      displays: body.displays,
     });
 
     if (!result.ok) {
@@ -72,6 +75,7 @@ export async function POST(request: NextRequest) {
     // Só valores finais: o percentual de desconto por método nunca sai daqui.
     return NextResponse.json({
       commission,
+      displays: quote.displays,
       couponCode: quote.couponCode,
       subtotalCents: quote.subtotalCents,
       couponDiscountCents: quote.couponDiscountCents,

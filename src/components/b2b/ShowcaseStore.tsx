@@ -18,6 +18,8 @@ export type StoreProduct = {
   priceCents: number;
   b2cPriceCents: number;
   lineKey: string;
+  /** Foto do display (mostruário de displays); null = sem foto. */
+  image?: string | null;
 };
 
 /** Teto da linha na janela (soma de todos os itens da linha). */
@@ -38,6 +40,10 @@ export type StoreSection = {
   remaining: number;
   releasesAt: string | null;
   products: StoreProduct[];
+  /** Grupo em destaque (topo, selo "Destaque"). */
+  highlight?: boolean;
+  /** Preço fixo (fora do %): sem o preço de loja riscado. */
+  fixedPrice?: boolean;
 };
 
 export type StoreVendor = {
@@ -516,7 +522,14 @@ export default function ShowcaseStore({
             return (
               <section key={section.key} className="rounded-[24px] border border-[#eadfd9] bg-white p-4 sm:p-5" data-testid="showcase-section">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h2 className="font-extrabold text-[#422347]">{section.title}</h2>
+                  <h2 className="font-extrabold text-[#422347]">
+                    {section.title}
+                    {section.highlight && (
+                      <span className="ml-2 rounded-full bg-blue-600 px-2.5 py-0.5 align-middle text-[11px] font-extrabold text-white" data-testid="selo-destaque">
+                        Destaque
+                      </span>
+                    )}
+                  </h2>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-extrabold ${
                       blocked ? "bg-stone-100 text-stone-600" : "bg-emerald-50 text-emerald-900"
@@ -547,12 +560,16 @@ export default function ShowcaseStore({
                     const count = qty[product.id] ?? 0;
                     return (
                       <li key={product.id} className="flex items-center justify-between gap-3 py-2.5">
-                        <div className="min-w-0">
+                        {product.image && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={product.image} alt="" className="h-14 w-14 shrink-0 rounded-xl bg-[#fbf5f1] object-contain" />
+                        )}
+                        <div className="min-w-0 flex-1">
                           <p className="break-words text-sm font-bold text-[#342737]">{product.label}</p>
                           <p className="text-xs text-[#8a7886]">
                             {product.volume && `${product.volume} · `}
                             <strong className="text-[#55245f]">{formatB2BCents(product.priceCents)}</strong>
-                            <span className="ml-1 line-through">{formatB2BCents(product.b2cPriceCents)}</span>
+                            {!section.fixedPrice && <span className="ml-1 line-through">{formatB2BCents(product.b2cPriceCents)}</span>}
                           </p>
                         </div>
                         {blocked ? (

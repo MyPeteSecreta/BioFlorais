@@ -36,6 +36,12 @@ export type ShowcaseGroup = {
   lowestVolumeOnly: boolean;
   active: boolean;
   sortOrder: number;
+  /** Janela PRÓPRIA do grupo em dias (ex.: displays = 180). null = janela geral do mostruário. (SQL 41b) */
+  windowDays: number | null;
+  /** Preço FIXO do item no mostruário (centavos, fora do %). null = % do B2C. (SQL 41b) */
+  fixedPriceCents: number | null;
+  /** "Destaque": o grupo aparece no topo da loja do mostruário. (SQL 41b) */
+  highlight: boolean;
 };
 
 /** Produto candidato (catálogo + preço do banco). */
@@ -167,7 +173,7 @@ export function buildShowcaseCatalog(
       group,
       key: group.perLine ? `${group.id}:${strip(product.lineSlug)}` : group.id,
       lineSlug: product.lineSlug,
-      priceCents: showcasePriceCents(product.b2cPriceCents, percent),
+      priceCents: group.fixedPriceCents !== null && group.fixedPriceCents > 0 ? group.fixedPriceCents : showcasePriceCents(product.b2cPriceCents, percent),
     });
   }
 
@@ -209,16 +215,17 @@ export function buildShowcaseQuotas(
     });
   }
 
-  const windowStart = now.getTime() - windowDays * DAY_MS;
-
   for (const row of usage) {
-    if (row.createdAt.getTime() <= windowStart) continue;
     const entry = catalog.get(row.productId);
     const quota = entry ? quotas.get(entry.key) : undefined;
-    if (!quota) continue;
+    if (!entry || !quota) continue;
+
+    // Janela própria do grupo (ex.: displays 180 dias) ou a janela geral do mostruário.
+    const groupWindow = entry.group.windowDays ?? windowDays;
+    if (row.createdAt.getTime() <= now.getTime() - groupWindow * DAY_MS) continue;
 
     quota.used += row.qty;
-    const releases = new Date(row.createdAt.getTime() + windowDays * DAY_MS);
+    const releases = new Date(row.createdAt.getTime() + groupWindow * DAY_MS);
     if (!quota.releasesAt || releases.getTime() < quota.releasesAt.getTime()) quota.releasesAt = releases;
   }
 
@@ -256,6 +263,8 @@ export function buildShowcaseLineQuotas(
   const seen = new Set<string>();
 
   for (const entry of catalog.values()) {
+    // Displays e Kit Provador (preço fixo, janela própria) não contam no teto de unidades da linha.
+    if (entry.group.fixedPriceCents !== null) continue;
     const line = strip(entry.lineSlug);
     const mark = `${entry.key}|${line}`;
     if (seen.has(mark)) continue;
@@ -277,7 +286,7 @@ export function buildShowcaseLineQuotas(
   for (const row of usage) {
     if (row.createdAt.getTime() <= windowStart) continue;
     const entry = catalog.get(row.productId);
-    const quota = entry ? lines.get(strip(entry.lineSlug)) : undefined;
+    const quota = entry && entry.group.fixedPriceCents === null ? lines.get(strip(entry.lineSlug)) : undefined;
     if (!quota) continue;
 
     quota.used += row.qty;
@@ -377,6 +386,8 @@ export function validateShowcaseCart(
     const usedByLine = new Map<string, number>();
 
     for (const line of lines) {
+      // Displays e Kit Provador (preço fixo, janela própria) ficam fora do teto de unidades da linha.
+      if (catalog.get(line.productId)?.group.fixedPriceCents !== null && catalog.get(line.productId)?.group.fixedPriceCents !== undefined) continue;
       const key = strip(line.lineSlug);
       usedByLine.set(key, (usedByLine.get(key) ?? 0) + line.qty);
     }
@@ -479,8 +490,11 @@ export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig
     const [groupRows, settingRows] = await Promise.all([
       run(
         `SELECT id, name, line_slugs, categories, name_includes, name_excludes, limit_qty, per_line,
-                lowest_volume_only, active, sort_order
-           FROM b2b_showcase_groups ORDER BY sort_order, name`
+                lowest_volume_only, active, sort_order,
+                to_jsonb(g) ->> 'window_days' AS window_days,
+                to_jsonb(g) ->> 'fixed_price_cents' AS fixed_price_cents,
+                to_jsonb(g) ->> 'highlight' AS highlight
+           FROM b2b_showcase_groups g ORDER BY sort_order, name`
       ),
       run(`SELECT key, value FROM b2b_settings WHERE key IN ('showcase_price_percent', 'showcase_window_days')`).catch(() => []),
     ]);
@@ -507,6 +521,9 @@ export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig
         lowestVolumeOnly: Boolean(row.lowest_volume_only),
         active: Boolean(row.active),
         sortOrder: Number(row.sort_order ?? 0),
+        windowDays: row.window_days ? Number(row.window_days) : null,
+        fixedPriceCents: row.fixed_price_cents ? Number(row.fixed_price_cents) : null,
+        highlight: row.highlight === "true",
       })),
     };
   } catch {
@@ -518,6 +535,11 @@ export async function loadShowcaseConfig(run: SqlRunner): Promise<ShowcaseConfig
  * Itens pedidos pelo vendedor na janela: pedidos de mostruário pagos, ou ainda pendentes há menos de
  * SHOWCASE_PENDING_HOLD_MINUTES (cota reservada). Cancelados/expirados não contam.
  */
+/** Maior janela em uso (a geral ou a de algum grupo): quanto do histórico buscar. */
+export function maxShowcaseWindowDays(config: Pick<ShowcaseConfig, "windowDays" | "groups">): number {
+  return Math.max(config.windowDays, ...config.groups.map((group) => group.windowDays ?? 0));
+}
+
 export async function loadShowcaseUsage(
   run: SqlRunner,
   responsibleId: string,

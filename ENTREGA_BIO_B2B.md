@@ -9,6 +9,54 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 11 · Displays, kits e Kit Provador — BIO (17/10/2026), sobre `fc6ff1e`
+
+Fonte de verdade: `DISPLAYS_COMPOSICAO.md`. **B2C intocado** (nenhum arquivo do B2C foi alterado; os produtos internos novos ficam na tabela `products`, que o B2C não lista: ele lê o catálogo do site). My Pet/Secreta: não fazem parte desta janela.
+
+## SQL e ordem: **SQL → conferência → push**
+1. `41a_displays_conferencia_one_shot.sql` (somente leitura, 1 linha JSON; roda antes do 41b sem erro) — confere pelo slug (`adulto-%`, `pet-floral-em-gotas-%`, `baby-%`, `kids-%`, `teen-%`, `infantil-%`, `virtudes-divinas-%`, `dose-unica-%`) e os SKUs do kit compacto (esperado **8**) e do Pet 12 (esperado **9**).
+2. `41b_displays_mostruario.sql` (aditivo, idempotente, BEGIN/COMMIT, **linha final `ok`**): 3 colunas em `b2b_showcase_groups` (`window_days`, `fixed_price_cents`, `highlight`), **14 produtos internos** e 2 grupos do mostruário. Não apaga nem altera nada existente. Exige o 39b (aborta com mensagem clara se não existir).
+3. Rodar o `41a` de novo: `colunas_grupos_ok = true`, `produtos_internos_displays = 12`, `produtos_internos_provador = 2`, `grupos_displays_e_provador = 2`.
+Sem o 41b o app **não quebra**: displays do lojista funcionam (não dependem de SQL); só o mostruário não mostra displays/Kit Provador.
+
+## Códigos internos criados (para o Luis cadastrar no Omie)
+| Código | Slug (produto interno, minúsculas) | Peso / medidas |
+|---|---|---|
+| BIO-DISP-ADULTO-COMPACTO · -ADULTO-MEDIO · -ADULTO-GRANDE | bio-disp-adulto-compacto · -medio · -grande | 200 g · 30 × 30 × 3 cm |
+| BIO-DISP-PET-12 · -PET-30 · -PET-44 | bio-disp-pet-12 · -30 · -44 | 200 g · 30 × 30 × 3 cm |
+| BIO-DISP-BABY · -KIDS · -TEEN · -INFANTIL | bio-disp-baby · -kids · -teen · -infantil | 200 g · 30 × 30 × 3 cm |
+| BIO-DISP-VIRTUDES-DIVINAS · BIO-DISP-DOSE-UNICA | bio-disp-virtudes-divinas · bio-disp-dose-unica | 200 g · 30 × 30 × 3 cm |
+| BIO-PROV-ITSBLOSSOM | bio-prov-itsblossom (Kit Provador floral de ambiente It's Blossom) | 8 g · 6 × 2 × 2 cm |
+| BIO-PROV-AMBPET | bio-prov-ambpet (Kit Provador floral de ambiente Pet) | 8 g · 6 × 2 × 2 cm |
+O display do **kit do lojista** não é item nem tem produto: é brinde na sacola e vai ao Omie só como observação (a observação usa o nome: "+ 1 Display compacto Florais Adulto (brinde)").
+
+## Lojista (link da oferta, loja pública /parceiros e Lançar pedido — mesmos componentes)
+- **Selo "Com display"** nos cards das linhas com display ligado (Adulto, Pet, Baby, Kids, Teen, Infantil, Virtudes Divinas, Dose Única).
+- **Faixa do display compacto** (texto exato do pedido, botão "Quero o kit com display") **entre a linha "Meus pedidos / Acompanhar pedido" e o título "Sua oferta"/"Nossas linhas"**, no mesmo estilo dos cards de linha (borda, raio, sombra); foto à direita no desktop e **em cima no celular**. O botão leva a `/linha/adulto?kit=adulto-compacto`, onde o card do kit já abre destacado.
+- **Dentro da linha, como PRIMEIROS cards** (mesmo componente dos produtos: contêiner, foto quadrada, selo, título, preço e botão iguais; selo reaproveitado, "Display" no padrão do selo de tipo e "Destaque" no padrão do selo da promoção): Adulto = "Kit display compacto 15 × 15" (destaque) + "Escolha seu display" (Compacto 13 un. · Médio 30 · Grande 60); Pet = "Escolha seu display" (12 · 30 · 44); Baby, Kids, Teen, Infantil, Virtudes Divinas, Dose Única = UM card "Kit com display". Nenhuma tabela de outra linha dentro da linha.
+- **Foto:** `public/b2b/displays/<nome-fixo>.webp|jpg|jpeg|png`; **sem arquivo, o card usa a imagem da própria linha + selo "Display"** (verificado: Pet mostra a arte da linha). `adulto-compacto.webp` já publicada (otimizada de 227 KB para 87 KB). Nomes fixos: adulto-compacto, adulto-medio, adulto-grande, pet-12, pet-30, pet-44, baby, kids, teen, infantil, virtudes-divinas, dose-unica. Basta colocar o arquivo e publicar.
+- **Kit compacto = 13 un. (Ansiedade 3) = R$ 258,70** (8 SKUs; acima do mínimo) + display grátis. Texto do card: "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis".
+- **Composição fixa** (o lojista não escolhe sabores) e **"N mais vendidos" = a ordem dos cards da linha no site, lida na hora** (Adulto/Pet: `bioCommercialOrder`; demais linhas: ordem do catálogo; Snack fora). Médio = 24 SKUs/30 un. (6 primeiros × 2, 18 × 1); Grande = 30 × 2 = 60; Pet 12 (2 de Ansiedade, Lambedura, Estresse; 1 de Agressividade, Coprofagia, Hiperatividade, Latido Excessivo, Medo, SOS) = 12; Pet 30 = 24 SKUs/30; Pet 44 = 22 × 2; Baby/Kids/Teen/Infantil 10 × 2 = 20; Virtudes Divinas 36 × 1; Dose Única 5 × 2 = 10.
+- **Display sai se o kit ficar incompleto:** a sacola remove o display e mostra o aviso "O display vem grátis com o kit completo: ele saiu da sacola porque o kit ficou incompleto." O servidor revalida (cotação e pedido recusam kit incompleto, display desligado ou chave inválida).
+- **Sacola/checkout:** linha "1× Display … (brinde) R$ 0,00". Preço dos itens = preço B2B normal; promoções, mínimo, cupom, Pix/cartão/boleto e comissão seguem as regras normais (o display não entra na base de comissão: não é item).
+- **Frete:** cada display soma **200 g, 30 × 30 × 3 cm** na cotação do Melhor Envio.
+- **Omie:** só observação do Pedido de Venda: o feed da Central (`omieObservation`) devolve "+ 1 Display compacto Florais Adulto (brinde)" (junto da de mostruário, se houver); o admin do pedido mostra a mesma linha. O display fica em `commercial_adjustments_json.displays`.
+
+## Mostruário (vendedor)
+- **Destaque no topo** (selo "Destaque"): **Kit Provador dos florais de ambiente (It's Blossom e Pet) por R$ 2,00 fixo**, 1 de cada, fora do %. **Confirmação de catálogo:** o floral de ambiente Pet é da linha Cosméticos Pet (`cosmeticos-pet-floral-de-ambiente-*`); **"It's Blossom" não existe no catálogo do site** — o produto interno foi criado na linha Home Care (única linha de ambiente), com o nome "It's Blossom"; conferir com o Luis se a linha/nome estão certos.
+- **Grupo "Displays":** o vendedor pede o display VAZIO por **R$ 3,00** (fixo), **1 por linha a cada 180 dias** (janela PRÓPRIA do grupo, `window_days`; os 3 displays do Adulto dividem a mesma cota; os do Pet também), com foto (quando existir) e "libera de novo em dd/mm". Displays e Kit Provador **não consomem o teto de unidades da linha** (Florais Adulto continua 3).
+- Preços e a janela de 180 dias são constantes do SQL por enquanto (edição completa fica para a rodada do Admin).
+
+## Admin (mínimo)
+Nova aba **Displays**: liga/desliga cada um dos 12 displays (some da loja do link, da faixa e do selo). Guardado em `b2b_settings.displays_disabled` (sem SQL novo). Brinde de provador 5 ml: é da Secreta, não se aplica à Bio.
+
+## Verificação
+- **Testes novos:** `scripts/b2b-displays.test.mjs` (11): kit compacto 13 un./R$ 258,70; Pet 12; "mais vendidos" = ordem do site; demais linhas; remover item tira o display; frete 200 g; observação Omie; fotos com fallback; cards por linha; liga/desliga; 41a/41b em PGlite (idempotente, conferência, preço R$ 3,00/R$ 2,00, limite 1/linha/180 dias, destaque, fora do teto da linha); mesmo componente dos cards de produto; B2C intocado.
+- **Prints (375 px e desktop):** `docs/prints-r10-r11/r11-*.jpg` (faixa entre "Meus pedidos/Acompanhar pedido" e "Sua oferta", selo "Com display", kit compacto com foto, "Escolha seu display" com variações, fallback da linha no Pet, display como brinde R$ 0,00 e aviso ao remover item). Tirados com os componentes reais numa página de QA com o catálogo real (removida antes do commit).
+- **Não percorrido ao vivo:** o pedido ponta a ponta com frete (Melhor Envio) e o mostruário real exigem banco/credenciais; cobertos por testes de servidor/SQL.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 10 · Painel do vendedor claro (17/10/2026), sobre `c427fe4`
 
 **Sem SQL.** Só nomes e layout; rotas e dados não mudam. Mesmos textos das 3 marcas (muda só o nome da marca). Botões ≥ 44 px.

@@ -8,6 +8,8 @@ import Link from "next/link";
 import ShowcaseStore from "@/components/b2b/ShowcaseStore";
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { BIO_DISPLAYS, showcaseDisplaySlug } from "@/lib/b2b/displays";
+import { displayPhotoUrl } from "@/lib/b2b/displays-server";
 import { buildShowcaseView, loadShowcaseState } from "@/lib/b2b/showcase-state";
 
 export const dynamic = "force-dynamic";
@@ -57,12 +59,21 @@ export default async function ShowcasePage() {
 
   const vendor = state.vendor;
   const view = buildShowcaseView(state);
+  // Foto dos displays vazios pedidos no mostruário (nome fixo; sem arquivo = sem foto).
+  const displayBySlug = new Map(BIO_DISPLAYS.map((display) => [showcaseDisplaySlug(display), display.key]));
+  const sections = view.sections.map((section) => ({
+    ...section,
+    products: section.products.map((product) => {
+      const key = displayBySlug.get(product.slug);
+      return key ? { ...product, image: displayPhotoUrl(key) } : product;
+    }),
+  }));
 
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
       {header}
       <ShowcaseStore
-        sections={view.sections}
+        sections={sections}
         lines={view.lines}
         windowDays={state.config.windowDays}
         percent={state.config.percent}

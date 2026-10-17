@@ -31,6 +31,9 @@ import {
 import { verifyCepMatchesState } from "@/lib/shipping/cep-lookup";
 import { melhorEnvioProvider } from "@/lib/shipping/melhorenvio";
 import { loadOtherLineProducts } from "@/lib/b2b/line-views";
+import { DISPLAY_DIMENSIONS_CM, DISPLAY_WEIGHT_GRAMS, validateDisplays } from "@/lib/b2b/displays";
+import { loadDisabledDisplays } from "@/lib/b2b/displays-server";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import type { ShippingItem } from "@/lib/shipping/types";
 
 export type B2BQuoteInput = {
@@ -40,6 +43,8 @@ export type B2BQuoteInput = {
   state: unknown;
   couponCode: unknown;
   customerEmail?: string;
+  /** Chaves dos displays do kit (brinde R$ 0,00). O servidor exige o kit COMPLETO nas linhas. */
+  displays?: unknown;
 };
 
 export type B2BQuoteLine = {
@@ -72,6 +77,8 @@ export type B2BQuote = {
   bonusLines: B2BPromotionBonusLine[];
   discountLines: B2BPromotionDiscountLine[];
   promotionIdsUsed: string[];
+  /** Displays grátis aceitos (kit completo): brinde na sacola, 200 g no frete, observação no Omie. */
+  displays: Array<{ key: string; name: string; count: number }>;
   subtotalCents: number;
   couponId: string | null;
   couponCode: string | null;
@@ -153,6 +160,16 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
       };
     }
   );
+
+  // ---- Displays do kit: grátis só com o kit COMPLETO (composição fixa lida do catálogo na hora).
+  const qtyBySlug = new Map<string, number>();
+  for (const line of lines) qtyBySlug.set(line.slug, (qtyBySlug.get(line.slug) ?? 0) + line.qty);
+
+  const displayCheck = validateDisplays(input.displays, qtyBySlug, await loadDisabledDisplays(getAppSqlRunner()));
+
+  if (!displayCheck.ok) {
+    return fail(400, displayCheck.error);
+  }
 
   // ---- Promoções da oferta (C3: "X% de desconto" muda o preço; "leve Y grátis" gera bônus).
   // Vem ANTES do mínimo: o pedido mínimo conta DEPOIS da promoção % e ANTES do cupom.
@@ -256,6 +273,17 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
     });
   }
 
+  for (const { display, count } of displayCheck.displays) {
+    shippingItems.push({
+      productSlug: `display-${display.key}`,
+      qty: count,
+      weightGrams: DISPLAY_WEIGHT_GRAMS,
+      lengthCm: DISPLAY_DIMENSIONS_CM.length,
+      widthCm: DISPLAY_DIMENSIONS_CM.width,
+      heightCm: DISPLAY_DIMENSIONS_CM.height,
+    });
+  }
+
   const realOptions = await melhorEnvioProvider.calculate(cep, shippingItems);
 
   if (realOptions.length === 0) {
@@ -297,6 +325,7 @@ export async function computeB2BQuote(input: B2BQuoteInput): Promise<B2BQuoteRes
       bonusLines,
       discountLines,
       promotionIdsUsed,
+      displays: displayCheck.displays.map(({ display, count }) => ({ key: display.key, name: display.name, count })),
       subtotalCents,
       couponId: coupon.couponId,
       couponCode: coupon.couponCode,

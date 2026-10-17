@@ -12,6 +12,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { buildKitCards, loadDisabledDisplays } from "@/lib/b2b/displays-server";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { findOtherB2BLine, loadOtherLineProducts } from "@/lib/b2b/line-views";
 import { buildWhatsAppUrl } from "@/lib/b2b/invite-links";
 import { b2bProductContent, bonusLabel, percentText, productPromotionRule, productPromotionText } from "@/lib/b2b/offer-notices";
@@ -53,10 +55,13 @@ function toCatalogProduct(
 
 export default async function B2BLinePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string; slug: string }>;
+  searchParams: Promise<{ kit?: string }>;
 }) {
   const { token, slug } = await params;
+  const { kit: focusKit } = await searchParams;
   const resolution = await loadPublicB2BOfferContext(token);
 
   if (!resolution.ok) {
@@ -83,12 +88,15 @@ export default async function B2BLinePage({
 
   let catalogProducts: B2BCatalogProduct[];
   let promotionNote: string | null = null;
+  // Produtos da linha (para montar a composição fixa dos kits com display).
+  let kitSourceProducts: PublicB2BProduct[] = [];
 
   if (offerLine) {
     const notices = await listOfferPromotionNotices(context.offerId, context.clientId);
 
-    catalogProducts = context.products
-      .filter((product) => product.commercialGroupIds.includes(offerLine.id))
+    kitSourceProducts = context.products.filter((product) => product.commercialGroupIds.includes(offerLine.id));
+
+    catalogProducts = kitSourceProducts
       .map((product) =>
         toCatalogProduct(
           product,
@@ -116,8 +124,22 @@ export default async function B2BLinePage({
     }
   } else {
     const lineProducts = await loadOtherLineProducts(context, line.id);
+    kitSourceProducts = lineProducts;
     catalogProducts = lineProducts.map((product) => toCatalogProduct(product, null));
   }
+
+  // Kits com display (ligados no admin): PRIMEIROS cards da linha, só desta linha.
+  const kits = buildKitCards(
+    line.slug,
+    kitSourceProducts.map((product) => ({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      category: product.category,
+      b2cPriceCents: product.b2cPriceCents,
+    })),
+    await loadDisabledDisplays(getAppSqlRunner())
+  );
 
   const whatsappUrl = otherLine
     ? buildWhatsAppUrl(
@@ -149,12 +171,12 @@ export default async function B2BLinePage({
         )}
       </B2BHero>
 
-      {catalogProducts.length === 0 ? (
+      {catalogProducts.length === 0 && kits.length === 0 ? (
         <p className="mx-auto max-w-[1180px] px-5 py-10 text-[#746471] lg:px-10">
           Nenhum produto disponível nesta linha no momento.
         </p>
       ) : (
-        <B2BOfferCatalog token={token} groups={[{ id: line.id, name: line.name, products: catalogProducts }]} />
+        <B2BOfferCatalog token={token} groups={[{ id: line.id, name: line.name, products: catalogProducts }]} kits={kits} focusKit={focusKit} />
       )}
     </main>
   );

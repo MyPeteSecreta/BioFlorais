@@ -59,6 +59,8 @@ type CreateB2BOrderBody = {
   shipping?: { serviceName?: string };
   /** "Lançar pedido": o vendedor dono da oferta fecha o pedido pelo cliente (validado pela sessão dele). */
   launched?: boolean;
+  /** Displays do kit (brinde R$ 0,00): o servidor exige o kit completo. */
+  displays?: unknown;
 };
 
 function onlyDigits(value: unknown) {
@@ -201,6 +203,7 @@ export async function POST(request: NextRequest) {
       state,
       couponCode: body.couponCode,
       customerEmail: email,
+      displays: body.displays,
     });
 
     if (!result.ok) {
@@ -269,6 +272,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       installments: paymentMethod === "pix" ? 1 : installments,
       bonusLines: quote.bonusLines,
+      // Display do kit: brinde (não vira item). A observação vai para o Omie pela Central.
+      displays: quote.displays.map((display) => ({ key: display.key, name: display.name, count: display.count })),
       shippingRealCents: option.realPriceCents,
     });
 

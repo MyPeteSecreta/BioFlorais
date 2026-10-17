@@ -22,6 +22,7 @@ import {
   buildShowcaseQuotas,
   findShowcaseOverLimit,
   loadShowcaseUsage,
+  maxShowcaseWindowDays,
 } from "@/lib/b2b/showcase";
 import { computeShowcaseQuote } from "@/lib/b2b/showcase-quote";
 import { loadShowcaseState } from "@/lib/b2b/showcase-state";
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Corrida: dois pedidos simultâneos podem passar na cota. Reconfere já com este pedido gravado.
-    const usage = await loadShowcaseUsage(run, vendor.id, state.config.windowDays);
+    const usage = await loadShowcaseUsage(run, vendor.id, maxShowcaseWindowDays(state.config));
     const quotas = buildShowcaseQuotas(state.catalog, usage, state.config.windowDays);
     const lineQuotas = buildShowcaseLineQuotas(state.catalog, usage, state.config.windowDays, state.config.lineCaps);
     const overLimit = findShowcaseOverLimit(quotas, lineQuotas);

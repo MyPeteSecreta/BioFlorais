@@ -180,8 +180,11 @@ export default function B2BCheckoutContent() {
 
   const lines = cart.state.offerToken === token ? cart.state.lines : [];
   const itemsPayload = lines.map((line) => ({ productId: line.productId, qty: line.qty }));
+  // Displays do kit (brinde R$ 0,00): o servidor exige o kit completo.
+  const displays = cart.state.offerToken === token ? cart.state.displays : [];
+  const displayKeys = displays.map((display) => display.key);
   const cepDigits = onlyDigits(cep);
-  const requestKey = JSON.stringify([token, itemsPayload, cepDigits, uf, appliedCoupon, launched]);
+  const requestKey = JSON.stringify([token, itemsPayload, cepDigits, uf, appliedCoupon, launched, displayKeys]);
 
   // ---- CEP -> endereço (conveniência; a UF é conferida no servidor)
   useEffect(() => {
@@ -225,6 +228,7 @@ export default function B2BCheckoutContent() {
           state: uf,
           couponCode: appliedCoupon || null,
           items: itemsPayload,
+          displays: displayKeys,
           launched,
         }),
       });
@@ -362,6 +366,7 @@ export default function B2BCheckoutContent() {
           paymentMethod,
           installments: paymentMethod === "boleto" ? effectiveBoletoInstallments : 1,
           shipping: { serviceName: chosen.serviceName },
+          displays: displayKeys,
           launched,
         }),
       });
@@ -827,6 +832,15 @@ export default function B2BCheckoutContent() {
                 </span>
               </li>
             ))}
+            {displays.map((display, index) => (
+              <li key={`${display.key}-${index}`} className="flex justify-between gap-3" data-testid="linha-display">
+                <span>
+                  1× {display.name} <span className="font-bold text-[#2f7a4a]">(brinde)</span>
+                </span>
+                <span className="shrink-0 text-right font-bold text-[#2f7a4a]">{formatB2BCents(0)}</span>
+              </li>
+            ))}
+
           </ul>
 
           {quoteIsCurrent && quote && (

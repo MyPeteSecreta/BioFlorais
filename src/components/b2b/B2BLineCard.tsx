@@ -13,6 +13,7 @@ export default function B2BLineCard({
   highlight = false,
   badge,
   caption,
+  withDisplay = false,
 }: {
   href: string;
   name: string;
@@ -20,6 +21,8 @@ export default function B2BLineCard({
   highlight?: boolean;
   badge?: string | null;
   caption?: string;
+  /** Linha com kit de display ligado: selo pequeno "Com display". */
+  withDisplay?: boolean;
 }) {
   return (
     <Link
@@ -32,8 +35,17 @@ export default function B2BLineCard({
       ].join(" ")}
     >
       {badge && (
-        <span className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-full bg-blue-600 px-4 py-2 text-xs font-extrabold leading-snug text-white shadow-lg">
+        <span className={`absolute left-3 top-3 z-10 ${withDisplay ? "max-w-[calc(100%-9.75rem)]" : "max-w-[calc(100%-1.5rem)]"} rounded-full bg-blue-600 px-4 py-2 text-xs font-extrabold leading-snug text-white shadow-lg`}>
           {badge}
+        </span>
+      )}
+
+      {withDisplay && (
+        <span
+          data-testid="selo-com-display"
+          className="absolute right-3 top-3 z-10 rounded-full bg-[#55245f] px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white shadow-lg"
+        >
+          Com display
         </span>
       )}
 

@@ -13,6 +13,9 @@ import Link from "next/link";
 
 import B2BHero from "@/components/b2b/B2BHero";
 import B2BLineCard from "@/components/b2b/B2BLineCard";
+import DisplayStrip from "@/components/b2b/DisplayStrip";
+import { displayPhotoUrl, lineSlugsWithDisplay, loadDisabledDisplays } from "@/lib/b2b/displays-server";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { demoCtaUrl } from "@/lib/b2b/demo";
 import { loadOtherB2BLines } from "@/lib/b2b/line-views";
 import { homeLineImage } from "@/lib/b2b/line-images";
@@ -57,10 +60,16 @@ export default async function B2BOfferPage({
   }
 
   const { context } = resolution;
-  const [notices, otherLines] = await Promise.all([
+  const [notices, otherLines, disabledDisplays] = await Promise.all([
     listOfferPromotionNotices(context.offerId, context.clientId),
     loadOtherB2BLines(context),
+    loadDisabledDisplays(getAppSqlRunner()),
   ]);
+  // Linhas com display ligado (selo "Com display") e faixa do kit compacto do Adulto.
+  const displayLines = lineSlugsWithDisplay(disabledDisplays);
+  const showCompactStrip =
+    !disabledDisplays.has("adulto-compacto") &&
+    [...context.commercialGroups, ...otherLines].some((group) => group.slug === "adulto");
 
   // Aviso ÚNICO do alcance por produto, por linha ("Oferta válida para os sabonetes líquidos").
   const scopeTextOfLine = (lineId: string) => {
@@ -105,6 +114,14 @@ export default async function B2BOfferPage({
       </B2BHero>
 
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
+        {showCompactStrip && (
+          <DisplayStrip
+            href={`/b2b/oferta/${encodeURIComponent(token)}/linha/adulto?kit=adulto-compacto`}
+            photo={displayPhotoUrl("adulto-compacto")}
+            fallbackImage={homeLineImage("adulto")}
+          />
+        )}
+
         {offerLines.length > 0 && (
           <section>
             <h2 className="font-serif text-2xl font-semibold text-[#55245f]">{store ? "Nossas linhas" : "Sua oferta"}</h2>
@@ -121,6 +138,7 @@ export default async function B2BOfferPage({
                   name={line.name}
                   image={homeLineImage(line.slug)}
                   highlight
+                  withDisplay={displayLines.has(line.slug)}
                   badge={lineBadge(notices, line.id, scopeTextOfLine(line.id)) ?? "Preço B2B"}
                   caption={lineEligibilityCaption(notices, line.id) ?? undefined}
                 />
@@ -142,6 +160,7 @@ export default async function B2BOfferPage({
                   href={lineHref(line.slug)}
                   name={line.name}
                   image={homeLineImage(line.slug)}
+                  withDisplay={displayLines.has(line.slug)}
                 />
               ))}
             </div>
