@@ -9,6 +9,33 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 12 v3 · Image Tag do ChatGPT Ads (18/10/2026), sobre `297046b` (que está sobre `dfd5346`, não publicado)
+
+`PEDIDO_TECNICO_PIXEL_BIO.md` v3. **SUBSTITUI o Pixel JS** (a correspondência avançada automática não pode ser desligada no pixel JS). **SDK `oaiq` removido** (sem script da OpenAI, sem `oaiq(...)`, sem objeto `user`, sem hash). Mantidos: banner de cookies, "Configurar cookies", repasse de query string e políticas (parágrafo da v3). API de Conversões (fase 2) **não** entra.
+
+## SQL e ordem: **44a → 44b → 44a → push**
+1. `44a_ads_tag_conferencia_one_shot.sql` (somente leitura, 1 linha JSON): `colunas_ads_existentes` (esperado depois: **3**).
+2. `44b_ads_tag.sql` (aditivo, idempotente, BEGIN/COMMIT, **linha final `ok`**): `orders.oppref text`, `orders.ads_event_id uuid`, `orders.ads_tag_sent_at timestamptz`. Não altera dado existente.
+3. 44a de novo. **Sem o 44b nada quebra**: a medição fica inerte (a tag não é entregue).
+
+## O que faz
+- **Captura do oppref (cookie próprio `bio_oppref`):** com consentimento de **marketing**, ao entrar com `?oppref=…` grava `bio_oppref` (first-party, **SameSite=Lax, Secure, 30 dias**, valor como veio, só codificado para ser cookie válido); nova chegada substitui e renova. **Consentimento depois:** o oppref da página de entrada fica só na sessão (`sessionStorage`) até a decisão (aceitou = grava; recusou = descarta). **Sem consentimento nada é gravado; retirar o consentimento apaga `bio_oppref`.** A query string nunca é reescrita.
+- **Associação ao pedido:** na criação do pedido (B2C `/api/orders/create` e B2B do lojista) o servidor lê o cookie e grava em `orders.oppref` (só se vazio). Pedido **lançado pelo vendedor** não leva oppref (seria o do vendedor).
+- **Evento "Compra" = `<img>` 1x1 no pedido PAGO** (Pix confirmado/cartão aprovado; **boleto = fase 2**): o navegador, **só com consentimento de marketing** (sem consentimento nem consulta o servidor), chama `POST /api/orders/ads-tag`; o servidor, de forma **atômica**, marca `ads_tag_sent_at`, gera/guarda o **`ads_event_id` (UUID aleatório — nunca o número do pedido)** e devolve a URL — **uma vez por pedido** (recarregar ou outro aparelho não repete). Pedido pendente, boleto, arquivado (teste) ou já enviado: nada. URL exata: `https://bzr.openai.com/v1/sdk/events?pid=C43h1qwNBKW7o7E9hgXwh9&event=order_created&event_id=<UUID>&oppref=<valor salvo no pedido ou do cookie; sem oppref o parâmetro some>&data[type]=contents&data[amount]=<centavos inteiros>&data[currency]=BRL`, tudo URL-encoded, **sem `data[contents]`**, sem e-mail/telefone/nome/documento/ID de sessão/de cliente/número do pedido. Renderizada em `/acompanhe/<token>`, no checkout B2C (quando fica pago) e no checkout B2B.
+- **Onde NÃO:** `/admin/*`, área do vendedor (`/b2b/painel`, `/b2b/login`, convite, demo), `/api`; carrega no B2C e nas páginas do lojista (`/b2b/oferta`, carrinho, checkout, pagar) e `/parceiros`.
+- **CSP:** o site não tem CSP (conferido em `next.config.ts`, `middleware.ts`, `vercel.json`): nada a liberar; se um dia houver, só `img-src https://bzr.openai.com` (nada em `script-src`).
+- **Políticas** (Privacidade 9.1 e Cookies 9): parágrafo da v3 literal (`bio_oppref`, 30 dias, "apenas que houve uma compra, com o valor e um identificador aleatório", sem nome/e-mail/telefone/documentos/número do pedido, "Configurar cookies"); some a redação do pixel JS (`__oppref`/`__obref`).
+
+## Verificação
+- **Testes** `scripts/ads-image-tag.test.mjs` (9): sem consentimento nada grava; cookie Lax/Secure/30 dias; consentimento tardio e retirada; oppref estranho/codificação; URL da tag campo a campo (centavos, UUID, sem oppref, encode); servidor em PGlite (uma vez, event_id salvo, prioridade do oppref do pedido, boleto/pendente/arquivado, SQL ausente = inerte); 44a/44b; sem SDK/`oaiq`/sha256/CSP; fiação, onde carrega, banner e políticas; query string.
+- **Navegador (localhost):** entrada por `/?oppref=teste123&utm_source=chatgpt`: banner aparece, **0 requisições a openai**, **nenhum `bio_oppref`**, oppref guardado só na sessão, URL intacta; ao Aceitar grava `bio_oppref=teste123`; ao Recusar apaga. (O cookie `__oaiq_consent=false` visto no navegador de teste é resquício do SDK testado antes; não é gerado por este código.) **Não** testado de ponta a ponta: o `<img>` com um pedido pago real (exige banco/pagamento): o Luis confere no painel (Conversões → Fluxo de eventos) após publicar e rodar o 44b.
+- **Prints do banner:** `docs/prints-r10-r11/pixel-banner-375.jpg`, `pixel-banner-configurar-375.jpg`, `pixel-banner-desktop.jpg`.
+
+## Arquivos do B2C tocados (nesta v3 + os da v2 mantidos)
+`src/app/layout.tsx` (banner + captura do oppref), `src/components/layout/SiteFooter.tsx` ("Configurar cookies"), `src/app/privacidade/page.tsx`, `src/app/cookies/page.tsx`, `src/app/acompanhe/[token]/page.tsx` (tag), `src/app/checkout/page.tsx` (tag + parada da consulta de status), `src/app/api/orders/create/route.ts` (grava oppref no pedido), `src/app/produto/[slug]/page.tsx` (redirects mantêm a query), `src/app/api/orders/[orderId]/status/route.ts` (correção Lunium). B2B: `B2BCheckoutContent.tsx`, `api/b2b/orders/create/route.ts`, `parceiros/page.tsx`, `lib/b2b/partners.ts`. Removidos: `lib/pixel.ts`, `lib/pixel-event.ts`, `api/orders/pixel-event`, `ChatGptAdsPixel.tsx`, `PurchasePixel.tsx`. Novos: `lib/ads-tag.ts`, `lib/ads-tag-server.ts`, `api/orders/ads-tag`, `components/consent/{OppRefCapture,AdsPurchaseTag}.tsx`.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Investigação: "Erro ao consultar Lunium: 401 chave_incorreta" (18/10/2026), sobre `dfd5346`
 
 **Causa:** `GET /api/orders/<id>/status` tinha um bloco "Lunium / Pix (preservado)" que rodava para **todo pedido ainda não pago**, sem olhar o provider, sempre que existe `LUNIUM_API_KEY` na Vercel. A chave está inválida/desativada (o Pix da Bio é Mercado Pago), então **cada consulta de status de um pedido pendente gerava 1 chamada à Lunium e 1 erro 401**. A consulta vem do checkout B2C (`/checkout`, a cada 3 s enquanto a aba está aberta com um pedido pendente; **aba em segundo plano é limitada pelo navegador a 1 consulta por minuto** — exatamente o padrão dos ~130 erros/dia de um único pedido, `8cd0dffb…`) e dos checkouts B2B/mostruário. O pedido não tem nada de Lunium: é só uma **aba esquecida aberta** com um pedido pendente, e o código antigo consultava a Lunium por pura "preservação".
@@ -25,7 +52,7 @@ Teste costuma ter e-mail/nome do time e total simbólico; cliente real tem Pix g
 
 ---
 
-## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 12 · Pixel do ChatGPT Ads (18/10/2026), sobre `70e4ffd`
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 12 (v2, SUPERADA pela v3 acima: o pixel JS foi removido; ficam banner, 'Configurar cookies', query string e políticas), sobre `70e4ffd`
 
 Pedido técnico: `PEDIDO_TECNICO_PIXEL_BIO.md`. Pixel `C43h1qwNBKW7o7E9hgXwh9`. **Sem SQL.** Fase 2 (API de Conversões) **não** entra. B2C tocado só no necessário (lista no fim).
 

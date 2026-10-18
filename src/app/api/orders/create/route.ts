@@ -10,6 +10,9 @@ import {
   sql,
 } from "drizzle-orm";
 
+import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
+import { attachOppref } from "@/lib/ads-tag-server";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { db } from "@/lib/db/client";
 
 import { validatePartnerCoupon } from "@/lib/partners/academia";
@@ -1195,6 +1198,9 @@ const orderRows =
         "Pedido nÃ£o pÃ´de ser criado."
       );
     }
+
+    // Atribuição do anúncio (ChatGPT Ads): oppref do cookie bio_oppref (só existe com aceite de marketing). Tolera o SQL 44b ausente.
+    await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
 
     await db
       .insert(orderItems)

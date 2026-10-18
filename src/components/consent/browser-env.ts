@@ -1,8 +1,9 @@
-import type { PixelEnv } from "@/lib/pixel";
+import type { OppRefEnv } from "@/lib/ads-tag";
 
-/** Ambiente real do navegador para o controlador do pixel (nunca chamar no servidor). */
-export function browserPixelEnv(): PixelEnv {
+/** Ambiente real do navegador para a captura do oppref (nunca chamar no servidor). */
+export function browserOppRefEnv(): OppRefEnv {
   let storage: Storage | null = null;
+  let session: Storage | null = null;
 
   try {
     storage = window.localStorage;
@@ -10,10 +11,17 @@ export function browserPixelEnv(): PixelEnv {
     storage = null;
   }
 
+  try {
+    session = window.sessionStorage;
+  } catch {
+    session = null;
+  }
+
   return {
-    win: window as unknown as PixelEnv["win"],
-    doc: document as unknown as PixelEnv["doc"],
+    search: window.location.search,
     storage,
-    hostname: window.location.hostname,
+    session,
+    doc: document,
+    secure: window.location.protocol === "https:",
   };
 }

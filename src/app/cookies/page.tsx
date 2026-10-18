@@ -123,15 +123,14 @@ export default function Page() {
 
           <section data-testid="pixel-politica">
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
-              9. Pixel de medição de anúncios (marketing)
+              9. Medição de anúncios (marketing)
             </h2>
             <p>
-              Com o seu consentimento para cookies de marketing, usamos o pixel de medição da Plataforma de Anúncios da OpenAI
-              (ChatGPT) para saber se nossos anúncios geram visitas e compras. Ele registra eventos de navegação e de pedido
-              (valor, produtos e identificador do pedido), sem nome, e-mail, telefone ou documentos. Cookies:{" "}
-              <code>__oppref</code> (identificador do clique no anúncio, até 30 dias) e <code>__obref</code> (identificador aleatório
-              do navegador, até 365 dias). Você pode retirar o consentimento a qualquer momento em &quot;Configurar cookies&quot;; ao
-              fazer isso, esses cookies são apagados.
+              Com o seu consentimento para cookies de marketing, medimos se os nossos anúncios no ChatGPT (Plataforma de Anúncios da
+              OpenAI) geram compras. Para isso, guardamos por até 30 dias, no cookie <code>bio_oppref</code>, um código de atribuição
+              fornecido pelo anúncio, e informamos à plataforma apenas que houve uma compra, com o valor e um identificador aleatório.
+              Não enviamos nome, e-mail, telefone, documentos nem o número do seu pedido. Você pode retirar o consentimento a qualquer
+              momento em &quot;Configurar cookies&quot;.
             </p>
             <p className="mt-3">
               <CookieSettingsLink className="rounded-full border-2 border-[#55245f] px-5 py-2 text-sm font-extrabold text-[#55245f]" />

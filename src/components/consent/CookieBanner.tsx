@@ -3,16 +3,16 @@
 /**
  * Banner de cookies discreto no padrão da Bio: Aceitar / Recusar / Configurar com o MESMO destaque (mesmo tamanho,
  * mesma cor), padrão RECUSADO. Categorias: necessários (sempre), análise (nossa medição é sem cookies) e marketing
- * (pixel de anúncios — só com aceite). A escolha fica salva e pode ser mudada em "Configurar cookies".
+ * (medição de anúncios — só com aceite). A escolha fica salva e pode ser mudada em "Configurar cookies".
  */
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { CONSENT_EVENT, OPEN_SETTINGS_EVENT, readConsent, writeConsent } from "@/lib/consent";
-import { isPixelPath } from "@/lib/pixel";
+import { isPixelPath } from "@/lib/ads-tag";
 
-import { browserPixelEnv } from "./browser-env";
+import { browserOppRefEnv } from "./browser-env";
 
 // Os botões de escolha têm EXATAMENTE a mesma classe: mesmo destaque.
 const button =
@@ -25,14 +25,14 @@ export default function CookieBanner() {
   const [marketing, setMarketing] = useState(false);
 
   useEffect(() => {
-    const saved = readConsent(browserPixelEnv().storage);
+    const saved = readConsent(browserOppRefEnv().storage);
     // Efeito único na montagem: lê a escolha salva (só existe no navegador).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMarketing(saved?.marketing === true);
     setOpen(saved === null);
 
     const reopen = () => {
-      setMarketing(readConsent(browserPixelEnv().storage)?.marketing === true);
+      setMarketing(readConsent(browserOppRefEnv().storage)?.marketing === true);
       setSettings(true);
       setOpen(true);
     };
@@ -42,7 +42,7 @@ export default function CookieBanner() {
   }, []);
 
   function save(value: boolean) {
-    writeConsent(browserPixelEnv().storage, value);
+    writeConsent(browserOppRefEnv().storage, value);
     setMarketing(value);
     setOpen(false);
     setSettings(false);
@@ -88,7 +88,7 @@ export default function CookieBanner() {
           <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-3">
             <span>
               <strong>Marketing</strong>
-              <span className="block text-[#6c5b69]">Pixel de medição de anúncios (ChatGPT Ads). Sem nome, e-mail ou documentos.</span>
+              <span className="block text-[#6c5b69]">Medição das compras vindas dos anúncios (ChatGPT Ads). Sem nome, e-mail ou documentos.</span>
             </span>
             <button
               type="button"

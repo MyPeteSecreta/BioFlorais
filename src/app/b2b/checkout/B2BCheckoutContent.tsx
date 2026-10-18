@@ -17,7 +17,7 @@
 import Link from "next/link";
 import ReorderLink from "@/components/b2b/ReorderLink";
 import TrackOrderCard from "@/components/TrackOrderCard";
-import PurchasePixel from "@/components/consent/PurchasePixel";
+import AdsPurchaseTag from "@/components/consent/AdsPurchaseTag";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -431,7 +431,7 @@ export default function B2BCheckoutContent() {
           </p>
         )}
         {order && <TrackOrderCard orderId={order.id} />}
-        {order && finalMessage.ok && <PurchasePixel orderId={order.id} />}
+        {order && finalMessage.ok && <AdsPurchaseTag orderId={order.id} />}
         {/* Loja pública: o link permanente do lojista (oferta padrão dele); nos demais, o próprio link da oferta. */}
         {storeLink ? <ReorderLink token={token} url={storeLink} /> : <ReorderLink token={token} />}
         <Link

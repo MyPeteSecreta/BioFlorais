@@ -13,6 +13,8 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { addresses, couponRedemptions, coupons, customers, orderItems, orders } from "@/lib/db/schema";
+import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
+import { attachOppref } from "@/lib/ads-tag-server";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
 import { STOREFRONT_ORIGIN, attributeStorefrontOrder, findDocumentOwner } from "@/lib/b2b/storefront";
@@ -305,6 +307,11 @@ export async function POST(request: NextRequest) {
 
     // Nome no Omie do vendedor do pedido = nome do cadastro, se ninguém definiu outro (a Central lê a coluna).
     await ensureOmieVendorDefault(getAppSqlRunner(), context.responsibleId);
+
+    // Atribuição do anúncio (ChatGPT Ads): só no pedido do próprio lojista (o lançado pelo vendedor não leva o oppref do vendedor).
+    if (!launched) {
+      await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
+    }
 
     // Origem do pedido (relatório): lançado pelo vendedor ('vendedor') ou loja pública /parceiros + código ?v=.
     // Tolera o SQL 37b ausente.
