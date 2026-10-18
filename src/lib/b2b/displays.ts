@@ -44,6 +44,13 @@ export type DisplayDef = {
 const A = (slug: string) => `adulto-floral-em-gotas-${slug}`;
 const P = (slug: string) => `pet-floral-em-gotas-${slug}`;
 
+/**
+ * Fáceis de mudar (o Luis vai rever Baby): nº de SKUs do display; todos levam 2 de cada.
+ * Baby = 11 SKUs x 2 = 22 un.; Dose Única = 6 SKUs x 2 = 12 un.
+ */
+export const BABY_SKUS = 11;
+export const DOSE_UNICA_SKUS = 6;
+
 export const BIO_DISPLAYS: readonly DisplayDef[] = [
   {
     key: "adulto-compacto",
@@ -77,7 +84,8 @@ export const BIO_DISPLAYS: readonly DisplayDef[] = [
     composition: {
       type: "named",
       items: [
-        { slug: P("ansiedade"), qty: 2 },
+        // 2 no display + 1 de reposição para fechar o mínimo (13 un. = R$ 258,70, igual ao Adulto).
+        { slug: P("ansiedade"), qty: 3 },
         { slug: P("lambedura-e-automutilacao"), qty: 2 },
         { slug: P("stress"), qty: 2 },
         { slug: P("agressividade"), qty: 1 },
@@ -91,17 +99,17 @@ export const BIO_DISPLAYS: readonly DisplayDef[] = [
   },
   { key: "pet-30", code: "BIO-DISP-PET-30", lineSlug: "pet", name: "Display 30 Florais Pet", option: "30", composition: { type: "ranked", skus: 24, doubleFirst: 6 } },
   { key: "pet-44", code: "BIO-DISP-PET-44", lineSlug: "pet", name: "Display 44 Florais Pet", option: "44", composition: { type: "ranked", skus: 22, doubleFirst: 22 } },
-  { key: "baby", code: "BIO-DISP-BABY", lineSlug: "baby", name: "Display Florais Baby", option: "Único", composition: { type: "ranked", skus: 10, doubleFirst: 10 } },
+  { key: "baby", code: "BIO-DISP-BABY", lineSlug: "baby", name: "Display Florais Baby", option: "Único", composition: { type: "ranked", skus: BABY_SKUS, doubleFirst: BABY_SKUS } },
   { key: "kids", code: "BIO-DISP-KIDS", lineSlug: "kids", name: "Display Florais Kids", option: "Único", composition: { type: "ranked", skus: 10, doubleFirst: 10 } },
   { key: "teen", code: "BIO-DISP-TEEN", lineSlug: "teen", name: "Display Florais Teen", option: "Único", composition: { type: "ranked", skus: 10, doubleFirst: 10 } },
   { key: "infantil", code: "BIO-DISP-INFANTIL", lineSlug: "infantil", name: "Display Florais Infantil", option: "Único", composition: { type: "ranked", skus: 10, doubleFirst: 10 } },
   { key: "virtudes-divinas", code: "BIO-DISP-VIRTUDES-DIVINAS", lineSlug: "virtudes-divinas", name: "Display Virtudes Divinas", option: "Único", composition: { type: "ranked", skus: 36, doubleFirst: 0 } },
-  { key: "dose-unica", code: "BIO-DISP-DOSE-UNICA", lineSlug: "dose-unica", name: "Display Dose Única", option: "Único", composition: { type: "ranked", skus: 5, doubleFirst: 5 } },
+  { key: "dose-unica", code: "BIO-DISP-DOSE-UNICA", lineSlug: "dose-unica", name: "Display Dose Única", option: "Único", composition: { type: "ranked", skus: DOSE_UNICA_SKUS, doubleFirst: DOSE_UNICA_SKUS } },
 ];
 
 /** Kit Provador do mostruário (produtos internos, não visíveis no B2C). */
 export const BIO_PROVADOR_CODES = [
-  { code: "BIO-PROV-ITSBLOSSOM", slug: "bio-prov-itsblossom", name: "Kit Provador floral de ambiente It's Blossom", lineSlug: "home-care" },
+  { code: "BIO-PROV-ITSBLOSSOM", slug: "bio-prov-itsblossom", name: "Kit Provador Aromatizador It's Blossom", lineSlug: "home-care" },
   { code: "BIO-PROV-AMBPET", slug: "bio-prov-ambpet", name: "Kit Provador floral de ambiente Pet", lineSlug: "cosmeticos-pet" },
 ] as const;
 
@@ -147,7 +155,8 @@ export const kitUnits = (items: readonly KitItem[]) => items.reduce((sum, item) 
 
 /** Frase do card: "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis". */
 export function kitSummary(display: DisplayDef, units: number): string {
-  if (display.key === "adulto-compacto") {
+  // Compacto Adulto e Pet 12: 12 no display + 1 Ansiedade de reposição (fecha o mínimo de R$ 250).
+  if (display.key === "adulto-compacto" || display.key === "pet-12") {
     return `${units} unidades (12 no display + 1 Ansiedade de reposição) · display grátis`;
   }
 

@@ -7,7 +7,7 @@
 --  * 14 PRODUTOS INTERNOS (não visíveis no B2C: o B2C lê o catálogo do site, não esta tabela; ficam fora de qualquer
 --    linha comercial/oferta B2B). Servem só para o pedido de mostruário do vendedor:
 --      12 displays VAZIOS (200 g, 30 x 30 x 3 cm)  BIO-DISP-*   (slug em minúsculas: bio-disp-*)
---       2 Kit Provador florais de ambiente (8 g, 6 x 2 x 2 cm)  BIO-PROV-ITSBLOSSOM, BIO-PROV-AMBPET
+--       2 Kit Provador (8 g, 6 x 2 x 2 cm): BIO-PROV-ITSBLOSSOM (Aromatizador It's Blossom, Home Care) e BIO-PROV-AMBPET (floral de ambiente Pet)
 --  * 2 grupos do mostruário (só se o nome ainda não existe): "Displays" (R$ 3,00, 1 por linha a cada 180 dias) e
 --    "Kit Provador (florais de ambiente)" (R$ 2,00 fixo, destaque).
 -- O kit com display do LOJISTA não usa produto: o display é brinde na sacola, vai ao Omie só como observação.
@@ -54,11 +54,11 @@ SELECT v.slug, v.name, v.line_slug, 'Display', 300, 200, 30, 30, 3, true
   ) AS v(slug, name, line_slug)
  WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = v.slug);
 
--- Kit Provador dos florais de ambiente (It's Blossom = home care; floral de ambiente Pet = cosméticos pet).
+-- Kit Provador: aromatizador It's Blossom (Home Care) e floral de ambiente Pet (Cosméticos Pet).
 INSERT INTO products (slug, name, line_slug, category, price_cents, weight_grams, length_cm, width_cm, height_cm, active)
 SELECT v.slug, v.name, v.line_slug, 'Kit Provador', 200, 8, 6, 2, 2, true
   FROM (VALUES
-    ('bio-prov-itsblossom', 'Kit Provador floral de ambiente It''s Blossom · BIO-PROV-ITSBLOSSOM', 'home-care'),
+    ('bio-prov-itsblossom', 'Kit Provador Aromatizador It''s Blossom · BIO-PROV-ITSBLOSSOM', 'home-care'),
     ('bio-prov-ambpet',     'Kit Provador floral de ambiente Pet · BIO-PROV-AMBPET',               'cosmeticos-pet')
   ) AS v(slug, name, line_slug)
  WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = v.slug);

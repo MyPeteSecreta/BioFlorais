@@ -46,12 +46,16 @@ test("kit compacto Adulto: 8 SKUs, 13 unidades (Ansiedade 3) = R$ 258,70, acima 
   assert.equal(displays.kitSummary(displays.displayByKey("adulto-compacto"), 13), "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis");
 });
 
-test("Pet 12: 9 SKUs, 12 unidades (2 de Ansiedade, Lambedura e Estresse; 1 dos demais)", () => {
-  const kit = displays.composeKit(displays.displayByKey("pet-12"));
+test("Pet 12: 9 SKUs, 13 unidades (Ansiedade 3 = 2 no display + 1 de reposição) = R$ 258,70, igual ao Adulto", () => {
+  const display = displays.displayByKey("pet-12");
+  const kit = displays.composeKit(display);
   assert.equal(kit.length, 9);
-  assert.equal(displays.kitUnits(kit), 12);
-  assert.deepEqual(kit.filter((item) => item.qty === 2).map((item) => item.slug.replace("pet-floral-em-gotas-", "")), ["ansiedade", "lambedura-e-automutilacao", "stress"]);
+  assert.equal(displays.kitUnits(kit), 13);
+  assert.equal(kit.find((item) => item.slug.endsWith("-ansiedade")).qty, 3);
+  assert.deepEqual(kit.filter((item) => item.qty === 2).map((item) => item.slug.replace("pet-floral-em-gotas-", "")), ["lambedura-e-automutilacao", "stress"]);
   for (const item of kit) assert.ok(getProduct(item.slug), item.slug);
+  assert.equal(total(kit), 25870);
+  assert.equal(displays.kitSummary(display, 13), "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis");
 });
 
 test('"N mais vendidos" segue a ordem dos cards da linha no B2C (lida na hora)', () => {
@@ -86,18 +90,26 @@ test('"N mais vendidos" segue a ordem dos cards da linha no B2C (lida na hora)',
   }
 });
 
-test("demais linhas: Baby, Kids, Teen, Infantil 10 × 2 = 20; Virtudes Divinas 36 × 1; Dose Única 5 × 2 = 10", () => {
-  for (const key of ["baby", "kids", "teen", "infantil"]) {
+test("demais linhas: Kids, Teen, Infantil 10 × 2 = 20; Baby 11 × 2 = 22; Virtudes Divinas 36 × 1; Dose Única 6 × 2 = 12", () => {
+  for (const key of ["kids", "teen", "infantil"]) {
     const kit = displays.composeKit(displays.displayByKey(key));
     assert.equal(kit.length, 10, key);
     assert.equal(displays.kitUnits(kit), 20, key);
   }
+  // Baby: os 11 SKUs, 2 de cada = 22 (constante BABY_SKUS: fácil de mudar)
+  const baby = displays.composeKit(displays.displayByKey("baby"));
+  assert.equal(displays.BABY_SKUS, 11);
+  assert.equal(baby.length, 11);
+  assert.equal(displays.kitUnits(baby), 22);
+  assert.ok(baby.every((item) => item.qty === 2));
   const virtudes = displays.composeKit(displays.displayByKey("virtudes-divinas"));
   assert.equal(virtudes.length, 36);
   assert.equal(displays.kitUnits(virtudes), 36);
   const dose = displays.composeKit(displays.displayByKey("dose-unica"));
-  assert.equal(dose.length, 5);
-  assert.equal(displays.kitUnits(dose), 10);
+  assert.equal(displays.DOSE_UNICA_SKUS, 6);
+  assert.equal(dose.length, 6);
+  assert.equal(displays.kitUnits(dose), 12);
+  assert.ok(dose.every((item) => item.qty === 2));
   assert.equal(displays.BIO_DISPLAYS.length, 12);
 });
 
@@ -201,6 +213,9 @@ test("cards de kit por linha: Adulto (compacto + escolha), Pet (escolha), demais
   assert.equal(pet.length, 1);
   assert.equal(pet[0].title, "Escolha seu display");
   assert.deepEqual(pet[0].options.map((option) => option.label), ["12", "30", "44"]);
+  assert.deepEqual(pet[0].options.map((option) => option.units), [13, 30, 44]);
+  assert.equal(pet[0].options[0].totalCents, 25870);
+  assert.equal(pet[0].options[0].summary, "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis");
 
   for (const line of ["baby", "kids", "teen", "infantil", "virtudes-divinas", "dose-unica"]) {
     const cards = server.buildKitCards(line, lineProducts(line), new Set());
@@ -326,7 +341,7 @@ test("41b: aditivo e idempotente; 14 produtos internos, 3 colunas e 2 grupos; 41
 
 test("loja do lojista: faixa, selo, cards de kit com o mesmo componente; mostruário com destaque; admin; B2C intocado", () => {
   const strip = read("src/components/b2b/DisplayStrip.tsx");
-  for (const text of ["Pouco espaço no balcão? Temos uma opção compacta!", "O display Bio Florais ocupa só 15 × 15 cm.", "8 fragrâncias, 12 unidades. Cabe ao lado do caixa e vende sozinho.", "Quero o kit com display"]) {
+  for (const text of ["Pouco espaço no balcão? Temos uma opção compacta!", "O display Bio Florais ocupa só 15 × 15 cm.", "8 florais, 12 unidades. Cabe ao lado do caixa e vende sozinho.", "Quero o kit com display"]) {
     assert.ok(strip.includes(text), text);
   }
   assert.ok(strip.includes("md:order-2") && /aspect-\[16\/10\]/.test(strip), "foto à direita no desktop, em cima no celular");
@@ -357,4 +372,59 @@ test("loja do lojista: faixa, selo, cards de kit com o mesmo componente; mostru�
   for (const file of ["src/app/linha/[slug]/page.tsx", "src/app/produto/[slug]/page.tsx", "src/app/checkout/page.tsx", "src/app/page.tsx"]) {
     assert.ok(!/displays?(-|\/|"|\b)/i.test(read(file).replace(/display[:\s-]*(flex|grid|none|block|inline|contents)/gi, "")) || !read(file).includes("lib/b2b/displays"), file);
   }
+});
+
+test("Kit Provador It's Blossom é do AROMATIZADOR (Home Care); 42a/42b renomeiam sem apagar e conferem pelo slug adulto-%", async () => {
+  const blossom = displays.BIO_PROVADOR_CODES.find((item) => item.code === "BIO-PROV-ITSBLOSSOM");
+  assert.equal(blossom.name, "Kit Provador Aromatizador It's Blossom");
+  assert.equal(blossom.lineSlug, "home-care");
+  assert.equal(displays.BIO_PROVADOR_CODES.find((item) => item.code === "BIO-PROV-AMBPET").slug, "bio-prov-ambpet");
+  assert.ok(read("sql/b2b/41b_displays_mostruario.sql").includes("Kit Provador Aromatizador It''s Blossom"), "instalação nova já nasce com o nome novo");
+
+  const pg = new PGlite();
+  await pg.exec(`CREATE TABLE products (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text UNIQUE NOT NULL, name text NOT NULL, line_slug text, category text, price_cents integer NOT NULL);
+    INSERT INTO products (slug, name, line_slug, category, price_cents) VALUES
+      ('bio-prov-itsblossom', 'Kit Provador floral de ambiente It''s Blossom · BIO-PROV-ITSBLOSSOM', 'home-care', 'Kit Provador', 200),
+      ('bio-prov-ambpet', 'Kit Provador floral de ambiente Pet · BIO-PROV-AMBPET', 'cosmeticos-pet', 'Kit Provador', 200);`);
+  for (const product of bioProducts.filter((item) => ["adulto", "pet", "baby", "dose-unica", "home-care"].includes(item.lineSlug))) {
+    await pg.query("INSERT INTO products (slug, name, line_slug, category, price_cents) VALUES ($1, $2, $3, $4, $5)", [product.slug, product.name, product.lineSlug, product.category, product.priceCents]);
+  }
+
+  const before = (await pg.query(read("sql/b2b/42a_ajuste_displays_conferencia_one_shot.sql"))).rows;
+  assert.equal(before.length, 1);
+  assert.equal(before[0].conferencia_ajuste_displays.kit_provador_itsblossom_ok, false);
+  assert.equal(before[0].conferencia_ajuste_displays.kit_compacto_skus_encontrados, 8);
+  assert.equal(before[0].conferencia_ajuste_displays.florais_adulto_slug_adulto, 33);
+  assert.equal(before[0].conferencia_ajuste_displays.baby_skus_encontrados, 11);
+  assert.equal(before[0].conferencia_ajuste_displays.dose_unica_skus_encontrados, 6);
+
+  const sql = read("sql/b2b/42b_ajuste_displays.sql");
+  assert.ok(/BEGIN;/.test(sql) && /COMMIT;/.test(sql) && /SELECT 'ok' AS resultado;\s*$/.test(sql));
+  assert.ok(!/\b(DROP|DELETE|TRUNCATE|INSERT)\b/i.test(sql.replace(/--.*$/gm, "")), "só o UPDATE do nome");
+  const first = await pg.exec(sql);
+  assert.equal(first.at(-1).rows[0].resultado, "ok");
+  await pg.exec(sql);
+
+  const after = (await pg.query(read("sql/b2b/42a_ajuste_displays_conferencia_one_shot.sql"))).rows[0].conferencia_ajuste_displays;
+  assert.equal(after.kit_provador_itsblossom_ok, true);
+  assert.equal(after.kit_provador_itsblossom_nome, "Kit Provador Aromatizador It's Blossom · BIO-PROV-ITSBLOSSOM");
+  assert.equal((await pg.query("SELECT name FROM products WHERE slug = 'bio-prov-ambpet'")).rows[0].name, "Kit Provador floral de ambiente Pet · BIO-PROV-AMBPET", "o AMBPET continua");
+  assert.ok((await pg.query("SELECT count(*)::int AS n FROM products")).rows[0].n > 80, "nada apagado");
+});
+
+test("/parceiros repassa utm_* e demais parâmetros (exceto os internos v e lancar) ao redirecionar para a loja", async () => {
+  const { withForwardedParams } = await import("../src/lib/b2b/partners.ts");
+  const path = "/b2b/oferta/tok123";
+  assert.equal(withForwardedParams(path, {}), path);
+  assert.equal(withForwardedParams(path, undefined), path);
+  assert.equal(withForwardedParams(path, { v: "ABC123" }), path, "o código do vendedor é interno");
+  assert.equal(
+    withForwardedParams(path, { v: "ABC123", utm_source: "instagram", utm_medium: "cpc", utm_campaign: "outubro", fbclid: "x1", gclid: "g2" }),
+    "/b2b/oferta/tok123?utm_source=instagram&utm_medium=cpc&utm_campaign=outubro&fbclid=x1&gclid=g2"
+  );
+  assert.equal(withForwardedParams(path, { lancar: "1", utm_term: "a b&c" }), "/b2b/oferta/tok123?utm_term=a+b%26c", "codifica e tira o interno");
+  assert.equal(withForwardedParams(path, { utm_source: ["a", "b"], vazio: "" }), "/b2b/oferta/tok123?utm_source=a&utm_source=b");
+  assert.equal(withForwardedParams("/b2b/oferta/t?x=1", { utm_source: "g" }), "/b2b/oferta/t?x=1&utm_source=g");
+  const page = read("src/app/parceiros/page.tsx");
+  assert.ok(page.includes("redirect(withForwardedParams(storePath, query))") && !page.includes("redirect(storePath)"));
 });

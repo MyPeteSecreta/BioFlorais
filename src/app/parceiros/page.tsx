@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 
 import B2BHero from "@/components/b2b/B2BHero";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
-import { resolvePartnerSeller } from "@/lib/b2b/partners";
+import { resolvePartnerSeller, withForwardedParams } from "@/lib/b2b/partners";
 import { ensureStorefrontPath } from "@/lib/b2b/storefront";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +26,19 @@ function representativeUrl() {
   return process.env.B2B_DEMO_CTA_URL?.trim() || "https://wa.me/552139553713?text=Quero%20falar%20com%20um%20representante%20da%20Bio%20Florais";
 }
 
-export default async function PartnersPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
-  const { v } = await searchParams;
+export default async function PartnersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
+  const v = Array.isArray(query.v) ? query.v[0] : query.v;
   const { seller } = await resolvePartnerSeller(getAppSqlRunner(), v);
   const storePath = seller ? await ensureStorefrontPath(getAppSqlRunner(), { id: seller.id, name: seller.name }) : null;
 
   // A vitrine do vendedor É a loja: o token fica na URL, então a atribuição acompanha a navegação.
-  if (storePath) redirect(storePath);
+  // Os utm_* e demais parâmetros seguem para a loja (medição dos anúncios); só os internos (v, lancar) ficam.
+  if (storePath) redirect(withForwardedParams(storePath, query));
 
   return (
     <main className="min-h-[70vh] bg-[#fffaf6] text-[#422347]">

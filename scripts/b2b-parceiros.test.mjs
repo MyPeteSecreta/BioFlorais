@@ -118,7 +118,7 @@ test("página e rotas: noindex, preço B2B normal, isca anti-robô, sem vendedor
   const page = read("src/app/parceiros/page.tsx");
   assert.ok(page.includes("robots: { index: false, follow: false"));
   // Rodada 7: /parceiros é a LOJA (redireciona para a vitrine); sem formulário nem API de cadastro
-  assert.ok(page.includes("ensureStorefrontPath") && page.includes("redirect(storePath)") && page.includes("Falar com um representante"));
+  assert.ok(page.includes("ensureStorefrontPath") && page.includes("redirect(withForwardedParams(storePath, query))") && page.includes("Falar com um representante"));
   assert.ok(!page.includes("PartnerSignupForm") && !page.includes("seller.email"));
   assert.ok(read("src/app/b2b/painel/page.tsx").includes("<ReferralLinkPanel"));
   const panel = read("src/components/b2b/ReferralLinkPanel.tsx");

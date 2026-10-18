@@ -9,6 +9,21 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Ajuste da Rodada 11 (18/10/2026), sobre `6bb5722`
+
+Valem sobre a entrada da Rodada 11 abaixo (onde houver diferença, vale esta).
+1. **Kit Pet 12 = 13 unidades:** +1 Ansiedade (Ansiedade 3 = 2 no display + 1 de reposição), **R$ 258,70** (igual ao Adulto). Card: "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis" (a mesma frase do compacto Adulto). Opção do card continua "12" (tamanho do display); mostra 13 un.
+2. **Kit Provador It's Blossom** é do **aromatizador** (Home Care; existem sabonetes líquidos e aromatizadores It's Blossom): renomeado para **"Kit Provador Aromatizador It's Blossom"**, linha Home Care (aromatizadores). Código **BIO-PROV-ITSBLOSSOM** mantido; **BIO-PROV-AMBPET** continua. (O texto da Rodada 11 sobre "It's Blossom não existe no catálogo / linha Home Care" fica resolvido por esta definição.)
+3. **Dose Única:** os **6 SKUs, 2 de cada = 12 unidades**.
+4. **Baby:** os **11 SKUs, 2 de cada = 22 unidades**. Fácil de mudar: constantes `BABY_SKUS` e `DOSE_UNICA_SKUS` no topo de `src/lib/b2b/displays.ts` (todo display "ranked" é só nº de SKUs + quantos levam 2).
+5. **/parceiros:** o redirecionamento para `/b2b/oferta/<token>` **repassa a query string** — `utm_*`, `fbclid`, `gclid` e qualquer outro — exceto os **internos** `v` (código do vendedor) e `lancar` (modo lançamento). Função `withForwardedParams` (`lib/b2b/partners.ts`), testada (codificação, valores repetidos, vazios, path que já tem `?`).
+6. **Faixa do display:** "O display Bio Florais ocupa só 15 × 15 cm. **8 florais**, 12 unidades. Cabe ao lado do caixa e vende sozinho."
+- `DISPLAYS_COMPOSICAO.md` atualizado (Pet 13, Baby 22, Dose Única 12 e o Kit Provador).
+- **SQL (aditivo, só o nome do produto interno):** `42a_ajuste_displays_conferencia_one_shot.sql` (somente leitura; **conferência pelo slug `adulto-%`** — 33 florais Adulto, kit compacto 8 SKUs, Pet 12 = 9 SKUs, Baby 11, Dose Única 6, aromatizadores Home Care, nome do Kit Provador) → `42b_ajuste_displays.sql` (BEGIN/COMMIT, idempotente, linha final `ok`; só um UPDATE em `products.name` do slug `bio-prov-itsblossom`) → rodar o 42a de novo (`kit_provador_itsblossom_ok = true`). Quem **ainda não rodou o 41b** não precisa do 42b: o 41b já cria com o nome novo. Pet 13, Dose Única 12 e Baby 22 são regra do app (sem SQL).
+- **Testes:** `b2b-displays.test.mjs` atualizado e ampliado (Pet 13 = R$ 258,70 e frase do card; Baby 11 × 2 = 22; Dose Única 6 × 2 = 12; faixa "8 florais"; 42a/42b em PGlite; `/parceiros` com utm).
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 11 · Displays, kits e Kit Provador — BIO (17/10/2026), sobre `fc6ff1e`
 
 Fonte de verdade: `DISPLAYS_COMPOSICAO.md`. **B2C intocado** (nenhum arquivo do B2C foi alterado; os produtos internos novos ficam na tabela `products`, que o B2C não lista: ele lê o catálogo do site). My Pet/Secreta: não fazem parte desta janela.

@@ -31,6 +31,32 @@ export function partnersPath(code: string) {
   return `/parceiros?v=${encodeURIComponent(code)}`;
 }
 
+/** Parâmetros INTERNOS do /parceiros (não vão para a loja): o código do vendedor e o modo lançamento. */
+export const PARTNER_INTERNAL_PARAMS = ["v", "lancar"] as const;
+
+/**
+ * O redirecionamento /parceiros -> /b2b/oferta/<token> não pode descartar a query string: repassa utm_* e demais
+ * parâmetros (exceto os internos) para medirmos as vendas dos anúncios.
+ */
+export function withForwardedParams(
+  path: string,
+  params: Record<string, string | string[] | undefined> | undefined
+): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if ((PARTNER_INTERNAL_PARAMS as readonly string[]).includes(key.toLowerCase())) continue;
+
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (item !== undefined && item !== "") query.append(key, item);
+    }
+  }
+
+  const text = query.toString();
+
+  return text ? `${path}${path.includes("?") ? "&" : "?"}${text}` : path;
+}
+
 export type PartnerSeller = { id: string; name: string; referralCode: string | null; type: string };
 
 /** Vendedor ATIVO (não arquivado) dono do código. */

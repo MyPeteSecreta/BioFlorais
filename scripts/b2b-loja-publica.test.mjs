@@ -168,7 +168,7 @@ test("regras do B2B seguem: mínimo R$250, sem promoção, comissão normal cong
 
 test("fios: /parceiros abre a vitrine, orders/create resolve o vendedor, boleto só PJ, pagamento aceita o token da vitrine", () => {
   const page = read("src/app/parceiros/page.tsx");
-  assert.ok(page.includes("redirect(storePath)") && !page.includes("PartnerSignupForm"));
+  assert.ok(page.includes("redirect(withForwardedParams(storePath, query))") && !page.includes("PartnerSignupForm"));
   assert.ok(!read("src/app/b2b/oferta/[token]/page.tsx").includes("Meus pedidos</") || read("src/app/b2b/oferta/[token]/page.tsx").includes("{!store && ("));
   assert.ok(read("src/app/b2b/oferta/[token]/page.tsx").includes("<B2BHero") && read("src/app/b2b/oferta/[token]/page.tsx").includes("Quero ser representante"));
 

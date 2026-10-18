@@ -34,7 +34,7 @@ export default function DisplayStrip({ href, photo, fallbackImage }: { href: str
         <h2 className="font-serif text-2xl font-semibold text-[#55245f]">Pouco espaço no balcão? Temos uma opção compacta!</h2>
         <p className="text-sm text-[#746471]">
           O display Bio Florais ocupa só 15 × 15 cm.
-          <br />8 fragrâncias, 12 unidades. Cabe ao lado do caixa e vende sozinho.
+          <br />8 florais, 12 unidades. Cabe ao lado do caixa e vende sozinho.
         </p>
         <Link
           href={href}
