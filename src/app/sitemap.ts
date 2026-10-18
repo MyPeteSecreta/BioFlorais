@@ -4,48 +4,20 @@ import { bioLines, bioProducts } from "@/lib/catalog/bio-products";
 import { getSiteUrl } from "@/lib/seo/site-url";
 
 /**
- * Dois sitemaps separados (Metadata SEO V2.1, Seção 9):
- * id 0 = institucional (Home + 11 Linhas + páginas de conteúdo/política já
- * confirmadas como "index" na arquitetura aprovada);
- * id 1 = produtos (uma URL por slug do catálogo).
+ * UM sitemap (sem generateSitemaps): Home + páginas institucionais + 11 Linhas + uma URL por produto.
  *
- * Only listing here what the approved architecture marks as index.
- * /atendimento e /ugc ficam de fora por ora — a arquitetura os marca como
- * "index condicional", pendente de confirmação do estado real de conteúdo
- * (ver auditoria). Páginas noindex (legais, carrinho, checkout, admin, api)
- * nunca devem entrar em sitemap nenhum.
+ * Antes eram dois sitemaps segmentados (id 0/1) e o filtro `id === 1` nunca casava (no Next.js 16 o `id` chega como
+ * Promise<string>), então os produtos nunca apareciam e /sitemap.xml não respondia. Agora é uma função só, sem filtro
+ * de id. As URLs usam getSiteUrl() (sempre www).
  *
- * Produtos terminados em "-5l" ou "-500ml" (apresentações maiores de
- * Cosméticos Pet: shampoo/condicionador 5L, perfume 500ml) NÃO são páginas
- * públicas de navegação — não há nenhum link para elas em lugar nenhum do
- * site. São registros de catálogo usados pela própria PDP da apresentação
- * base para oferecer a compra da versão maior/kit direto no carrinho, sem
- * navegação. Ficam de fora do sitemap; sem conteúdo editorial próprio, não
- * devem ser indexadas.
+ * Só entra o que a arquitetura aprovada marca como index. /atendimento e /ugc ficam de fora (index condicional).
+ * Páginas noindex (legais, carrinho, checkout, admin, api, B2B) nunca entram.
+ *
+ * Produtos terminados em "-5l" ou "-500ml" (apresentações maiores de Cosméticos Pet) não são páginas públicas de
+ * navegação (redirecionam para a apresentação base), então ficam de fora.
  */
-export function generateSitemaps() {
-  return [{ id: 0 }, { id: 1 }];
-}
-
-export default function sitemap({
-  id,
-}: {
-  id: number;
-}): MetadataRoute.Sitemap {
+export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = getSiteUrl();
-
-  if (id === 1) {
-    return bioProducts
-      .filter(
-        (product) =>
-          !product.slug.endsWith("-5l") &&
-          !product.slug.endsWith("-500ml"),
-      )
-      .map((product) => ({
-        url: `${siteUrl}/produto/${product.slug}`,
-        priority: 0.6,
-      }));
-  }
 
   const institutionalRoutes = [
     { path: "/", priority: 1 },
@@ -56,12 +28,13 @@ export default function sitemap({
     { path: "/trocas-e-devolucoes", priority: 0.5 },
   ];
 
-  const lineRoutes = bioLines.map((line) => ({
-    path: `/linha/${line.slug}`,
-    priority: 0.8,
-  }));
+  const lineRoutes = bioLines.map((line) => ({ path: `/linha/${line.slug}`, priority: 0.8 }));
 
-  return [...institutionalRoutes, ...lineRoutes].map((route) => ({
+  const productRoutes = bioProducts
+    .filter((product) => !product.slug.endsWith("-5l") && !product.slug.endsWith("-500ml"))
+    .map((product) => ({ path: `/produto/${product.slug}`, priority: 0.6 }));
+
+  return [...institutionalRoutes, ...lineRoutes, ...productRoutes].map((route) => ({
     url: `${siteUrl}${route.path}`,
     priority: route.priority,
   }));

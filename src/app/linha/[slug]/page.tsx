@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { Metadata } from "next";
+import { LINE_SEO, OG_IMAGES, OG_IMAGE_SIZE } from "@/lib/seo/metadata";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -1455,6 +1457,35 @@ const marketingCards = [
       "Bio Florais acompanha diferentes fases, rotinas e momentos.",
   },
 ];
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const line = getLine(slug);
+
+  if (!line) notFound();
+
+  const seo = LINE_SEO[slug];
+  const title = seo?.title ?? `${line.name} | Bio Florais`;
+  const description = seo?.description ?? lineVisuals[slug]?.description ?? "Bio Florais: essências florais brasileiras, sem álcool, desde 1997.";
+  const image = seo?.ogImage ?? OG_IMAGES.home;
+
+  return {
+    title,
+    description,
+    // Canonical SEM query string (utm_*/oppref continuam na URL real e nos redirects).
+    alternates: { canonical: `/linha/${slug}` },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: `/linha/${slug}`,
+      siteName: "Bio Florais",
+      locale: "pt_BR",
+      images: [{ url: image, width: OG_IMAGE_SIZE.width, height: OG_IMAGE_SIZE.height, alt: title }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
+  };
+}
 
 export default async function LinePage({
   params,

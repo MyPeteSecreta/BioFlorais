@@ -9,6 +9,25 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 13 · SEO do B2C (18/10/2026), sobre `eace77b`
+
+**Sem SQL.** Só metadata/SEO: nenhuma mudança visual, de fluxo de compra, de checkout, de pagamento ou de banco. FAVICON-01 **não** entra.
+
+- **SEO-03 canonical:** `metadataBase` no layout (`getSiteUrl()`); canonical **relativo** (resolve em www) e **sem query**: `/`, `/sobre` (novo), `/linha/<slug>`, `/produto/<slug>`. **`getSiteUrl()` agora normaliza o apex para www** (se a variável `NEXT_PUBLIC_SITE_URL` da Vercel estiver sem www — causa do robots/sitemap sem www — tudo sai em www mesmo assim; conferir a variável lá).
+- **SEO-02 títulos/descrições/OG:** as 3 linhas com anúncio com os textos **aprovados literais** (Adulto, Infantil, Pet); Baby, Kids, Teen, Dose Única, Virtudes Divinas, Cosméticos, Cosméticos Pet e Home Care no mesmo padrão (nome da linha + "sem álcool"/essências + contexto de uso; **sem termo de condição/cura/tratamento**, validado por teste). **og:image** copiadas de `anuncios-angelblanc\imagens\og` para **`public/og/og-home.jpg`, `og-adulto.jpg`, `og-infantil.jpg`, `og-pet.jpg`** (1200×630), URL absoluta em www; Infantil/Baby/Kids/Teen usam og-infantil, Pet e Cosméticos Pet og-pet, Adulto/Dose Única/Virtudes og-adulto, o resto og-home. Layout e Home ganham OG/Twitter padrão (og-home). **Produto:** `generateMetadata` (`await params`, `notFound`, slugs `-5l`/`-500ml` normalizados para a página base), título "<Floral|Categoria> <Nome> · <Linha> | Bio Florais", descrição = 1ª frase do texto editorial (sem o rótulo "Descrição", ≤155 caracteres) ou fallback seguro, OG/Twitter com a **imagem real da galeria** (nunca `product.image`). Nomes com condição do catálogo ficam como estão.
+- **SEO-01 sitemap/robots:** um único `sitemap()` (sem `generateSitemaps`/`id`): Home + institucionais + 11 linhas + **229 produtos** = 246 URLs em www (sem `-5l`/`-500ml`); `robots.txt` usa `getSiteUrl()` → `Sitemap: https://www.bioflorais.com.br/sitemap.xml`.
+- **SEO-04 JSON-LD:** `Product` em `/produto/*` (name, description, sku, url, brand "Bio Florais", imagens da galeria em URL absoluta) + `Offer` (BRL, preço com 2 casas, **`InStock` fixo** — aprovado pela mestre); sem preço = sem `Offer`; `<` escapado no JSON. **Rich Results Test do Google: rodar depois do deploy** (não dá para rodar daqui).
+- **H1-01:** o `<h1>` da versão mobile da Home virou `<p>` com as mesmas classes; sobra **um único `<h1>`** (conferido no HTML renderizado).
+- **NÃO QUEBRAR (conferido por teste e curl):** query string (`utm_*`, `oppref`) preservada nos redirects (`/parceiros` → loja, `/produto/<slug>-5l` → base com `?utm_source=x`, middleware); **nunca** `Referrer-Policy: no-referrer`; nenhuma tag de terceiros (sem GTM/pixel JS); URLs de destino `/`, `/linha/adulto`, `/linha/infantil`, `/linha/pet`, `/parceiros` inalteradas; B2B `noindex`, banner de cookies e Image Tag intactos.
+- **Prova local (dev, com `NEXT_PUBLIC_SITE_URL=https://bioflorais.com.br` de propósito, para provar a normalização):** Home `canonical https://www.bioflorais.com.br`, `og:image https://www.bioflorais.com.br/og/og-home.jpg`; `/linha/adulto` → title "Florais Adulto sem álcool | Bio Florais", canonical `…/linha/adulto`, og-adulto.jpg; `/linha/infantil` → "Florais Infantis sem álcool | Bio Florais", og-infantil.jpg; `/linha/pet` → "Florais para cães e gatos | Bio Florais Pet", og-pet.jpg; `/sobre` canonical www; 5 produtos com title/description/og distintos (Rescue, Ansiedade Pet, Shampoo Uso Diário, Virtudes Amor, Aromatizador Bem Estar); `/sitemap.xml` **200 application/xml, 246 `<loc>`, 229 de produto, 0 sem www**; `/robots.txt` com `Sitemap: https://www.bioflorais.com.br/sitemap.xml`; JSON-LD com `"availability":"https://schema.org/InStock"`, `priceCurrency BRL`, `price 35.90`.
+- **Teste:** `scripts/seo-b2c.test.mjs` (8).
+- **Avisar a janela Anúncios (via mestre) depois do deploy** para reconferir UTM, oppref, a tag de compra e as páginas de destino dos anúncios.
+
+## Arquivos tocados (B2C, só metadata/SEO)
+`src/app/layout.tsx`, `src/app/page.tsx` (og + H1), `src/app/sobre/page.tsx`, `src/app/linha/[slug]/page.tsx` (generateMetadata), `src/app/produto/[slug]/page.tsx` (generateMetadata + JSON-LD), `src/app/sitemap.ts`, `src/app/robots.ts` (sem mudança de código; já usa `getSiteUrl()`), `src/lib/seo/site-url.ts`. Novos: `src/lib/seo/metadata.ts`, `public/og/og-{home,adulto,infantil,pet}.jpg`, `scripts/seo-b2c.test.mjs`.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Ajuste da Image Tag: marcar "enviada" só no onLoad (18/10/2026), sobre `ff4710f`
 
 **Sem SQL** (usa as colunas do 44b). Antes, o servidor marcava `ads_tag_sent_at` ao ENTREGAR a URL; se uma extensão/navegador bloqueasse a imagem, o evento se perdia.

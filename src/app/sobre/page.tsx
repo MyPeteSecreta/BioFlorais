@@ -5,6 +5,7 @@ import InfoPage from "@/components/layout/InfoPage";
 export const metadata: Metadata = {
   title: "Conheça a Bio Florais | Desde 1997",
   description: "Bio Florais: desde 1997, florais com flores frescas brasileiras e fórmulas sem álcool para diferentes momentos da vida.",
+  alternates: { canonical: "/sobre" },
 };
 
 /* TEXTO INICIAL — o Luis deve revisar e substituir pelo conteúdo institucional oficial da marca. */

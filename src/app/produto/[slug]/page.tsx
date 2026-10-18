@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { LINE_SEO, OG_IMAGES, normalizeProductSlug, productDescription } from "@/lib/seo/metadata";
+import { getSiteUrl } from "@/lib/seo/site-url";
 import { forwardQuery } from "@/lib/forward-query";
 import fs from "node:fs";
 import path from "node:path";
@@ -438,6 +441,42 @@ function comboPrice(
   );
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug: rawSlug } = await params;
+  // Apresentações maiores (-5l, perfume -500ml) redirecionam para a página base: metadata/canonical da base.
+  const slug = normalizeProductSlug(rawSlug);
+  const product = getProduct(slug);
+
+  if (!product) notFound();
+
+  const prefix = /^floral/i.test(product.category) ? "Floral" : product.category;
+  const base = `${prefix} ${product.name}`;
+  // Não repete a linha quando o nome já a contém (ex.: Virtudes Divinas Amor).
+  const title = base.toLowerCase().includes(product.line.toLowerCase()) ? `${base} | Bio Florais` : `${base} · ${product.line} | Bio Florais`;
+  const description = productDescription(
+    { name: product.name, content: product.content, line: product.line, category: product.category },
+    getProductEditorialContent(product.slug)?.about
+  );
+  // Imagem REAL da galeria (nunca o campo vazio product.image); sem galeria, a arte da linha.
+  const image = getProductGallery(product)[0] ?? LINE_SEO[product.lineSlug]?.ogImage ?? OG_IMAGES.home;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/produto/${product.slug}` },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: `/produto/${product.slug}`,
+      siteName: "Bio Florais",
+      locale: "pt_BR",
+      images: [{ url: image, alt: title }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
+  };
+}
+
 export default async function ProductPage({
   params,
   searchParams,
@@ -627,6 +666,35 @@ export default async function ProductPage({
         4
       );
 
+  // Product + Offer (schema.org): availability InStock fixo (catálogo estático, aprovado pela mestre).
+  const siteUrl = getSiteUrl();
+  const absolute = (url: string) => (/^https?:/i.test(url) ? url : `${siteUrl}${url.startsWith("/") ? "" : "/"}${url}`);
+  const jsonLdImages = gallery.slice(0, 5).map(absolute);
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: productDescription(
+      { name: product.name, content: product.content, line: product.line, category: product.category },
+      editorial?.about
+    ),
+    sku: product.slug,
+    url: `${siteUrl}/produto/${product.slug}`,
+    brand: { "@type": "Brand", name: "Bio Florais" },
+    ...(jsonLdImages.length > 0 ? { image: jsonLdImages } : {}),
+    ...(product.priceCents && product.priceCents > 0
+      ? {
+          offers: {
+            "@type": "Offer",
+            url: `${siteUrl}/produto/${product.slug}`,
+            priceCurrency: "BRL",
+            price: (product.priceCents / 100).toFixed(2),
+            availability: "https://schema.org/InStock",
+          },
+        }
+      : {}),
+  };
+
   return (
     <main
       className="
@@ -635,6 +703,11 @@ export default async function ProductPage({
         text-[#2f2231]
       "
     >
+      <script
+        type="application/ld+json"
+        // "<" escapado: o JSON nunca fecha a tag <script>.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
+      />
       <header
         className="
           border-b

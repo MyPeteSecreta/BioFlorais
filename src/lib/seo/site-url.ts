@@ -17,5 +17,9 @@ export function getSiteUrl(): string {
     return FALLBACK_SITE_URL;
   }
 
-  return configured.replace(/\/+$/, "");
+  const url = configured.replace(/\/+$/, "");
+
+  // Domínio canônico é o www: o apex (bioflorais.com.br) responde 308 -> www, então canonical, sitemap e robots
+  // nunca podem apontar para ele (mesmo que a variável da Vercel esteja sem www).
+  return url.replace(/^(https?:\/\/)bioflorais\.com\.br(?=[/:]|$)/i, "$1www.bioflorais.com.br");
 }

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import { OG_IMAGES, OG_IMAGE_SIZE } from "@/lib/seo/metadata";
 import { getSiteUrl } from "@/lib/seo/site-url";
 
 const siteUrl = getSiteUrl();
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Bio Florais",
     locale: "pt_BR",
+    images: [{ url: OG_IMAGES.home, width: OG_IMAGE_SIZE.width, height: OG_IMAGE_SIZE.height, alt: "Bio Florais" }],
   },
+  twitter: { card: "summary_large_image", images: [OG_IMAGES.home] },
 };
 
 // Organization + WebSite (schema.org) — Metadata SEO V2.1, Seção 3.
@@ -222,9 +225,9 @@ export default function Home() {
             Bio Florais · Desde 1997
           </p>
 
-          <h1 className="absolute bottom-4 left-4 max-w-[245px] font-serif text-[27px] font-semibold leading-[0.95] tracking-[-0.04em] text-[#422347]">
+          <p className="absolute bottom-4 left-4 max-w-[245px] font-serif text-[27px] font-semibold leading-[0.95] tracking-[-0.04em] text-[#422347]">
             Equilíbrio para viver melhor cada dia.
-          </h1>
+          </p>
         </div>
 
         <div className="px-5 py-3">
