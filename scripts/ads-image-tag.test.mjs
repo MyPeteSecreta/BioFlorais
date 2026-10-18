@@ -118,7 +118,7 @@ test("3.2) URL da Image Tag: só campos aceitos, centavos inteiros, UUID aleató
   assert.ok(!/contents%5B|data\[contents\]|email|phone|cpf|cnpj|nome|name=/i.test(url));
 });
 
-test("3.2) servidor: tag do pedido PAGO entregue UMA vez (event_id aleatório salvo no pedido, nunca o número); boleto/pendente/arquivado não", async () => {
+test("3.2) servidor: tag do pedido PAGO (event_id aleatório salvo no pedido, nunca o número), marcada como enviada SÓ no onLoad; boleto/pendente/arquivado não", async () => {
   const pg = new PGlite();
   await pg.exec(`CREATE TABLE orders (id uuid PRIMARY KEY, status text, payment_method text, total_cents int, archived_at timestamp,
       oppref text, ads_event_id uuid, ads_tag_sent_at timestamptz);
@@ -146,16 +146,27 @@ test("3.2) servidor: tag do pedido PAGO entregue UMA vez (event_id aleatório sa
   assert.ok(!first.includes("10000000-0000-4000-8000-000000000001"), "número/ID do pedido NUNCA na URL");
   const saved = (await run("SELECT ads_event_id::text AS e, ads_tag_sent_at FROM orders WHERE id = '10000000-0000-4000-8000-000000000001'"))[0];
   assert.equal(saved.e, params.get("event_id"), "o mesmo UUID fica no pedido (deduplicação da fase 2)");
-  assert.ok(saved.ads_tag_sent_at);
+  assert.equal(saved.ads_tag_sent_at, null, "oferecer a tag NÃO marca como enviada (a imagem pode ser bloqueada)");
 
-  // recarregar / outro aparelho: não renderiza de novo
+  // imagem bloqueada (onError): nada foi confirmado; a próxima visita reoferece a MESMA URL (mesmo event_id: sem duplicar)
+  assert.equal(await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000001", "x"), first);
+
+  // onLoad: só agora marca "tag enviada" (uma vez); depois disso recarregar/outro aparelho não renderiza de novo
+  assert.equal(await server.confirmAdsTagSent(run, "10000000-0000-4000-8000-000000000001"), true);
+  assert.equal(await server.confirmAdsTagSent(run, "10000000-0000-4000-8000-000000000001"), false, "marca uma vez só");
+  assert.ok((await run("SELECT ads_tag_sent_at FROM orders WHERE id = '10000000-0000-4000-8000-000000000001'"))[0].ads_tag_sent_at);
   assert.equal(await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000001", "x"), null);
+  // não confirma o que nunca foi oferecido, nem pedido pendente/boleto/arquivado/id inválido
+  assert.equal(await server.confirmAdsTagSent(run, "10000000-0000-4000-8000-000000000003"), false);
+  assert.equal(await server.confirmAdsTagSent(run, "10000000-0000-4000-8000-000000000004"), false);
+  assert.equal(await server.confirmAdsTagSent(run, "nao-uuid"), false);
 
-  // sem oppref no pedido: usa o do cookie; sem nenhum, remove o parâmetro
+  // sem oppref no pedido: usa o do cookie; sem nenhum, remove o parâmetro (mesmo event_id enquanto não confirmada)
   const withCookie = await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000002", "so-cookie");
   assert.ok(withCookie.includes("oppref=so-cookie"));
-  await pg.exec(`UPDATE orders SET ads_tag_sent_at = NULL, ads_event_id = NULL WHERE id = '10000000-0000-4000-8000-000000000002'`);
-  assert.ok(!(await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000002", null)).includes("oppref="));
+  const noCookie = await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000002", null);
+  assert.ok(!noCookie.includes("oppref="));
+  assert.equal(new URLSearchParams(noCookie.split("?")[1]).get("event_id"), new URLSearchParams(withCookie.split("?")[1]).get("event_id"));
 
   assert.equal(await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000003", null), null, "pendente");
   assert.equal(await server.claimAdsTag(run, "10000000-0000-4000-8000-000000000004", null), null, "boleto: fase 2");
@@ -205,7 +216,15 @@ test("2) sem Pixel JS: SDK oaiq removido; nada de user/sha256/oaiq; sem CSP a li
 test("3.2/4) fiação: <img> 1x1 oculto só com consentimento; onde carrega; banner e políticas v3", () => {
   const tag = read("src/components/consent/AdsPurchaseTag.tsx");
   assert.ok(tag.includes("hasMarketingConsent(window.localStorage)") && tag.indexOf("hasMarketingConsent") < tag.indexOf("fetch("), "sem consentimento nem consulta o servidor");
-  assert.ok(tag.includes("width={1} height={1}") && tag.includes('display: "none"') && tag.includes('alt=""'));
+  assert.ok(/width=\{1\}\s+height=\{1\}/.test(tag) && tag.includes('display: "none"') && tag.includes('alt=""'));
+  // marca "enviada" só no onLoad; onError não marca e libera nova tentativa (imagem bloqueada por extensão/rede)
+  assert.ok(tag.includes("onLoad={") && tag.includes("sent: true"), "onLoad confirma no servidor");
+  assert.ok(tag.includes("onError={") && tag.includes("setRetry"), "onError libera nova tentativa");
+  assert.ok(tag.indexOf("onError={") > tag.indexOf("onLoad={"));
+  const onError = tag.slice(tag.indexOf("onError={"));
+  assert.ok(!onError.includes("sent: true"), "onError nunca marca como enviada");
+  const route = read("src/app/api/orders/ads-tag/route.ts");
+  assert.ok(route.includes("body.sent === true") && route.includes("confirmAdsTagSent("));
   assert.ok(read("src/app/layout.tsx").includes("<OppRefCapture />") && read("src/app/layout.tsx").includes("<CookieBanner />"));
   assert.ok(read("src/app/acompanhe/[token]/page.tsx").includes("<AdsPurchaseTag orderId={view.orderId} />"));
   assert.ok(read("src/app/checkout/page.tsx").includes('<AdsPurchaseTag orderId={pendingOrderId} active={pendingOrderStatus === "paid"} />'));

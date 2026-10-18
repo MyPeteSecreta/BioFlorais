@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Ajuste da Image Tag: marcar "enviada" só no onLoad (18/10/2026), sobre `ff4710f`
+
+**Sem SQL** (usa as colunas do 44b). Antes, o servidor marcava `ads_tag_sent_at` ao ENTREGAR a URL; se uma extensão/navegador bloqueasse a imagem, o evento se perdia.
+- **Oferecer ≠ enviar:** `POST /api/orders/ads-tag {orderId}` só garante o `ads_event_id` (UUID aleatório salvo no pedido) e devolve a URL **sem marcar**; enquanto não confirmada, devolve a **mesma URL** (mesmo event_id: a plataforma deduplica, sem conversão dobrada).
+- **`onLoad` da imagem:** o navegador chama `POST /api/orders/ads-tag {orderId, sent: true}` e **só então** o servidor grava `ads_tag_sent_at` (atômico, uma vez; só se o event_id já foi oferecido e o pedido continua pago, não boleto). A partir daí recarregar/outro aparelho não renderiza de novo.
+- **`onError` (imagem bloqueada):** **nada é marcado**; a tag é re-renderizada até 2 vezes (a cada 5 s) e a próxima visita à confirmação/acompanhamento reoferece a mesma URL.
+- **Testes** (`ads-image-tag.test.mjs`): oferecer não marca; reoferece a mesma URL; confirmar marca uma vez; depois não oferece; não confirma pedido pendente/boleto/arquivado/id inválido; `onLoad` confirma e `onError` nunca marca.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 12 v3 · Image Tag do ChatGPT Ads (18/10/2026), sobre `297046b` (que está sobre `dfd5346`, não publicado)
 
 `PEDIDO_TECNICO_PIXEL_BIO.md` v3. **SUBSTITUI o Pixel JS** (a correspondência avançada automática não pode ser desligada no pixel JS). **SDK `oaiq` removido** (sem script da OpenAI, sem `oaiq(...)`, sem objeto `user`, sem hash). Mantidos: banner de cookies, "Configurar cookies", repasse de query string e políticas (parágrafo da v3). API de Conversões (fase 2) **não** entra.
