@@ -533,10 +533,17 @@ export default function CheckoutPage() {
 
     void checkOrderStatus();
 
-    const interval = window.setInterval(
-      checkOrderStatus,
-      3000
-    );
+    // Não consulta para sempre: aba esquecida aberta continuava chamando o status (1x/min em segundo plano).
+    // O Pix vale 30 min; depois disso a tela para de consultar (o webhook e a página de acompanhamento seguem valendo).
+    const startedAt = Date.now();
+    const interval = window.setInterval(() => {
+      if (Date.now() - startedAt > 35 * 60 * 1000) {
+        window.clearInterval(interval);
+        return;
+      }
+
+      void checkOrderStatus();
+    }, 3000);
 
     return () => {
       cancelled = true;

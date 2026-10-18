@@ -9,6 +9,22 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Investigação: "Erro ao consultar Lunium: 401 chave_incorreta" (18/10/2026), sobre `dfd5346`
+
+**Causa:** `GET /api/orders/<id>/status` tinha um bloco "Lunium / Pix (preservado)" que rodava para **todo pedido ainda não pago**, sem olhar o provider, sempre que existe `LUNIUM_API_KEY` na Vercel. A chave está inválida/desativada (o Pix da Bio é Mercado Pago), então **cada consulta de status de um pedido pendente gerava 1 chamada à Lunium e 1 erro 401**. A consulta vem do checkout B2C (`/checkout`, a cada 3 s enquanto a aba está aberta com um pedido pendente; **aba em segundo plano é limitada pelo navegador a 1 consulta por minuto** — exatamente o padrão dos ~130 erros/dia de um único pedido, `8cd0dffb…`) e dos checkouts B2B/mostruário. O pedido não tem nada de Lunium: é só uma **aba esquecida aberta** com um pedido pendente, e o código antigo consultava a Lunium por pura "preservação".
+**Correção (commit abaixo):** (1) a rota só consulta a Lunium se o pedido **tem pagamento Lunium** (`payments.provider = 'lunium'`, gravado na criação de toda cobrança Lunium — `lib/payments/lunium-gate.ts`); Pix/cartão Mercado Pago e pedido sem pagamento gerado **nunca** consultam; pedido antigo com cobrança Lunium continua conciliando; (2) a tela do checkout B2C **para de consultar após 35 min** (o Pix vale 30; o webhook e a página de acompanhamento seguem valendo), para não haver consulta eterna.
+**Fluxo Pix Mercado Pago (código):** criação (`/api/payments/mercadopago/pix`, B2B `/api/b2b/payments/mercadopago/pix`) → pagamento → webhook `/api/webhooks/mercadopago` + cron `reconcile-mp-pix` + a própria consulta de status (concilia a Order existente no Mercado Pago) → todos terminam em `finalizeMercadoPagoPaid` → `paid` / `paid_to_prepare`. O bloco Mercado Pago do status **não foi alterado** e roda antes do bloco Lunium. Coberto por testes de código; **não consigo confirmar a produção daqui (sem acesso ao banco/Vercel)**: conferir nos logs da Vercel que os 401 sumiram após o deploy e que um Pix de teste vira `paid`.
+**Pedido 8cd0dffb-7c04-4a42-ae32-65a9f8386127 — real ou teste?** Não dá para saber sem o banco (sem acesso ao Neon). Consulta somente leitura para o Luis rodar:
+```sql
+SELECT o.id, o.status, o.payment_method, o.total_cents, o.created_at, o.b2b_offer_id IS NOT NULL AS b2b,
+       c.name, c.email, (SELECT string_agg(p.provider || '/' || p.method || '/' || p.status, ', ') FROM payments p WHERE p.order_id = o.id) AS pagamentos
+  FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = '8cd0dffb-7c04-4a42-ae32-65a9f8386127';
+```
+Teste costuma ter e-mail/nome do time e total simbólico; cliente real tem Pix gerado e status pendente por abandono. Se for abandono real, o pedido pode ser cancelado no admin depois.
+**Teste:** `scripts/status-lunium-gate.test.mjs`.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 12 · Pixel do ChatGPT Ads (18/10/2026), sobre `70e4ffd`
 
 Pedido técnico: `PEDIDO_TECNICO_PIXEL_BIO.md`. Pixel `C43h1qwNBKW7o7E9hgXwh9`. **Sem SQL.** Fase 2 (API de Conversões) **não** entra. B2C tocado só no necessário (lista no fim).

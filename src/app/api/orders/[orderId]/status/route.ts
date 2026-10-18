@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
 import { confirmPartnerPaid } from "@/lib/partners/confirm-paid";
+import { shouldConsultLunium } from "@/lib/payments/lunium-gate";
 import {
   orders,
   payments,
@@ -198,11 +199,13 @@ export async function GET(
     /*
      * LUNIUM / PIX
      *
-     * Bloco preservado.
+     * Bloco preservado, mas SÓ para pedido que tem pagamento Lunium. Pix Mercado Pago, cartão e pedido
+     * sem pagamento gerado não consultam a Lunium (antes: 401 chave_incorreta a cada consulta).
      */
     if (
       currentStatus !== "paid" &&
-      currentStatus !== "cancelled"
+      currentStatus !== "cancelled" &&
+      shouldConsultLunium(orderPayments)
     ) {
       const apiKey =
         process.env.LUNIUM_API_KEY?.trim();
