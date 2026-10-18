@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+﻿import CookieSettingsLink from "@/components/consent/CookieSettingsLink";
+import Link from "next/link";
 
 const COMPANY = "Pharma e Natural Distribuidora Ltda.";
 const CNPJ = "27.707.550/0001-00";
@@ -19,7 +20,7 @@ export default function Page() {
         <div className="mt-6 h-px w-16 bg-[#c39745]" />
 
         <div className="mt-8 space-y-8 text-base leading-8 text-[#665765]">
-          <p>Última atualização: 9 de setembro de 2026.</p>
+          <p>Última atualização: 18 de outubro de 2026.</p>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
@@ -120,9 +121,26 @@ export default function Page() {
             </p>
           </section>
 
+          <section data-testid="pixel-politica">
+            <h2 className="mb-3 text-xl font-semibold text-[#422347]">
+              9. Pixel de medição de anúncios (marketing)
+            </h2>
+            <p>
+              Com o seu consentimento para cookies de marketing, usamos o pixel de medição da Plataforma de Anúncios da OpenAI
+              (ChatGPT) para saber se nossos anúncios geram visitas e compras. Ele registra eventos de navegação e de pedido
+              (valor, produtos e identificador do pedido), sem nome, e-mail, telefone ou documentos. Cookies:{" "}
+              <code>__oppref</code> (identificador do clique no anúncio, até 30 dias) e <code>__obref</code> (identificador aleatório
+              do navegador, até 365 dias). Você pode retirar o consentimento a qualquer momento em &quot;Configurar cookies&quot;; ao
+              fazer isso, esses cookies são apagados.
+            </p>
+            <p className="mt-3">
+              <CookieSettingsLink className="rounded-full border-2 border-[#55245f] px-5 py-2 text-sm font-extrabold text-[#55245f]" />
+            </p>
+          </section>
+
           <section>
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
-              9. Contato
+              10. Contato
             </h2>
             <p>
               {COMPANY} · CNPJ {CNPJ}

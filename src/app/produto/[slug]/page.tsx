@@ -1,3 +1,4 @@
+import { forwardQuery } from "@/lib/forward-query";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -439,24 +440,25 @@ function comboPrice(
 
 export default async function ProductPage({
   params,
+  searchParams,
 }: {
   params:
     Promise<{
       slug: string;
     }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const {
     slug,
   } =
     await params;
+  const query = await searchParams;
 
   if (
     slug.startsWith("cosmeticos-pet-") &&
     slug.endsWith("-5l")
   ) {
-    redirect(
-      `/produto/${slug.slice(0, -3)}`
-    );
+    redirect(forwardQuery(`/produto/${slug.slice(0, -3)}`, query));
   }
 
   if (
@@ -465,9 +467,7 @@ export default async function ProductPage({
     ) &&
     slug.endsWith("-500ml")
   ) {
-    redirect(
-      `/produto/${slug.slice(0, -6)}`
-    );
+    redirect(forwardQuery(`/produto/${slug.slice(0, -6)}`, query));
   }
 
   const product =

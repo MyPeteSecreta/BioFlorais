@@ -4,6 +4,7 @@
  * Tudo sobre SqlRunner (testado em PGlite). O código tem 6 letras/números e não revela e-mail.
  */
 
+import { forwardQuery } from "@/lib/forward-query";
 import { randomInt } from "node:crypto";
 
 import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
@@ -42,19 +43,7 @@ export function withForwardedParams(
   path: string,
   params: Record<string, string | string[] | undefined> | undefined
 ): string {
-  const query = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if ((PARTNER_INTERNAL_PARAMS as readonly string[]).includes(key.toLowerCase())) continue;
-
-    for (const item of Array.isArray(value) ? value : [value]) {
-      if (item !== undefined && item !== "") query.append(key, item);
-    }
-  }
-
-  const text = query.toString();
-
-  return text ? `${path}${path.includes("?") ? "&" : "?"}${text}` : path;
+  return forwardQuery(path, params, PARTNER_INTERNAL_PARAMS);
 }
 
 export type PartnerSeller = { id: string; name: string; referralCode: string | null; type: string };

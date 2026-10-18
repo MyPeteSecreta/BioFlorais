@@ -1,3 +1,4 @@
+import CookieSettingsLink from "@/components/consent/CookieSettingsLink";
 import Link from "next/link";
 
 export default function SiteFooter() {
@@ -90,6 +91,8 @@ export default function SiteFooter() {
             <Link href="/cookies" className="hover:text-[#63326d]">
               Política de Cookies
             </Link>
+
+            <CookieSettingsLink className="text-left hover:text-[#63326d]" />
 
             <Link href="/termos-de-compra" className="hover:text-[#63326d]">
               Termos de Compra

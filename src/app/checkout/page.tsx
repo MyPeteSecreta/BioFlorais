@@ -1,6 +1,7 @@
 "use client";
 
 import TrackOrderCard from "@/components/TrackOrderCard";
+import PurchasePixel from "@/components/consent/PurchasePixel";
 import { cartItemDisplay } from "@/lib/cart-display";
 import { useCartImages } from "@/lib/cart-images";
 
@@ -2623,6 +2624,7 @@ export default function CheckoutPage() {
             </div>
 
             {pendingOrderId && <TrackOrderCard orderId={pendingOrderId} />}
+            {pendingOrderId && <PurchasePixel orderId={pendingOrderId} active={pendingOrderStatus === "paid"} />}
 
 
             {pendingOrderId ? (

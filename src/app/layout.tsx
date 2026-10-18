@@ -7,6 +7,8 @@ import MobileLineBar from "@/components/layout/MobileLineBar";
 import UgcFloatingButton from "@/components/ugc/UgcFloatingButton";
 import HideOnB2B from "@/components/layout/HideOnB2B";
 import WebAnalytics from "@/components/analytics/WebAnalytics";
+import ChatGptAdsPixel from "@/components/consent/ChatGptAdsPixel";
+import CookieBanner from "@/components/consent/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Bio Florais | Equilíbrio para viver melhor",
@@ -34,6 +36,9 @@ export default function RootLayout({
           </HideOnB2B>
         </CartProvider>
         <WebAnalytics />
+        {/* Cookies: banner (Aceitar/Recusar/Configurar) e pixel do ChatGPT Ads, que só carrega com aceite de marketing. */}
+        <CookieBanner />
+        <ChatGptAdsPixel />
       </body>
     </html>
   );
