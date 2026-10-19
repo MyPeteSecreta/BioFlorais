@@ -147,3 +147,69 @@ test("NÃO QUEBRAR: sem no-referrer, sem tag de terceiros nova, banner e Image T
   assert.ok(!/no-referrer/i.test(layout));
   assert.ok(!/googletagmanager|connect\.facebook|fbevents/i.test(layout));
 });
+
+// ---- Rodada 14b ----
+
+test("14b-a) floral de ambiente Pet (bio-pet / eco-beauty) vai para Cosméticos Pet; its-blossom continua em Home Care", () => {
+  const expected = {
+    "sos-bio-pet-250ml": "rescue-sos",
+    "ansiedade-bio-pet-250ml": "ansiedade",
+    "ansiedade-eco-beauty-250ml": "ansiedade",
+    "tristeza-e-depressao-bio-pet-250ml": "tristeza-e-depressao",
+    "agressividade-bio-pet-250ml": "agressividade",
+    "adestramento-bio-pet-250ml": "adestramento",
+    "filhotes-bio-pet-250ml": "filhotes",
+  };
+  for (const [suffix, theme] of Object.entries(expected)) {
+    const destination = resolveLegacyRedirect(`/produto/floral-de-ambiente-${suffix}`);
+    assert.equal(destination, `/produto/cosmeticos-pet-floral-de-ambiente-${theme}`, suffix);
+    assert.ok(getProduct(destination.replace("/produto/", "")), `${destination} existe`);
+    assert.equal(resolveLegacyRedirect(destination), null);
+  }
+  assert.equal(resolveLegacyRedirect("/produto/floral-de-ambiente-medo-bio-pet-250ml"), "/linha/cosmeticos-pet", "sem correspondência");
+  assert.equal(resolveLegacyRedirect("/produto/floral-de-ambiente-limpeza-e-protecao-its-blossom-240ml"), "/produto/home-care-aromatizador-spray-limpeza-e-protecao");
+  assert.equal(resolveLegacyRedirect("/floral-de-ambiente-bem-estar-240ml"), "/produto/home-care-aromatizador-spray-bem-estar");
+});
+
+test("14b-b) /linha-humana, /shop, /shop/page/*, categorias de cosmético", () => {
+  assert.equal(resolveLegacyRedirect("/linha-humana"), "/linha/cosmeticos");
+  assert.equal(resolveLegacyRedirect("/linha-humana/"), "/linha/cosmeticos");
+  assert.equal(resolveLegacyRedirect("/shop"), "/");
+  assert.equal(resolveLegacyRedirect("/shop/page/2"), "/");
+  assert.equal(resolveLegacyRedirect("/categoria-produto/cosmetico/linha-humana/"), "/linha/cosmeticos");
+  assert.equal(resolveLegacyRedirect("/categoria-produto/cosmetico/linha-humana/shampoo"), "/linha/cosmeticos");
+  assert.equal(resolveLegacyRedirect("/categoria-produto/cosmetico/linha-pet/"), "/linha/cosmeticos-pet");
+  assert.equal(resolveLegacyRedirect("/categoria-produto/cosmetico/linha-pet/perfume"), "/linha/cosmeticos-pet");
+});
+
+test("14b-c) redirect remove só add-to-cart e srsltid; utm_*, oppref e o resto ficam", () => {
+  assert.equal(
+    withLegacyQuery("/linha/pet", "?add-to-cart=12&utm_source=x&srsltid=AfmB&oppref=abc&foo=bar"),
+    "/linha/pet?utm_source=x&oppref=abc&foo=bar"
+  );
+  assert.equal(withLegacyQuery("/linha/pet", "?add-to-cart=12"), "/linha/pet");
+  assert.equal(withLegacyQuery("/linha/pet", "?SRSLTID=z&utm_campaign=c"), "/linha/pet?utm_campaign=c");
+  assert.equal(withLegacyQuery("/#linhas", "?srsltid=z&utm_medium=m"), "/?utm_medium=m#linhas");
+  assert.equal(withLegacyQuery("/x", "?utm_source=x&utm_campaign=y"), "/x?utm_source=x&utm_campaign=y");
+});
+
+test("14b-d) Grandes Animais -> /linha/pet; produtos atuais continuam intactos", () => {
+  assert.equal(resolveLegacyRedirect("/categoria-produto/floral/linha-grandes-animais/"), "/linha/pet");
+  assert.equal(resolveLegacyRedirect("/categoria-produto/floral/linha-grandes-animais/ansiedade"), "/linha/pet");
+  assert.equal(resolveLegacyRedirect("/produto/floral-grandes-animais-ansiedade-31ml"), "/linha/pet");
+  assert.equal(resolveLegacyRedirect("/floral-grandes-animais-cavalos"), "/linha/pet");
+  assert.equal(resolveLegacyRedirect("/linha/pet"), null);
+});
+
+test("14b) URLs de anúncio intactas (com query) e linhas geradas estaticamente (PERF-01)", () => {
+  for (const path of ["/", "/linha/adulto", "/linha/infantil", "/linha/pet", "/parceiros"]) {
+    assert.equal(resolveLegacyRedirect(path), null, path);
+  }
+  const line = read("src/app/linha/[slug]/page.tsx");
+  assert.match(line, /export function generateStaticParams\(\)/);
+  assert.match(line, /bioLines\.map\(\(line\) => \(\{ slug: line\.slug \}\)\)/);
+  for (const file of ["src/app/page.tsx", "src/app/linha/[slug]/page.tsx"]) {
+    assert.match(read(file), /fetchPriority="high"/, file);
+  }
+  assert.equal((read("src/app/linha/[slug]/page.tsx").match(/\bpriority\b/g) ?? []).length, 1, "só o herói tem priority");
+});

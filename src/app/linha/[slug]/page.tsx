@@ -11,6 +11,7 @@ import { notFound } from "next/navigation";
 
 import {
   bioCommercialOrder,
+  bioLines,
   getLine,
   getProductsByLine,
   type BioProduct,
@@ -1460,6 +1461,12 @@ const marketingCards = [
   },
 ];
 
+// Catálogo estático: as linhas são geradas no build (servidas do CDN, sem renderizar a cada visita). A query string
+// (utm_*, oppref) não altera a página, então não afeta a geração estática.
+export function generateStaticParams() {
+  return bioLines.map((line) => ({ slug: line.slug }));
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const line = getLine(slug);
@@ -1994,6 +2001,7 @@ export default async function LinePage({
                 width={1600}
                 height={900}
                 priority
+                fetchPriority="high"
                 sizes="
                   (max-width: 1024px)
                   100vw,

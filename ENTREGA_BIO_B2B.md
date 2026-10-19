@@ -9,6 +9,17 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 14b · PERF-01 e ajustes de redirect (19/10/2026), sobre `fc78927`
+
+Sem push, deploy, Neon ou SQL.
+
+- **PERF-01:** (1) `fetchPriority="high"` nos heróis da Home (mobile e desktop) e de `/linha/[slug]`: no Next 16 o `priority` só faz preload (sem `fetchpriority=high` no `<img>`, o Lighthouse acusava "priorityHinted: false"); `sizes` já estavam corretos e as imagens abaixo da dobra são `lazy`. (2) `/linha/[slug]` passou de renderização por visita (ƒ) para estática no build (`generateStaticParams` com todas as linhas), servida do CDN: corta o TTFB do servidor. Sem mudança visual. A query (utm_*, oppref) não altera a página.
+  - **Antes/depois (Lighthouse mobile local):** o ambiente local tem piso de ~3,1 s: uma página trivial (`/cookies`) dá FCP = LCP = 3,1 s com throttling devtools (1,5 s sem throttling). Home: LCP 3,6/3,0 s (antes) → 3,2 s (depois); `/linha/adulto`: 3,1-3,6 s → 3,1 s; ambas no piso do ambiente. A imagem do herói já pesa 24 KB (Home) e 54 KB (Adulto) e é descoberta no HTML. **O critério LCP < 2,5 s não é verificável localmente**; o ganho esperado em produção é o TTFB (SSG) e a prioridade do herói. Conferir no PageSpeed após o deploy.
+- **Redirects (URL-01 ajustes):** floral de ambiente `*-bio-pet-*`/`*-eco-beauty-*` → produto `cosmeticos-pet-floral-de-ambiente-<tema>` (sos→rescue-sos, ansiedade, tristeza-e-depressao, agressividade, adestramento, filhotes), sem correspondência → `/linha/cosmeticos-pet`; `-its-blossom-` segue em Home Care. `/linha-humana` → `/linha/cosmeticos`; `/shop` e `/shop/page/*` → `/`; `/categoria-produto/cosmetico/linha-humana/*` → `/linha/cosmeticos`; `.../linha-pet/*` → `/linha/cosmeticos-pet`. Grandes Animais (`linha-grandes-animais`, `*-grandes-animais-*`, `/floral-grandes-animais-*`) → `/linha/pet`. No redirect saem só `add-to-cart` e `srsltid`; utm_*, oppref e o resto seguem.
+- **Testes:** 5 casos novos em `scripts/seo-fase2.test.mjs` (14b a-d + URLs de anúncio/SSG). tsc limpo, build ok, `npm test` 323/323.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 14 · SEO Fase 2 (18/10/2026), sobre `2e81e9e`
 
 Sem push, sem deploy, sem Neon, sem SQL. Só B2C/SEO.

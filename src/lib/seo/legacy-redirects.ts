@@ -108,6 +108,33 @@ function categoryTarget(rest: string): string {
   return "/";
 }
 
+/**
+ * Floral de ambiente Pet do site antigo (floral-de-ambiente-<tema>-bio-pet-250ml, ...-eco-beauty-...): vai para o produto de
+ * floral de ambiente da linha Cosméticos Pet; sem correspondência, para a linha. Os "-its-blossom-" seguem em Home Care.
+ */
+const PET_AMBIENT_THEMES: ReadonlyArray<[RegExp, string]> = [
+  [/(^|-)(sos|rescue)(-|$)/, "rescue-sos"],
+  [/(^|-)(tristeza|depressao)(-|$)/, "tristeza-e-depressao"],
+  [/(^|-)ansiedade(-|$)/, "ansiedade"],
+  [/(^|-)agressividade(-|$)/, "agressividade"],
+  [/(^|-)adestramento(-|$)/, "adestramento"],
+  [/(^|-)filhotes?(-|$)/, "filhotes"],
+];
+
+function petAmbient(slug: string): string | null {
+  const text = slug.toLowerCase();
+  if (!/^floral-de-ambiente-/.test(text) || /its-blossom/.test(text) || !/(bio-pet|eco-beauty)/.test(text)) return null;
+
+  const theme = text.replace(/^floral-de-ambiente-/, "");
+
+  for (const [pattern, name] of PET_AMBIENT_THEMES) {
+    const candidate = `cosmeticos-pet-floral-de-ambiente-${name}`;
+    if (pattern.test(theme) && getProduct(candidate)) return `/produto/${candidate}`;
+  }
+
+  return "/linha/cosmeticos-pet";
+}
+
 /** Linha mais próxima pelo prefixo do slug antigo (adulto-..., cosmeticos-pet-..., home-care-...). */
 function lineByPrefix(slug: string): string | null {
   const line = LINE_SLUGS.find((candidate) => slug === candidate || slug.startsWith(`${candidate}-`));
@@ -136,6 +163,17 @@ export function resolveLegacyRedirect(pathname: string): string | null {
   // 3) bug histórico: /None-* e /categoria/None-* -> home
   if (/^none($|-)/i.test(root) || (root === "categoria" && /^none($|-)/i.test(segments[1] ?? ""))) return "/";
 
+  // 3b) site antigo: /shop, /shop/page/*, /linha-humana e as subcategorias de cosmético
+  if (root === "shop") return "/";
+  if (root === "linha-humana") return "/linha/cosmeticos";
+  if (root === "categoria-produto" && segments[1] === "cosmetico") {
+    if (segments[2] === "linha-humana") return "/linha/cosmeticos";
+    if (segments[2] === "linha-pet") return "/linha/cosmeticos-pet";
+  }
+
+  // 3c) Grandes Animais não tem página própria: vai para a linha Pet por enquanto (produto atual válido nunca é tocado)
+  if (/grandes-animais/.test(path) && !(root === "produto" && segments[1] && getProduct(segments[1]))) return "/linha/pet";
+
   // 4) categorias e etiquetas antigas -> linha correspondente (ou home)
   if (root === "categoria-produto" || root === "produto-tag" || root === "produto-etiqueta" || root === "categoria") {
     return categoryTarget(segments.slice(1).join("-"));
@@ -146,6 +184,9 @@ export function resolveLegacyRedirect(pathname: string): string | null {
     const slug = segments[1];
     if (!slug || segments.length > 2) return null;
     if (getProduct(slug)) return null; // produto atual (inclui -5l/-500ml, tratados pela própria página)
+
+    const ambient = petAmbient(slug);
+    if (ambient) return ambient;
 
     const matched = matchLegacyProduct(slug);
     if (matched) return `/produto/${matched}`;
@@ -173,6 +214,9 @@ export function resolveLegacyRedirect(pathname: string): string | null {
   // 7) Aceitando um novo animal (4 eras do slug) -> produto Pet
   if (/(^|-)aceitando-um-novo-animal(-|$)/.test(root)) return "/produto/pet-floral-em-gotas-aceitando-um-novo-animal";
 
+  const rootAmbient = petAmbient(root);
+  if (rootAmbient) return rootAmbient;
+
   // 8) página antiga de produto na raiz com volume no slug (ex.: /ansiedade-floral-pet-31ml, /medo-37ml)
   if (/-\d+(ml|g|l)$/.test(root) || /-floral-(adulto|infantil|baby|kids|teen|pet)(-|$)/.test(root)) {
     const matched = matchLegacyProduct(root);
@@ -193,12 +237,33 @@ function categoryFallbackOrNull(slug: string): string | null {
   return target === "/" ? null : target;
 }
 
-/** Junta o destino com a query string (utm_*, oppref e tudo o mais) — usado pelo middleware e pelos testes. */
+/** Parâmetros de carrinho/ruído do site antigo que NÃO seguem no redirect (utm_*, oppref e o resto seguem). */
+const DROPPED_QUERY_PARAMS = new Set(["add-to-cart", "srsltid"]);
+
+function paramName(pair: string): string {
+  const raw = pair.split("=")[0];
+
+  try {
+    return decodeURIComponent(raw).toLowerCase();
+  } catch {
+    return raw.toLowerCase();
+  }
+}
+
+function cleanQuery(search: string): string {
+  return search
+    .replace(/^\?/, "")
+    .split("&")
+    .filter((pair) => pair && !DROPPED_QUERY_PARAMS.has(paramName(pair)))
+    .join("&");
+}
+
+/** Junta o destino com a query string (utm_*, oppref e tudo o mais, menos add-to-cart e srsltid) — middleware e testes. */
 export function withLegacyQuery(destination: string, search: string): string {
   const hashAt = destination.indexOf("#");
   const base = hashAt >= 0 ? destination.slice(0, hashAt) : destination;
   const hash = hashAt >= 0 ? destination.slice(hashAt) : "";
-  const query = search.replace(/^\?/, "");
+  const query = cleanQuery(search);
 
   return `${base}${query ? `?${query}` : ""}${hash}`;
 }

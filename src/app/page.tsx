@@ -182,6 +182,7 @@ export default function Home() {
             alt="Bio Florais"
             fill
             priority
+            fetchPriority="high"
             sizes="100vw"
             className="object-contain"
           />
@@ -214,6 +215,7 @@ export default function Home() {
           alt="Bio Florais"
           fill
           priority
+          fetchPriority="high"
           className="object-cover object-center"
           sizes="100vw"
         />
