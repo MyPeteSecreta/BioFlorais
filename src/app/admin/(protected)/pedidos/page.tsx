@@ -185,6 +185,14 @@ export default async function AdminOrdersPage() {
               : "pedidos cadastrados"}
           </p>
         </div>
+
+        <a
+          href="/api/admin/orders/export"
+          className="w-fit rounded-full border-2 border-[#422347] px-5 py-2.5 text-sm font-extrabold text-[#422347] transition hover:bg-[#f6eef7]"
+          data-testid="exportar-origem"
+        >
+          Exportar pedidos com origem (CSV)
+        </a>
       </div>
 
       {orderRows.length === 0 ? (

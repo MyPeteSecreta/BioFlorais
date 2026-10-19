@@ -12,6 +12,7 @@ import {
 
 import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
 import { attachOppref } from "@/lib/ads-tag-server";
+import { ATTRIBUTION_COOKIE, attachAttribution, attributionFromRequest } from "@/lib/attribution-server";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { db } from "@/lib/db/client";
 
@@ -1201,6 +1202,9 @@ const orderRows =
 
     // Atribuição do anúncio (ChatGPT Ads): oppref do cookie bio_oppref (só existe com aceite de marketing). Tolera o SQL 44b ausente.
     await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
+
+    // Origem da venda (utm_* e domínio do referrer do cookie bio_origem). Não depende do aceite de marketing; tolera o SQL 45b ausente.
+    await attachAttribution(getAppSqlRunner(), order.id, attributionFromRequest(request.cookies.get(ATTRIBUTION_COOKIE)?.value));
 
     await db
       .insert(orderItems)

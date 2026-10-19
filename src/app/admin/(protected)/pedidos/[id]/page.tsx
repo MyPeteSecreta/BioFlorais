@@ -6,6 +6,8 @@ import { db } from "@/lib/db/client";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
+import { formatOrigin } from "@/lib/attribution";
+import { loadOrderAttribution } from "@/lib/attribution-server";
 import {
   addresses,
   customers,
@@ -99,6 +101,9 @@ export default async function PedidoDetalhePage({
     notFound();
   }
 
+  // Origem da venda (utm_* / domínio do referrer, SQL 45b). Sem as colunas ou sem origem = Direto.
+  const origin = formatOrigin(await loadOrderAttribution(getAppSqlRunner(), order.id));
+
   // Pedido de MOSTRUÁRIO do vendedor: selo visível; a observação segue para o Omie.
   const isShowcase = (await loadShowcaseOrderIds(getAppSqlRunner())).has(order.id);
 
@@ -191,6 +196,10 @@ export default async function PedidoDetalhePage({
 
             <p className="mt-2 text-sm text-stone-500">
               {formatDate(order.createdAt)}
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-stone-700" data-testid="pedido-origem">
+              Origem: {origin}
             </p>
 
             {displayNotes.length > 0 && (

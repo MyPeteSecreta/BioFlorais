@@ -15,6 +15,7 @@ import { db } from "@/lib/db/client";
 import { addresses, couponRedemptions, coupons, customers, orderItems, orders } from "@/lib/db/schema";
 import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
 import { attachOppref } from "@/lib/ads-tag-server";
+import { ATTRIBUTION_COOKIE, attachAttribution, attributionFromRequest } from "@/lib/attribution-server";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
 import { STOREFRONT_ORIGIN, attributeStorefrontOrder, findDocumentOwner } from "@/lib/b2b/storefront";
@@ -311,6 +312,8 @@ export async function POST(request: NextRequest) {
     // Atribuição do anúncio (ChatGPT Ads): só no pedido do próprio lojista (o lançado pelo vendedor não leva o oppref do vendedor).
     if (!launched) {
       await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
+      // Origem da venda (cookie bio_origem do lojista); o pedido lançado pelo vendedor não leva a origem do vendedor.
+      await attachAttribution(getAppSqlRunner(), order.id, attributionFromRequest(request.cookies.get(ATTRIBUTION_COOKIE)?.value));
     }
 
     // Origem do pedido (relatório): lançado pelo vendedor ('vendedor') ou loja pública /parceiros + código ?v=.

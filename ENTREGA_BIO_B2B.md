@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 17 · Origem da venda em todo pedido (19/10/2026), sobre `e462e88`
+
+Sem push, deploy ou Neon. **SQL novo (aditivo): `sql/b2b/45b_origem_venda.sql`; conferência somente leitura: `sql/b2b/45a_origem_venda_conferencia_one_shot.sql`** (rode o 45a antes e depois; o 45a inclui a conferência pelo slug `adulto-%`).
+
+- **Captura:** `AttributionCapture` (no layout) guarda no cookie próprio `bio_origem` (first-party, SameSite=Lax, Secure, 30 dias) só `utm_source`, `utm_medium`, `utm_campaign` e o **domínio** do referrer (sem www, sem caminho/query; navegação interna ignorada). First-touch: a primeira visita COM informação fixa a origem; visita direta não grava nem trava. Mesmas páginas do banner/oppref (B2C e lojista; nunca admin nem área do vendedor). Não mexe na URL.
+- **Pedido:** `attachAttribution` grava os 4 campos em `orders` na criação (B2C e B2B do próprio lojista; o pedido lançado pelo vendedor não leva a origem do vendedor), só se o pedido ainda não tem origem; tolera a ausência das colunas (como no oppref).
+- **Admin:** detalhe do pedido mostra "Origem: instagram / organic / 2110_rotina" (ou "Direto"); lista de pedidos ganha "Exportar pedidos com origem (CSV)" → `GET /api/admin/orders/export` (só admin; filtros `?from=&to=`; ignora arquivados/teste; BOM + proteção de fórmula).
+- **Consentimento/política:** a origem é dado de atribuição sem dado pessoal e **não depende do aceite de marketing** (nenhum código de consentimento é lido). A política de cookies e a de privacidade não cobriam esse cookie: foi acrescentada a seção "Origem da visita (análise)" (cookie `bio_origem`, 30 dias, só campanha + domínio, sem terceiros, gravado no pedido). No banner, "Análise" deixou de dizer "Sem cookies" (agora "Sempre"). Decisão jurídica (tratar como análise sem consentimento) é da empresa; o código é isolado e fácil de passar para "só com aceite".
+- **Testes:** `scripts/origem-venda.test.mjs` (8 casos: captura, referrer, first-touch, sanitização, PGlite do pedido/CSV/colunas ausentes, 45a/45b, ligações). tsc limpo, build ok, `npm test` 332/332. Conferido no navegador: `?utm_source=instagram&utm_medium=organic&utm_campaign=2110_rotina` gera `bio_origem` com os 3 campos; exportação sem sessão = 401.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 16 · Banner de cookies discreto (19/10/2026), sobre `418d5d0`
 
 Sem push, deploy, Neon ou SQL. Só `src/components/consent/CookieBanner.tsx` (+ teste).

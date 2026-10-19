@@ -137,9 +137,24 @@ export default function Page() {
             </p>
           </section>
 
+
+          <section data-testid="origem-politica">
+            <h2 className="mb-3 text-xl font-semibold text-[#422347]">
+              10. Origem da visita (análise)
+            </h2>
+            <p>
+              Para entender de onde vêm as visitas e as compras, guardamos por até 30 dias, no cookie <code>bio_origem</code>, apenas o
+              nome da campanha do link que trouxe você (<code>utm_source</code>, <code>utm_medium</code> e <code>utm_campaign</code>) e o
+              domínio do site de onde você veio (por exemplo, google.com ou instagram.com). Esse cookie é nosso, não é compartilhado com
+              terceiros e não contém nome, e-mail, telefone, documentos nem qualquer identificador seu. Na compra, essas informações são
+              gravadas no pedido para sabermos qual canal gerou a venda. Por não identificarem você, não dependem do consentimento de
+              marketing; você pode apagar o cookie a qualquer momento nas configurações do navegador.
+            </p>
+          </section>
+
           <section>
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
-              10. Contato
+              11. Contato
             </h2>
             <p>
               {COMPANY} · CNPJ {CNPJ}

@@ -82,7 +82,7 @@ export default function CookieBanner() {
               <strong>Análise</strong>
               <span className="block text-[#6c5b69]">Para entender como o site é usado.</span>
             </span>
-            <span className="shrink-0 font-extrabold text-[#6c5b69]">Sem cookies</span>
+            <span className="shrink-0 font-extrabold text-[#6c5b69]">Sempre</span>
           </li>
           <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-3">
             <span>
