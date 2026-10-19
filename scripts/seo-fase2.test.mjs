@@ -213,3 +213,20 @@ test("14b) URLs de anúncio intactas (com query) e linhas geradas estaticamente 
   }
   assert.equal((read("src/app/linha/[slug]/page.tsx").match(/\bpriority\b/g) ?? []).length, 1, "só o herói tem priority");
 });
+
+// ---- Rodada 16: banner de cookies discreto ----
+
+test("R16) banner: texto curto sem citar anúncios, Saiba mais -> /cookies, 3 botões iguais, detalhes só em Configurar", () => {
+  const banner = read("src/components/consent/CookieBanner.tsx");
+  const text = banner.replace(/\s+/g, " ");
+  assert.ok(text.includes("Usamos cookies para o site funcionar e melhorar sua experiência."));
+  assert.match(banner, /href="\/cookies"[^>]*>\s*Saiba mais/);
+  // 1ª camada (fora de "settings") não cita anúncios, métricas nem rastreamento
+  const firstLayer = banner.slice(banner.indexOf("{!settings && ("), banner.indexOf("{settings && ("));
+  assert.ok(!/an[úu]ncio|m[ée]trica|rastre|marketing|campanha/i.test(firstLayer));
+  for (const phrase of ["Para o site funcionar.", "Para entender como o site é usado.", "Para medir nossas campanhas."]) assert.ok(banner.includes(phrase), phrase);
+  assert.ok(banner.includes('href="/privacidade"') && banner.includes('href="/cookies"'));
+  // mesmo destaque: uma única classe para todos os botões de escolha; padrão recusado (marketing falso até o aceite)
+  assert.ok((banner.match(/<button type="button" className=\{button\}/g) ?? []).length >= 6);
+  assert.match(banner, /useState\(false\);\s*\n\s*\n?\s*useEffect|const \[marketing, setMarketing\] = useState\(false\)/);
+});

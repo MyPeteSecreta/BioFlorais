@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Banner de cookies discreto no padrão da Bio: Aceitar / Recusar / Configurar com o MESMO destaque (mesmo tamanho,
+ * Banner de cookies discreto no padrão da Bio (1ª camada curta, sem citar anúncios): Aceitar / Recusar / Configurar com o MESMO destaque (mesmo tamanho,
  * mesma cor), padrão RECUSADO. Categorias: necessários (sempre), análise (nossa medição é sem cookies) e marketing
  * (medição de anúncios — só com aceite). A escolha fica salva e pode ser mudada em "Configurar cookies".
  */
@@ -16,7 +16,7 @@ import { browserOppRefEnv } from "./browser-env";
 
 // Os botões de escolha têm EXATAMENTE a mesma classe: mesmo destaque.
 const button =
-  "min-h-[44px] flex-1 rounded-full border-2 border-[#55245f] bg-white px-2 text-[13px] font-extrabold sm:px-4 sm:text-sm text-[#55245f] transition hover:bg-[#f6eef7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#55245f]";
+  "min-h-[40px] flex-1 rounded-full border-2 border-[#55245f] bg-white px-2 text-[13px] font-extrabold sm:px-4 sm:text-sm text-[#55245f] transition hover:bg-[#f6eef7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#55245f]";
 
 export default function CookieBanner() {
   const pathname = usePathname();
@@ -57,38 +57,37 @@ export default function CookieBanner() {
       role="dialog"
       aria-label="Preferências de cookies"
       data-testid="cookie-banner"
-      className="fixed inset-x-3 bottom-3 z-[200] mx-auto max-w-[560px] rounded-[24px] border border-[#eadfd9] bg-white p-4 text-[#422347] shadow-[0_18px_50px_rgba(61,35,65,0.22)] sm:inset-x-auto sm:left-5 sm:mx-0"
+      className="fixed inset-x-2 bottom-2 z-[200] mx-auto max-w-[440px] rounded-[20px] border border-[#eadfd9] bg-white p-3 text-[#422347] shadow-[0_12px_36px_rgba(61,35,65,0.18)] sm:inset-x-auto sm:bottom-4 sm:left-4 sm:mx-0"
     >
-      <p className="text-sm font-extrabold">Cookies na Bio Florais</p>
-      <p className="mt-1 text-xs leading-relaxed text-[#6c5b69]">
-        Usamos cookies necessários para o site funcionar. Os de <strong>marketing</strong> (medir se nossos anúncios geram visitas e
-        compras) só entram com o seu aceite. Saiba mais na{" "}
-        <a href="/cookies" className="font-bold underline">
-          Política de Cookies
-        </a>
-        .
-      </p>
+      {!settings && (
+        <p className="text-[13px] leading-snug text-[#6c5b69]">
+          Usamos cookies para o site funcionar e melhorar sua experiência.{" "}
+          <a href="/cookies" className="font-bold text-[#55245f] underline">
+            Saiba mais
+          </a>
+        </p>
+      )}
 
       {settings && (
-        <ul className="mt-3 space-y-2 text-xs" data-testid="cookie-categorias">
-          <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-3">
+        <ul className="space-y-2 text-xs" data-testid="cookie-categorias">
+          <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-2.5">
             <span>
               <strong>Necessários</strong>
-              <span className="block text-[#6c5b69]">Carrinho, segurança e funcionamento do site. Sempre ativos.</span>
+              <span className="block text-[#6c5b69]">Para o site funcionar.</span>
             </span>
             <span className="shrink-0 font-extrabold text-[#6c5b69]">Sempre</span>
           </li>
           <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-3">
             <span>
               <strong>Análise</strong>
-              <span className="block text-[#6c5b69]">Nossa medição de visitas não usa cookies nem dado pessoal.</span>
+              <span className="block text-[#6c5b69]">Para entender como o site é usado.</span>
             </span>
             <span className="shrink-0 font-extrabold text-[#6c5b69]">Sem cookies</span>
           </li>
           <li className="flex items-start justify-between gap-3 rounded-2xl bg-[#fbf5f1] p-3">
             <span>
               <strong>Marketing</strong>
-              <span className="block text-[#6c5b69]">Medição das compras vindas dos anúncios (ChatGPT Ads). Sem nome, e-mail ou documentos.</span>
+              <span className="block text-[#6c5b69]">Para medir nossas campanhas.</span>
             </span>
             <button
               type="button"
@@ -103,8 +102,21 @@ export default function CookieBanner() {
           </li>
         </ul>
       )}
+      {settings && (
+        <p className="mt-2 text-[11px] text-[#6c5b69]">
+          Detalhes na{" "}
+          <a href="/cookies" className="font-bold text-[#55245f] underline">
+            Política de Cookies
+          </a>{" "}
+          e na{" "}
+          <a href="/privacidade" className="font-bold text-[#55245f] underline">
+            Política de Privacidade
+          </a>
+          .
+        </p>
+      )}
 
-      <div className="mt-3 flex gap-2">
+      <div className={`flex gap-2 ${settings ? "mt-3" : "mt-2.5"}`}>
         {settings ? (
           <>
             <button type="button" className={button} onClick={() => save(marketing)} data-testid="cookie-salvar">

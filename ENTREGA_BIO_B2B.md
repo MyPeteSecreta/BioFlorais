@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 16 · Banner de cookies discreto (19/10/2026), sobre `418d5d0`
+
+Sem push, deploy, Neon ou SQL. Só `src/components/consent/CookieBanner.tsx` (+ teste).
+
+- **1ª camada:** "Usamos cookies para o site funcionar e melhorar sua experiência. Saiba mais" (link para `/cookies`), sem citar anúncios, métricas ou rastreamento. Sem título.
+- **Botões:** Aceitar · Recusar · Configurar, mesma classe (mesmo tamanho e destaque). Padrão recusado: marketing só entra com o aceite (lógica de consentimento, Image Tag e `OppRefCapture` intactos).
+- **Configurar:** Necessários "Para o site funcionar." · Análise "Para entender como o site é usado." · Marketing "Para medir nossas campanhas." (chave liga/desliga) + links para a Política de Cookies e a de Privacidade; Salvar · Recusar · Aceitar.
+- **Compacto:** cartão menor (margem 8 px, padding 12 px, botões de 40 px), 2 linhas de texto + 1 de botões no celular. Vale em todo o site onde o pixel pode rodar (B2C, /parceiros, /b2b/oferta, /b2b/carrinho, /b2b/checkout, /b2b/pagar); nunca em admin nem na área do vendedor (regra `isPixelPath` já existente).
+- **Verificação:** tsc limpo, build ok, `npm test` 324/324. Prints a 375 px (1ª camada e Configurar) e desktop feitos no navegador do app.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 14b · PERF-01 e ajustes de redirect (19/10/2026), sobre `fc78927`
 
 Sem push, deploy, Neon ou SQL.
