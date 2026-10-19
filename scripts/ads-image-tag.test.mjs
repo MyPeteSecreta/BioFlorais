@@ -261,5 +261,5 @@ test("5) query string preservada nos redirecionamentos (oppref/utm)", async () =
   assert.equal(forwardQuery("/b2b/oferta/t", { oppref: "teste123", utm_source: "chatgpt" }, ["v"]), "/b2b/oferta/t?oppref=teste123&utm_source=chatgpt");
   assert.ok(read("src/app/parceiros/page.tsx").includes("withForwardedParams(storePath, query)"));
   assert.equal((read("src/app/produto/[slug]/page.tsx").match(/forwardQuery\(/g) ?? []).length, 2);
-  assert.ok(read("src/middleware.ts").includes("request.nextUrl.clone()"));
+  assert.ok(read("src/middleware.ts").includes("withLegacyQuery(destination, search)"));
 });

@@ -29,27 +29,6 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: [OG_IMAGES.home] },
 };
 
-// Organization + WebSite (schema.org) — Metadata SEO V2.1, Seção 3.
-// `sameAs` lista apenas os perfis reais já publicados no rodapé do site.
-// Nenhum SearchAction: não há confirmação de busca interna funcional.
-const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Bio Florais",
-  url: siteUrl,
-  sameAs: [
-    "https://www.instagram.com/bioflorais",
-    "https://www.instagram.com/insta.biofloraispet/",
-  ],
-};
-
-const websiteJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "Bio Florais",
-  url: siteUrl,
-};
-
 const rowTwo = [
   {
     name: "Infantil",
@@ -131,18 +110,6 @@ function VisualLineCard({
 export default function Home() {
   return (
     <main className="overflow-hidden bg-[#fffdf9] text-[#2f2231]">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(organizationJsonLd),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(websiteJsonLd),
-        }}
-      />
 
 
       {/* HEADER */}

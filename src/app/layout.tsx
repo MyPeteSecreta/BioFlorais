@@ -9,6 +9,7 @@ import HideOnB2B from "@/components/layout/HideOnB2B";
 import WebAnalytics from "@/components/analytics/WebAnalytics";
 import { OG_IMAGES, OG_IMAGE_SIZE } from "@/lib/seo/metadata";
 import { getSiteUrl } from "@/lib/seo/site-url";
+import { jsonLdString, organizationJsonLd, websiteJsonLd } from "@/lib/seo/structured-data";
 import OppRefCapture from "@/components/consent/OppRefCapture";
 import CookieBanner from "@/components/consent/CookieBanner";
 
@@ -34,6 +35,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
+        {/* Organization + WebSite (schema.org) em todas as páginas; sameAs só com os perfis publicados no rodapé. */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(organizationJsonLd(getSiteUrl())) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(websiteJsonLd(getSiteUrl())) }} />
         <CartProvider>
           {children}
           <HideOnB2B>

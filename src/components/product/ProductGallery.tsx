@@ -162,7 +162,7 @@ export default function ProductGallery({
                 >
                   <Image
                     src={image}
-                    alt=""
+                    alt={`${productName} – foto ${index + 1}`}
                     fill
                     sizes="80px"
                     className="

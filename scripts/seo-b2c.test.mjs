@@ -131,7 +131,7 @@ test("SEO-04: Product JSON-LD com Offer BRL e InStock; sem offers quando não h�
     assert.ok(page.includes(part), part);
   }
   assert.ok(page.includes("product.priceCents && product.priceCents > 0"), "sem preço = sem Offer");
-  assert.ok(page.includes('.replace(/</g, "\\\\u003c")') || page.includes('.replace(/</g, "\\u003c")'));
+  assert.ok(page.includes("jsonLdString(productJsonLd)") && read("src/lib/seo/structured-data.ts").includes("u003c"), "\"<\" escapado via jsonLdString");
   assert.ok(page.includes("gallery.slice(0, 5).map(absolute)"), "imagem da galeria real, absoluta");
 });
 
@@ -154,7 +154,7 @@ test("NÃO QUEBRAR: query string, referrer, tags de terceiros, URLs de destino, 
   // query string preservada nos redirects
   assert.ok(read("src/app/parceiros/page.tsx").includes("withForwardedParams(storePath, query)"));
   assert.equal((read("src/app/produto/[slug]/page.tsx").match(/forwardQuery\(/g) ?? []).length, 2);
-  assert.ok(read("src/middleware.ts").includes("request.nextUrl.clone()"));
+  assert.ok(read("src/middleware.ts").includes("withLegacyQuery(destination, search)"));
   // URLs de destino dos anúncios continuam existindo
   for (const route of ["src/app/page.tsx", "src/app/linha/[slug]/page.tsx", "src/app/parceiros/page.tsx"]) assert.ok(existsSync(new URL(`../${route}`, import.meta.url)), route);
   assert.ok(bioLines.some((line) => line.slug === "adulto") && bioLines.some((line) => line.slug === "infantil") && bioLines.some((line) => line.slug === "pet"));

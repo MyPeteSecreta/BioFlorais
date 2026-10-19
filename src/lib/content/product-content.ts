@@ -33,7 +33,7 @@ export const productEditorialContent:
   },
   "adulto-floral-em-gotas-rescue": {
     about:
-      "Descrição Composto floral de emergência serve como um primeiro socorro para momentos difíceis, quando se está na iminência ou passando por uma situação de forte impacto físico, psíquico, ou emocional. Também Utilizado para ajudar em situações imediatas do dia-a-dia, tais como, um doloroso tratamento dentário, antes de uma prova qualificatória, ou uma entrevista de emprego, etc. Pode ajudar também em traumas como a perda de um ente querido, fim de relacionamentos ou perda de emprego. O composto atua trazendo harmonia e tranqüilidade interior, ajudando a pessoa a superar os problemas que enfrenta.  FA Retten Sauvetage Salvataggio S.O.S- 31ml",
+      "Descrição Composto floral de emergência serve como um primeiro socorro para momentos difíceis, quando se está na iminência ou passando por uma situação de forte impacto físico, psíquico, ou emocional. Também Utilizado para ajudar em situações imediatas do dia-a-dia, tais como, um doloroso tratamento dentário, antes de uma prova qualificatória, ou uma entrevista de emprego, etc. Pode ajudar também em traumas como a perda de um ente querido, fim de relacionamentos ou perda de emprego. O composto atua trazendo harmonia e tranquilidade interior, ajudando a pessoa a superar os problemas que enfrenta.",
 
     howToUse:
       "Tomar 4 gotas três vezes ao dia. O uso pode ser sub-lingual ou pode ser diluído em água se desejar atenuar o gosto. Uso Adulto",

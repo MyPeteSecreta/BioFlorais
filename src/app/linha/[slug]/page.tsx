@@ -3,6 +3,8 @@ import path from "node:path";
 
 import type { Metadata } from "next";
 import { LINE_SEO, OG_IMAGES, OG_IMAGE_SIZE } from "@/lib/seo/metadata";
+import { getSiteUrl } from "@/lib/seo/site-url";
+import { breadcrumbJsonLd, imageAlt, jsonLdString } from "@/lib/seo/structured-data";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -1710,6 +1712,11 @@ export default async function LinePage({
       )
     );
 
+  const breadcrumbLd = breadcrumbJsonLd(getSiteUrl(), [
+    { name: "Início", path: "/" },
+    { name: line.name, path: `/linha/${line.slug}` },
+  ]);
+
   return (
     <main
       className="
@@ -1719,6 +1726,7 @@ export default async function LinePage({
         text-[#2f2231]
       "
     >
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd) }} />
 
       {/* HEADER */}
       <header
@@ -2113,9 +2121,7 @@ export default async function LinePage({
                       src={
                         card.image
                       }
-                      alt={
-                        card.title
-                      }
+                      alt={imageAlt({ name: card.title, lineName: line.name, category: /cosmeticos|home-care/.test(line.slug) ? line.name : "floral" })}
                       fill
                       sizes="
                         (max-width: 1024px)

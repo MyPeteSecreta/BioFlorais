@@ -9,6 +9,24 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 14 · SEO Fase 2 (18/10/2026), sobre `2e81e9e`
+
+Sem push, sem deploy, sem Neon, sem SQL. Só B2C/SEO.
+
+- **URL-01 (alta):** `src/middleware.ts` agora só aplica 301 (`NextResponse.redirect(url, 301)`) vindo de `resolveLegacyRedirect` (`src/lib/seo/legacy-redirects.ts`, função pura) + dados em `src/lib/seo/legacy-redirects.data.ts` (75 casos conhecidos um a um, aliases `/fa-*`, prefixos fa/fk/fb/ft/fv, palavras de categoria). A query string INTEIRA (utm_*, oppref) é preservada (`withLegacyQuery`; `#linhas` fica depois da query). `/produto/<slug antigo>` tenta casar pelo NOME do produto (todas as palavras do nome no slug, linha sugerida, um único melhor candidato); sem casamento seguro vai para a linha pelo prefixo, senão home. Nunca loop: todo destino é URL atual (teste `resolver(destino) === null`) e o middleware ignora redirect para si mesmo. URLs atuais (`/`, `/linha/*`, `/produto/<válido>`, `/parceiros`, `/b2b/*`, `/acompanhe/*`, `/checkout`, `/api/*`) não são tocadas.
+- **PERF-01:** o texto do ticket não veio na colagem; **não implementado** (aguarda o texto).
+- **SCHEMA-01:** `Offer` ganha `shippingDetails` (entrega em todo o Brasil, valor/prazo pelo CEP, frete grátis a partir de R$ 100,00; `shippingRate` 0,00 só quando o produto já passa de R$ 100; **sem deliveryTime**, a política não publica prazo) e `hasMerchantReturnPolicy` (7 dias corridos, link para `/trocas-e-devolucoes`). Textos de `/frete-e-entrega` e `/trocas-e-devolucoes`.
+- **SCHEMA-02:** `BreadcrumbList` (Início → Linha → Produto) em `/produto/[slug]` e (Início → Linha) em `/linha/[slug]`.
+- **SCHEMA-03:** `Organization` + `WebSite` movidos da Home para o `layout.tsx` (todas as páginas). `sameAs` só com os perfis do rodapé.
+- **IMG-01:** alt descritivo “Floral Bio Florais – Nome – Linha” (sem “Floral” em cosméticos/home care; sem promessa de saúde) na galeria, miniaturas, relacionados e cards da linha.
+- **IMG-02:** só o herói tem `priority` (Home, linha, galeria do produto); o restante é lazy (padrão do `next/image`).
+- **CONT-01:** Rescue sem “FA Retten Sauvetage Salvataggio S.O.S- 31ml”; “tranqüilidade” → “tranquilidade” no Rescue (as demais ocorrências em outros produtos ficam para um ticket próprio).
+- **Testes:** `scripts/seo-fase2.test.mjs` (12 casos). Asserções antigas de `seo-b2c`/`ads-image-tag` atualizadas (middleware e `jsonLdString`).
+- **Verificação:** tsc limpo, `npm run build` ok, `npm test` 318/318, `git diff --check` sem erro de espaço. Prova HTTP em `next start`: 301 com `?utm_source=x` preservado.
+- **Depois do deploy:** avisar a janela Anúncios (via mestre) e rodar o Rich Results Test.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 13 · SEO do B2C (18/10/2026), sobre `eace77b`
 
 **Sem SQL.** Só metadata/SEO: nenhuma mudança visual, de fluxo de compra, de checkout, de pagamento ou de banco. FAVICON-01 **não** entra.

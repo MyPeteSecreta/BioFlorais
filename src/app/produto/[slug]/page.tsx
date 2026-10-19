@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LINE_SEO, OG_IMAGES, normalizeProductSlug, productDescription } from "@/lib/seo/metadata";
 import { getSiteUrl } from "@/lib/seo/site-url";
+import { breadcrumbJsonLd, imageAlt, jsonLdString, merchantReturnPolicyJsonLd, shippingDetailsJsonLd } from "@/lib/seo/structured-data";
 import { forwardQuery } from "@/lib/forward-query";
 import fs from "node:fs";
 import path from "node:path";
@@ -690,10 +691,20 @@ export default async function ProductPage({
             priceCurrency: "BRL",
             price: (product.priceCents / 100).toFixed(2),
             availability: "https://schema.org/InStock",
+            // Mesmos textos de /frete-e-entrega e /trocas-e-devolucoes (sem prazo de entrega inventado).
+            shippingDetails: shippingDetailsJsonLd(product.priceCents),
+            hasMerchantReturnPolicy: merchantReturnPolicyJsonLd(siteUrl),
           },
         }
       : {}),
   };
+
+  const breadcrumbLd = breadcrumbJsonLd(siteUrl, [
+    { name: "Início", path: "/" },
+    { name: product.line, path: `/linha/${product.lineSlug}` },
+    { name: product.name, path: `/produto/${product.slug}` },
+  ]);
+  const altName = imageAlt({ name: product.name, lineName: product.line, category: product.category });
 
   return (
     <main
@@ -706,8 +717,9 @@ export default async function ProductPage({
       <script
         type="application/ld+json"
         // "<" escapado: o JSON nunca fecha a tag <script>.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(productJsonLd) }}
       />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd) }} />
       <header
         className="
           border-b
@@ -778,7 +790,7 @@ export default async function ProductPage({
                 : []
           }
           productName={
-            product.name
+            altName
           }
         />
 
@@ -1949,9 +1961,7 @@ export default async function ProductPage({
                             src={
                               relatedImage
                             }
-                            alt={
-                              item.name
-                            }
+                            alt={imageAlt({ name: item.name, lineName: item.line, category: item.category })}
                             fill
                             sizes="
                               (max-width: 640px)
