@@ -7,6 +7,7 @@
 import { isUuid } from "@/lib/b2b/admin-input";
 import { andNotArchived } from "@/lib/b2b/archive";
 import { effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
+import { omieNoteLine } from "@/lib/order-note";
 import { SHOWCASE_ORIGIN } from "@/lib/b2b/showcase";
 import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { B2B_RESPONSIBLE_TYPES, buildInviteMessage, buildWhatsAppUrl } from "@/lib/b2b/invite-links";
@@ -83,7 +84,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
 
   const rows = await run(
     `SELECT o.id, o.fulfillment_status, o.b2b_offer_id, o.shipping_service_name,
-            to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
+            to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, to_jsonb(o) ->> 'customer_note' AS customer_note, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
             COALESCE(r.name, to_jsonb(o) ->> 'b2b_responsible_name') AS seller_name,
             to_jsonb(r) ->> 'omie_vendor_code' AS omie_vendor_code,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') || 'Z' AS created_at,
@@ -154,6 +155,11 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
       // ajuste ilegível: sem observação de display
     }
 
+    // Observações do cliente: seguem ao Omie na observação do Pedido de Venda (uma linha, prefixada).
+    const noteLine = omieNoteLine(row.customer_note ? String(row.customer_note) : null);
+
+    if (noteLine) observations.push(noteLine);
+
     return {
       id: String(row.id),
       number: `${ORDER_NUMBER_PREFIX}-${String(row.id).slice(0, 8).toUpperCase()}`,
@@ -170,6 +176,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
       // Nome no Omie: o definido pelo admin ou, por padrão, o nome completo do cadastro do vendedor.
       omieVendor: row.b2b_responsible_id ? effectiveOmieVendor(row.omie_vendor_code, seller) || null : null,
       omieObservation: observations.length > 0 ? observations.join(" | ") : null,
+      customerNote: row.customer_note ? String(row.customer_note) : null,
     };
   });
 

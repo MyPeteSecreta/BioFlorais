@@ -22,6 +22,8 @@ import { STOREFRONT_ORIGIN, attributeStorefrontOrder, findDocumentOwner } from "
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { validateComplement, validateOrderNote } from "@/lib/order-note";
+import { attachOrderNote } from "@/lib/order-note-server";
 import { buildQuoteItemSnapshots } from "@/lib/b2b/order-snapshots";
 import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
 import { LAUNCH_ORIGIN, LAUNCH_OTHER_REP_MESSAGE, verifyLaunchAccess } from "@/lib/b2b/vendor-launch";
@@ -64,6 +66,8 @@ type CreateB2BOrderBody = {
   launched?: boolean;
   /** Displays do kit (brinde R$ 0,00): o servidor exige o kit completo. */
   displays?: unknown;
+  /** Observações do cliente (até 500 caracteres): gravadas no pedido e enviadas ao Omie. */
+  orderNote?: string;
 };
 
 function onlyDigits(value: unknown) {
@@ -130,7 +134,15 @@ export async function POST(request: NextRequest) {
     const cep = onlyDigits(body.address?.cep);
     const street = text(body.address?.street);
     const number = text(body.address?.number);
-    const complement = text(body.address?.complement) || null;
+    const complementCheck = validateComplement(body.address?.complement);
+
+    if (!complementCheck.ok) return NextResponse.json({ error: complementCheck.error, field: "complement" }, { status: 400 });
+
+    const complement = complementCheck.value;
+
+    const noteCheck = validateOrderNote(body.orderNote);
+
+    if (!noteCheck.ok) return NextResponse.json({ error: noteCheck.error, field: "orderNote" }, { status: 400 });
     const district = text(body.address?.district);
     const city = text(body.address?.city);
     const state = text(body.address?.state).toUpperCase();
@@ -305,6 +317,9 @@ export async function POST(request: NextRequest) {
         paymentMethodDiscountCents,
       })
       .returning({ id: orders.id });
+
+    // Observações do cliente (SQL 46b): tolera a coluna ausente.
+    await attachOrderNote(getAppSqlRunner(), order.id, noteCheck.value);
 
     // Nome no Omie do vendedor do pedido = nome do cadastro, se ninguém definiu outro (a Central lê a coluna).
     await ensureOmieVendorDefault(getAppSqlRunner(), context.responsibleId);

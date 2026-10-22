@@ -59,6 +59,8 @@ export type CentralOrder = {
   omieVendor?: string | null;
   /** Observação do Pedido de Venda no Omie (preenchida nos pedidos de mostruário). */
   omieObservation?: string | null;
+  /** Observações escritas pelo cliente no checkout (até 500 caracteres); já seguem dentro de omieObservation. */
+  customerNote?: string | null;
   items: OrderItemLine[];
   carrier?: string | null;
 };

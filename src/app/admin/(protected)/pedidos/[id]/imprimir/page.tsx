@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { loadOrderNote } from "@/lib/order-note-server";
 import {
   customers,
   orderItems,
@@ -73,6 +75,9 @@ export default async function ImprimirPedidoPage({
     )
     .where(eq(orderItems.orderId, order.id));
 
+  // Observações do cliente (SQL 46b): a separação precisa ler instruções de entrega e embalagem.
+  const customerNote = await loadOrderNote(getAppSqlRunner(), order.id);
+
   return (
     <>
       <main className="mx-auto max-w-[760px] bg-white px-5 py-5 text-black print:max-w-none print:px-0 print:py-0">
@@ -122,6 +127,13 @@ export default async function ImprimirPedidoPage({
             </div>
           </div>
         </section>
+
+        {customerNote && (
+          <section className="border-b border-black py-3" data-testid="imprimir-observacoes">
+            <p className="text-[10px] font-bold uppercase text-gray-500">Observações do cliente</p>
+            <p className="whitespace-pre-line text-sm font-bold">{customerNote}</p>
+          </section>
+        )}
 
         <section className="py-3">
           <div className="grid grid-cols-[55px_1fr] border-b border-black pb-2 text-[10px] font-black uppercase">

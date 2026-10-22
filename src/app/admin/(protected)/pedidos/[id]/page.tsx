@@ -8,6 +8,7 @@ import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
 import { formatOrigin } from "@/lib/attribution";
 import { loadOrderAttribution } from "@/lib/attribution-server";
+import { loadOrderNote } from "@/lib/order-note-server";
 import {
   addresses,
   customers,
@@ -103,6 +104,9 @@ export default async function PedidoDetalhePage({
 
   // Origem da venda (utm_* / domínio do referrer, SQL 45b). Sem as colunas ou sem origem = Direto.
   const origin = formatOrigin(await loadOrderAttribution(getAppSqlRunner(), order.id));
+
+  // Observações escritas pelo cliente no checkout (SQL 46b); seguem ao Omie na observação do pedido.
+  const customerNote = await loadOrderNote(getAppSqlRunner(), order.id);
 
   // Pedido de MOSTRUÁRIO do vendedor: selo visível; a observação segue para o Omie.
   const isShowcase = (await loadShowcaseOrderIds(getAppSqlRunner())).has(order.id);
@@ -201,6 +205,15 @@ export default async function PedidoDetalhePage({
             <p className="mt-1 text-sm font-bold text-stone-700" data-testid="pedido-origem">
               Origem: {origin}
             </p>
+
+            {customerNote && (
+              <p
+                className="mt-2 max-w-[640px] whitespace-pre-line rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                data-testid="pedido-observacoes"
+              >
+                <strong>Observações do cliente:</strong> {customerNote}
+              </p>
+            )}
 
             {displayNotes.length > 0 && (
               <p className="mt-1 text-sm font-bold text-emerald-800" data-testid="pedido-display">

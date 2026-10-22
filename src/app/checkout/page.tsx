@@ -8,6 +8,7 @@ import { useCartImages } from "@/lib/cart-images";
 import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
 
 import Link from "next/link";
+import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
 
 import {
   useEffect,
@@ -1546,6 +1547,15 @@ export default function CheckoutPage() {
                   ""
                 );
 
+              // Complemento curto e observações (até 500): mensagem clara antes de enviar (o servidor valida de novo).
+              const complementCheck = validateComplement(readField("complement"));
+              const noteCheck = validateOrderNote(readField("orderNote"));
+
+              if (!complementCheck.ok || !noteCheck.ok) {
+                setOrderError(!complementCheck.ok ? complementCheck.error : !noteCheck.ok ? noteCheck.error : "");
+                return;
+              }
+
               if (cep.length !== 8) {
                 setCepError(
                   "Informe um CEP valido antes de continuar."
@@ -1696,6 +1706,9 @@ export default function CheckoutPage() {
                         partnerCouponCode:
                           appliedPartnerCoupon?.code ??
                           null,
+
+                        orderNote:
+                          readField("orderNote"),
 
                         /*
                          * O navegador envia apenas
@@ -1935,6 +1948,9 @@ export default function CheckoutPage() {
                     className={inputClass}
                     placeholder="Apto, bloco..."
                   />
+                  <span className="mt-1 block text-xs font-normal text-[#26352c]/55">
+                    {COMPLEMENT_HELP}
+                  </span>
                 </label>
 
                 <label className="text-sm font-medium">
@@ -1970,6 +1986,21 @@ export default function CheckoutPage() {
                   />
                 </label>
               </div>
+
+              <label className="mt-4 block text-sm font-medium">
+                Observações do pedido (opcional)
+                <textarea
+                  name="orderNote"
+                  maxLength={ORDER_NOTE_MAX}
+                  rows={3}
+                  className={`${inputClass} min-h-[84px] resize-y`}
+                  placeholder="Horário de entrega, ponto de referência, instruções..."
+                  data-testid="observacoes-pedido"
+                />
+                <span className="mt-1 block text-xs font-normal text-[#26352c]/55">
+                  Até {ORDER_NOTE_MAX} caracteres.
+                </span>
+              </label>
             </section>
 
             <section

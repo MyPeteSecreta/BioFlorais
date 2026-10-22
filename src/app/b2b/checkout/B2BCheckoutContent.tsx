@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
   B2B_MAX_INSTALLMENTS,
@@ -112,6 +113,7 @@ export default function B2BCheckoutContent() {
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
+  const [orderNote, setOrderNote] = useState("");
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [uf, setUf] = useState("");
@@ -269,6 +271,9 @@ export default function B2BCheckoutContent() {
   }, [fetchQuote, order]);
 
   const quoteIsCurrent = quote?.requestKey === requestKey;
+  const complementCheck = validateComplement(complement);
+  const complementError = complementCheck.ok ? "" : complementCheck.error;
+
   const chosen = quoteIsCurrent
     ? quote?.options.find((option) => option.serviceName === serviceName) ?? null
     : null;
@@ -352,6 +357,11 @@ export default function B2BCheckoutContent() {
       return;
     }
 
+    if (complementError) {
+      setError(complementError);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -362,6 +372,7 @@ export default function B2BCheckoutContent() {
           b2bToken: token,
           customer: { personType, name, email, phone, cpf, cnpj, stateRegistration },
           address: { cep: cepDigits, street, number, complement, district, city, state: uf },
+          orderNote,
           items: itemsPayload,
           couponCode: appliedCoupon || null,
           paymentMethod,
@@ -690,7 +701,32 @@ export default function B2BCheckoutContent() {
               <input className={inputClass} placeholder="Número" value={number} onChange={(e) => setNumber(e.target.value)} />
               <input className={inputClass} placeholder="Bairro" value={district} onChange={(e) => setDistrict(e.target.value)} />
             </div>
-            <input className={inputClass} placeholder="Complemento (opcional)" value={complement} onChange={(e) => setComplement(e.target.value)} />
+            <input
+              className={inputClass}
+              placeholder="Complemento (opcional)"
+              value={complement}
+              onChange={(e) => setComplement(e.target.value)}
+              aria-describedby="complemento-ajuda"
+              data-testid="b2b-complemento"
+            />
+            {complementError ? (
+              <p className="text-xs font-semibold text-red-700" role="alert">{complementError}</p>
+            ) : (
+              <p id="complemento-ajuda" className="text-xs text-[#8a7886]">Apto, sala, bloco. {COMPLEMENT_HELP}</p>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="font-bold">Observações do pedido</h2>
+            <textarea
+              className={`${inputClass} min-h-[84px] resize-y`}
+              placeholder="Horário de entrega, ponto de referência, instruções (opcional)"
+              maxLength={ORDER_NOTE_MAX}
+              value={orderNote}
+              onChange={(e) => setOrderNote(e.target.value)}
+              data-testid="b2b-observacoes"
+            />
+            <p className="text-right text-xs text-[#8a7886]">{orderNote.length}/{ORDER_NOTE_MAX}</p>
           </section>
 
           <section className="space-y-3">

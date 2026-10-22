@@ -14,6 +14,8 @@ import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
 import { attachOppref } from "@/lib/ads-tag-server";
 import { ATTRIBUTION_COOKIE, attachAttribution, attributionFromRequest } from "@/lib/attribution-server";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { validateComplement, validateOrderNote } from "@/lib/order-note";
+import { attachOrderNote } from "@/lib/order-note-server";
 import { db } from "@/lib/db/client";
 
 import { validatePartnerCoupon } from "@/lib/partners/academia";
@@ -79,6 +81,9 @@ type RequestBody = {
 
   couponCode?: string | null;
   partnerCouponCode?: string | null;
+
+  /* Observações do cliente (até 500 caracteres): gravadas no pedido e enviadas ao Omie. */
+  orderNote?: string | null;
 };
 
 function clean(
@@ -444,6 +449,19 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    // Complemento curto e limpo (limite do Omie) e observações do pedido: mensagem clara, sem quebrar o envio ao Omie depois.
+    const complementCheck = validateComplement(address.complement);
+
+    if (!complementCheck.ok) {
+      return NextResponse.json({ error: complementCheck.error, field: "complement" }, { status: 400 });
+    }
+
+    const noteCheck = validateOrderNote(body.orderNote);
+
+    if (!noteCheck.ok) {
+      return NextResponse.json({ error: noteCheck.error, field: "orderNote" }, { status: 400 });
     }
 
     if (
@@ -1075,9 +1093,7 @@ const commercialAdjustmentsJson =
           number,
 
           complement:
-            clean(
-              address.complement
-            ) || null,
+            complementCheck.value,
 
           district,
           city,
@@ -1202,6 +1218,9 @@ const orderRows =
 
     // Atribuição do anúncio (ChatGPT Ads): oppref do cookie bio_oppref (só existe com aceite de marketing). Tolera o SQL 44b ausente.
     await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
+
+    // Observações do cliente (SQL 46b): tolera a coluna ausente.
+    await attachOrderNote(getAppSqlRunner(), order.id, noteCheck.value);
 
     // Origem da venda (utm_* e domínio do referrer do cookie bio_origem). Não depende do aceite de marketing; tolera o SQL 45b ausente.
     await attachAttribution(getAppSqlRunner(), order.id, attributionFromRequest(request.cookies.get(ATTRIBUTION_COOKIE)?.value));
