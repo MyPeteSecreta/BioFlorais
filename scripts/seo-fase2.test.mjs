@@ -208,9 +208,8 @@ test("14b) URLs de anúncio intactas (com query) e linhas geradas estaticamente 
   const line = read("src/app/linha/[slug]/page.tsx");
   assert.match(line, /export function generateStaticParams\(\)/);
   assert.match(line, /bioLines\.map\(\(line\) => \(\{ slug: line\.slug \}\)\)/);
-  for (const file of ["src/app/page.tsx", "src/app/linha/[slug]/page.tsx"]) {
-    assert.match(read(file), /fetchPriority="high"/, file);
-  }
+  assert.match(read("src/app/page.tsx"), /fetchPriority="high"/);
+  assert.ok(read("src/app/linha/[slug]/page.tsx").includes('fetchPriority={index === 0 ? "high" : undefined}'));
   assert.equal((read("src/app/linha/[slug]/page.tsx").match(/\bpriority\b/g) ?? []).length, 1, "só o herói tem priority");
 });
 

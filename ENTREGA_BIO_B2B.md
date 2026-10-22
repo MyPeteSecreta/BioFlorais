@@ -9,6 +9,16 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 18 · Topo das linhas e eventos do Analytics (22/10/2026), sobre `c033e93`
+
+Sem push, deploy, Neon ou SQL. Não mexi no B2B (`/b2b/*`) nem na Home.
+
+- **Linhas (`/linha/[slug]`, todas):** saiu a seção superior (título grande, descrição, chips "N opções"/"Bio Florais · Desde 1997" e o banner da linha) e o bloco "Explore a linha / headline". O topo agora é: eyebrow (a frase pequena de cada linha) → `<h1>` com o nome da linha → 1 frase (a descrição atual, todas ≤ 120 caracteres) → logo os cards. Mantive um breadcrumb visível de 1 linha (Início / Linhas / Nome) e todo o SEO: metadata, canonical, JSON-LD, BreadcrumbList, og:image `/og/`, `generateStaticParams`. Sem o banner, o LCP passa a ser o primeiro card: só ele leva `priority`/`fetchPriority="high"`. No celular (375×667) o 1º card aparece inteiro e o 2º já aparece sem rolar. Prints antes/depois a 375 px (infantil, adulto, pet) e desktop (infantil) feitos no navegador do app.
+- **Eventos do Vercel Analytics:** `chegada` (1× por sessão do navegador), `ver_produto` (`/produto/<slug>`), `sacola` (adicionar produto ou combo ao carrinho) e `checkout` (`/checkout` e `/b2b/checkout`). Duas propriedades apenas: `origem` ("utm_source / utm_medium" do cookie `bio_origem`; sem utm usa o domínio do referrer; "direto" se vazio) e `campanha` (`utm_campaign`; "nenhuma" se vazio). Nada de dado pessoal. Só nas páginas do B2C/lojista (nunca admin nem área do vendedor); falha silenciosa se o Analytics estiver bloqueado. Custom Events exigem o plano Pro e a aba de eventos ativa no painel da Vercel.
+- **Testes:** `scripts/rodada18.test.mjs` (4 casos) e ajuste de 1 asserção em `seo-fase2.test.mjs` (prioridade agora no 1º card). tsc limpo, build ok, `npm test` verde. O envio real dos eventos só pode ser conferido em produção (o script `/_vercel/insights` não existe localmente).
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 17 · Origem da venda em todo pedido (19/10/2026), sobre `e462e88`
 
 Sem push, deploy ou Neon. **SQL novo (aditivo): `sql/b2b/45b_origem_venda.sql`; conferência somente leitura: `sql/b2b/45a_origem_venda_conferencia_one_shot.sql`** (rode o 45a antes e depois; o 45a inclui a conferência pelo slug `adulto-%`).

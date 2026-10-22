@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { trackEvent } from "@/lib/analytics-events";
 import {
   createContext,
   useCallback,
@@ -286,6 +287,7 @@ export function CartProvider({
         product:
           AddProductInput
       ) => {
+        void trackEvent("sacola");
         setState(
           (current) =>
             reconcileOffers({
@@ -307,6 +309,7 @@ export function CartProvider({
         combo:
           AddComboInput
       ) => {
+        void trackEvent("sacola");
         setState(
           (current) => {
             let items =

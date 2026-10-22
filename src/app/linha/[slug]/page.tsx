@@ -1811,210 +1811,91 @@ export default async function LinePage({
       </header>
 
 
-      {/* HERO DA LINHA */}
+      {/* TOPO DA LINHA: frase pequena, nome da linha (h1), 1 frase e logo os cards (celular: cards sem rolar) */}
       <section
         className="
-          overflow-hidden
           border-b
           border-[#eadfd9]
           bg-[#faf5ef]
           px-5
-          py-8
+          pb-5
+          pt-4
           lg:px-10
-          lg:py-10
+          lg:pb-8
+          lg:pt-6
         "
       >
         <div
           className="
             mx-auto
-            grid
             max-w-[1440px]
-            gap-8
-            lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]
-            lg:items-center
           "
         >
-
-          <div
+          <nav
+            aria-label="Você está em"
             className="
-              min-w-0
-              py-3
-              lg:py-6
+              mb-3
+              flex
+              flex-wrap
+              items-center
+              gap-1.5
+              text-[11px]
+              font-bold
+              text-[#8d7b89]
             "
           >
-            <div
-              className="
-                mb-6
-                flex
-                flex-wrap
-                items-center
-                gap-2
-                text-[11px]
-                font-bold
-                text-[#8d7b89]
-              "
-            >
-              <Link
-                href="/"
-                className="
-                  transition
-                  hover:text-[#63326d]
-                "
-              >
-                Início
-              </Link>
+            <Link href="/" className="transition hover:text-[#63326d]">
+              Início
+            </Link>
+            <span>/</span>
+            <Link href="/#linhas" className="transition hover:text-[#63326d]">
+              Linhas
+            </Link>
+            <span>/</span>
+            <span className="text-[#63326d]">{line.name}</span>
+          </nav>
 
-              <span>
-                /
-              </span>
+          <p
+            className="
+              text-[11px]
+              font-extrabold
+              uppercase
+              tracking-[0.20em]
+              leading-5
+              text-[#a0742b]
+            "
+          >
+            {visual?.eyebrow ?? "Universo Bio Florais"}
+          </p>
 
-              <Link
-                href="/#linhas"
-                className="
-                  transition
-                  hover:text-[#63326d]
-                "
-              >
-                Linhas
-              </Link>
+          <h1
+            className="
+              mt-1
+              font-serif
+              text-4xl
+              font-semibold
+              leading-[1.02]
+              tracking-[-0.04em]
+              text-[#422347]
+              sm:text-5xl
+              lg:text-[56px]
+            "
+          >
+            {line.name}
+          </h1>
 
-              <span>
-                /
-              </span>
-
-              <span
-                className="
-                  text-[#63326d]
-                "
-              >
-                {
-                  line.name
-                }
-              </span>
-            </div>
-
-            <p
-              className="
-                text-[11px]
-                font-extrabold
-                uppercase
-                tracking-[0.20em]
-                leading-5
-                text-[#a0742b]
-              "
-            >
-              {
-                visual?.eyebrow ??
-                "Universo Bio Florais"
-              }
-            </p>
-
-            <h1
-              className="
-                mt-3
-                max-w-[650px]
-                font-serif
-                text-5xl
-                font-semibold
-                leading-[0.98]
-                tracking-[-0.045em]
-                text-[#422347]
-                sm:text-6xl
-                lg:text-[68px]
-              "
-            >
-              {
-                line.name
-              }
-            </h1>
-
-            <p
-              className="
-                mt-5
-                max-w-[590px]
-                text-base
-                leading-7
-                text-[#675866]
-                sm:text-lg
-              "
-            >
-              {
-                visual?.description ??
-                "Conheça os produtos, versões e cuidados desta linha."
-              }
-            </p>
-
-            <div
-              className="
-                mt-7
-                flex
-                flex-wrap
-                gap-3
-              "
-            >
-              <div
-                className="
-                  rounded-full
-                  bg-white
-                  px-4
-                  py-2
-                  text-xs
-                  font-extrabold
-                  text-[#63326d]
-                  shadow-sm
-                "
-              >
-                {
-                  cards.length
-                } opções
-              </div>
-
-              <div
-                className="
-                  rounded-full
-                  border
-                  border-[#dbcbd9]
-                  px-4
-                  py-2
-                  text-xs
-                  font-bold
-                  text-[#806c7d]
-                "
-              >
-                Bio Florais · Desde 1997
-              </div>
-            </div>
-          </div>
-
-          {visual && (
-            <div
-              className="
-                min-w-0
-                overflow-hidden
-                rounded-[30px]
-                shadow-[0_18px_45px_rgba(61,35,65,0.10)]
-              "
-            >
-              <Image
-                src={visual.image}
-                alt={`Linha Bio Florais ${line.name}`}
-                width={1600}
-                height={900}
-                priority
-                fetchPriority="high"
-                sizes="
-                  (max-width: 1024px)
-                  100vw,
-                  55vw
-                "
-                className="
-                  h-auto
-                  w-full
-                  rounded-[30px]
-                "
-              />
-            </div>
-          )}
+          <p
+            className="
+              mt-2
+              max-w-[640px]
+              text-[15px]
+              leading-6
+              text-[#675866]
+              lg:text-base
+            "
+          >
+            {visual?.description ?? "Conheça os produtos, versões e cuidados desta linha."}
+          </p>
         </div>
       </section>
 
@@ -2025,43 +1906,11 @@ export default async function LinePage({
           mx-auto
           max-w-[1440px]
           px-5
-          py-12
+          py-6
           lg:px-10
-          lg:py-16
+          lg:py-10
         "
       >
-
-        <div
-          className="
-            mb-8
-          "
-        >
-          <p
-            className="
-              text-[11px]
-              font-extrabold
-              uppercase
-              tracking-[0.22em]
-              text-[#a0742b]
-            "
-          >
-            Explore a linha
-          </p>
-
-          <h2
-            className="
-              mt-2
-              font-serif
-              text-4xl
-              font-semibold
-              tracking-[-0.03em]
-              text-[#422347]
-            "
-          >
-            {visual.headline}
-          </h2>
-        </div>
-
 
         <div
           className="
@@ -2131,6 +1980,8 @@ export default async function LinePage({
                       }
                       alt={imageAlt({ name: card.title, lineName: line.name, category: /cosmeticos|home-care/.test(line.slug) ? line.name : "floral" })}
                       fill
+                      priority={index === 0}
+                      fetchPriority={index === 0 ? "high" : undefined}
                       sizes="
                         (max-width: 1024px)
                         100vw,

@@ -12,6 +12,7 @@ import { getSiteUrl } from "@/lib/seo/site-url";
 import { jsonLdString, organizationJsonLd, websiteJsonLd } from "@/lib/seo/structured-data";
 import OppRefCapture from "@/components/consent/OppRefCapture";
 import AttributionCapture from "@/components/consent/AttributionCapture";
+import AnalyticsEvents from "@/components/analytics/AnalyticsEvents";
 import CookieBanner from "@/components/consent/CookieBanner";
 
 export const metadata: Metadata = {
@@ -56,6 +57,8 @@ export default function RootLayout({
         <OppRefCapture />
         {/* Origem da venda (utm_* e domínio do referrer, first-touch, 30 dias): dado de atribuição sem dado pessoal. */}
         <AttributionCapture />
+        {/* Eventos do Vercel Analytics (chegada, ver_produto, sacola, checkout) com origem e campanha; sem dado pessoal. */}
+        <AnalyticsEvents />
       </body>
     </html>
   );
