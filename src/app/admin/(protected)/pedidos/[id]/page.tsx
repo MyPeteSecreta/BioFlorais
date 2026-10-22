@@ -49,6 +49,15 @@ function paymentLabel(method: string | null) {
 
 function orderStatusLabel(status: string) {
   switch (status) {
+    case "quote":
+      return "Orçamento (pendente)";
+
+    case "quote_converted":
+      return "Orçamento convertido em pedido";
+
+    case "quote_replaced":
+      return "Orçamento substituído";
+
     case "paid":
     case "approved":
       return "Pago";
@@ -238,9 +247,11 @@ export default async function PedidoDetalhePage({
               {orderStatusLabel(order.status)}
             </span>
 
-            <span className="w-fit rounded-full bg-emerald-100 px-5 py-2.5 text-sm font-extrabold text-emerald-900">
-              {fulfillmentLabel(order.fulfillmentStatus)}
-            </span>
+            {!order.status.startsWith("quote") && (
+              <span className="w-fit rounded-full bg-emerald-100 px-5 py-2.5 text-sm font-extrabold text-emerald-900">
+                {fulfillmentLabel(order.fulfillmentStatus)}
+              </span>
+            )}
           </div>
         </div>
 

@@ -23,8 +23,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
+import PrintOrderButton from "@/components/b2b/PrintOrderButton";
 import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { buildReviewSheet } from "@/lib/b2b/order-sheet";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
@@ -134,6 +136,15 @@ export default function B2BCheckoutContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<CreatedOrder | null>(null);
+  // Orçamento (pedido sem pagamento): salvar, reabrir, ajustar e converter em pedido.
+  const searchParams = useSearchParams();
+  const quoteParam = searchParams.get("orcamento") ?? "";
+  const launchParam = searchParams.get("lancar") === "1";
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [quoteNotice, setQuoteNotice] = useState("");
+  const [savedQuote, setSavedQuote] = useState<{ id: string; expiresAt: string | null; validityDays: number; totalCents: number } | null>(null);
+  const [savingQuote, setSavingQuote] = useState(false);
+  const quoteLoaded = useRef(false);
   const [storeLink, setStoreLink] = useState<string | null>(null);
   const [pix, setPix] = useState<PixData | null>(null);
   const [finalMessage, setFinalMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -182,6 +193,74 @@ export default function B2BCheckoutContent() {
       cancelled = true;
     };
   }, [launched, token]);
+
+  useEffect(() => {
+    if (!quoteParam || !token || !cart.hydrated || quoteLoaded.current) return;
+
+    quoteLoaded.current = true;
+
+    if (launchParam) {
+      try {
+        window.sessionStorage.setItem(launchStorageKey(token), "1");
+      } catch {
+        // sem sessionStorage: o servidor ainda valida a sessão do vendedor
+      }
+
+      setLaunched(true);
+    }
+
+    fetch(`/api/b2b/orders/quote?b2b=${encodeURIComponent(token)}&id=${encodeURIComponent(quoteParam)}${launchParam ? "&lancar=1" : ""}`, { cache: "no-store" })
+      .then(async (response) => ({ ok: response.ok, data: await response.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setQuoteNotice(data.error ?? "Não foi possível abrir o orçamento.");
+          return;
+        }
+
+        cart.setOfferToken(token);
+        cart.load(data.lines ?? [], data.displays ?? []);
+
+        if (data.customer) {
+          setPersonType(data.customer.personType === "pj" ? "pj" : "pf");
+          setName(data.customer.name);
+          setEmail(data.customer.email);
+          setPhone(data.customer.phone);
+          setCpf(data.customer.cpf);
+          setCnpj(data.customer.cnpj);
+          setStateRegistration(data.customer.stateRegistration);
+        }
+
+        if (data.address) {
+          setCep(data.address.cep);
+          setStreet(data.address.street);
+          setNumber(data.address.number);
+          setComplement(data.address.complement);
+          setDistrict(data.address.district);
+          setCity(data.address.city);
+          setUf(data.address.state);
+        }
+
+        setOrderNote(data.quote?.orderNote ?? "");
+
+        if (data.quote?.couponCode) {
+          setCouponInput(data.quote.couponCode);
+          setAppliedCoupon(data.quote.couponCode);
+        }
+
+        const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR") : null;
+
+        if (data.quote?.expired) {
+          // Vencido: abre para conferir (preços recalculados), mas não é convertido; salve um novo orçamento ou feche o pedido.
+          setQuoteNotice(`Este orçamento venceu em ${until ?? "—"}. Os preços foram recalculados: salve um novo orçamento ou feche o pedido.`);
+        } else {
+          setQuoteId(String(data.quote.id));
+          setQuoteNotice(`Orçamento reaberto${until ? ` (válido até ${until})` : ""}. Ajuste o que precisar e escolha a forma de pagamento para virar pedido. Os preços foram recalculados.`);
+        }
+      })
+      .catch(() => setQuoteNotice("Não foi possível abrir o orçamento."));
+    // Roda uma vez, depois da hidratação da sacola.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteParam, token, cart.hydrated]);
 
   const lines = cart.state.offerToken === token ? cart.state.lines : [];
   const itemsPayload = lines.map((line) => ({ productId: line.productId, qty: line.qty }));
@@ -351,6 +430,56 @@ export default function B2BCheckoutContent() {
     setFinalMessage({ ok: true, text: data.message });
   }
 
+  /** Salva o pedido SEM forma de pagamento (orçamento): não reserva, não vai ao Omie, não gera comissão. */
+  async function handleSaveQuote() {
+    setError("");
+
+    if (!chosen || !totals) {
+      setError("Informe o CEP e escolha o frete antes de salvar o orçamento.");
+      return;
+    }
+
+    if (complementError) {
+      setError(complementError);
+      return;
+    }
+
+    setSavingQuote(true);
+
+    try {
+      const response = await fetch("/api/b2b/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          b2bToken: token,
+          customer: { personType, name, email, phone, cpf, cnpj, stateRegistration },
+          address: { cep: cepDigits, street, number, complement, district, city, state: uf },
+          orderNote,
+          items: itemsPayload,
+          couponCode: appliedCoupon || null,
+          asQuote: true,
+          shipping: { serviceName: chosen.serviceName },
+          displays: displayKeys,
+          launched,
+          ...(quoteId ? { quoteId } : {}),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data.error ?? "Não foi possível salvar o orçamento.");
+        return;
+      }
+
+      setSavedQuote({ id: data.quote.id, expiresAt: data.quote.expiresAt ?? null, validityDays: Number(data.quote.validityDays ?? 15), totalCents: Number(data.quote.totalCents ?? 0) });
+      cart.clear();
+    } catch {
+      setError("Não foi possível salvar o orçamento. Tente novamente.");
+    } finally {
+      setSavingQuote(false);
+    }
+  }
+
   async function handleConfirm() {
     setError("");
 
@@ -382,6 +511,7 @@ export default function B2BCheckoutContent() {
           shipping: { serviceName: chosen.serviceName },
           displays: displayKeys,
           launched,
+          ...(quoteId ? { quoteId } : {}),
         }),
       });
 
@@ -425,6 +555,35 @@ export default function B2BCheckoutContent() {
     );
   }
 
+  if (savedQuote) {
+    const printHref = `/b2b/oferta/${encodeURIComponent(token)}/pedidos/${savedQuote.id}/imprimir`;
+    const reopenHref = `/b2b/checkout?b2b=${encodeURIComponent(token)}&orcamento=${savedQuote.id}${launched ? "&lancar=1" : ""}`;
+
+    return (
+      <main className="min-h-screen bg-[#fffaf6] px-5 py-16 text-center text-[#422347]" data-testid="orcamento-salvo">
+        <h1 className="font-serif text-3xl font-semibold text-[#55245f]">Orçamento salvo</h1>
+        <p className="mt-3 text-sm">
+          Orçamento {savedQuote.id.slice(0, 8).toUpperCase()} · {formatB2BCents(savedQuote.totalCents)}
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-[#746471]">
+          {savedQuote.expiresAt ? `Válido até ${new Date(savedQuote.expiresAt).toLocaleDateString("pt-BR")} (${savedQuote.validityDays} dias). ` : ""}
+          Não reserva produtos e ainda não é um pedido: ele aparece em “Meus pedidos” do link e pode ser reaberto, ajustado e fechado com a forma de pagamento.
+        </p>
+        <div className="mx-auto mt-6 grid max-w-sm gap-3">
+          <Link href={printHref} className="rounded-full border-2 border-[#55245f] py-3 text-sm font-extrabold text-[#55245f]" data-testid="imprimir-orcamento">
+            Imprimir / salvar PDF do orçamento
+          </Link>
+          <Link href={reopenHref} className="rounded-full bg-[#55245f] py-3 text-sm font-extrabold text-white">
+            Reabrir e escolher o pagamento
+          </Link>
+          <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
+            Ver meus pedidos e orçamentos
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   if (finalMessage) {
     return (
       <main className="min-h-screen bg-[#fffaf6] px-5 py-20 text-center text-[#422347]">
@@ -444,6 +603,11 @@ export default function B2BCheckoutContent() {
           </p>
         )}
         {order && <TrackOrderCard orderId={order.id} />}
+        {order && (
+          <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos/${order.id}/imprimir`} className="mt-4 inline-block rounded-full border-2 border-[#55245f] px-5 py-2.5 text-sm font-extrabold text-[#55245f]" data-testid="imprimir-pedido-criado">
+            Imprimir / salvar PDF do pedido
+          </Link>
+        )}
         {order && finalMessage.ok && <AdsPurchaseTag orderId={order.id} />}
         {/* Loja pública: o link permanente do lojista (oferta padrão dele); nos demais, o próprio link da oferta. */}
         {storeLink ? <ReorderLink token={token} url={storeLink} /> : <ReorderLink token={token} />}
@@ -468,6 +632,9 @@ export default function B2BCheckoutContent() {
           </p>
 
           <TrackOrderCard orderId={order.id} />
+          <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos/${order.id}/imprimir`} className="mt-3 inline-block text-sm font-bold text-[#63326d] underline underline-offset-4" data-testid="imprimir-pedido-criado">
+            Imprimir / salvar PDF do pedido
+          </Link>
 
           {error && (
             <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-900">
@@ -627,11 +794,35 @@ export default function B2BCheckoutContent() {
     );
   }
 
+  // Folha da revisão (imprimir / PDF) montada do que está na tela; o servidor recalcula tudo ao confirmar.
+  const reviewSheet = buildReviewSheet({
+    lines: lines.map((line) => ({ name: line.name, qty: line.qty, priceCents: line.priceCents, discountPercent: line.discountPercent ?? null })),
+    lineIds: lines.map((line) => line.productId),
+    discountLines: quoteIsCurrent ? quote?.discountLines : undefined,
+    bonusByProduct: quoteIsCurrent ? new Map((quote?.bonusLines ?? []).map((bonus) => [bonus.productId, bonus.qty])) : undefined,
+    displays: displays.map((display) => `1× ${display.name} (brinde)`),
+    buyer: { name, document: personType === "pj" ? cnpj : cpf, email, phone },
+    address: { street, number, complement, district, city, state: uf, cep: cepDigits },
+    couponCode: quoteIsCurrent ? quote?.couponCode ?? null : null,
+    subtotalCents: quoteIsCurrent && quote ? quote.subtotalCents : cart.subtotalCents,
+    couponDiscountCents: quoteIsCurrent && quote ? quote.couponDiscountCents : 0,
+    shipping: chosen ? { serviceName: chosen.serviceName, priceCents: chosen.priceCents } : null,
+    totalsByPaymentMethod: totals,
+    paymentMethod,
+    installments: paymentMethod === "boleto" ? effectiveBoletoInstallments : 1,
+    note: orderNote,
+  });
+
   const discountByProduct = new Map((quoteIsCurrent ? quote?.discountLines ?? [] : []).map((d) => [d.productId, d]));
   const bonusByProduct = new Map((quoteIsCurrent ? quote?.bonusLines ?? [] : []).map((b) => [b.productId, b.qty]));
 
   return (
     <main className="min-h-screen bg-[#fffaf6] px-5 py-10 text-[#422347]">
+      {quoteNotice && (
+        <p role="status" data-testid="aviso-orcamento" className="mx-auto mb-6 max-w-5xl rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950">
+          {quoteNotice}
+        </p>
+      )}
       <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">
           <div>
@@ -929,8 +1120,27 @@ export default function B2BCheckoutContent() {
             onClick={handleConfirm}
             className="w-full rounded-full bg-[#55245f] py-3 text-sm font-extrabold text-white disabled:opacity-50"
           >
-            {submitting ? "Processando…" : "Confirmar pedido"}
+            {submitting ? "Processando…" : quoteId ? "Confirmar pedido (do orçamento)" : "Confirmar pedido"}
           </button>
+
+          <button
+            type="button"
+            disabled={savingQuote || submitting || !chosen || quoting || cart.subtotalCents < B2B_MIN_ORDER_CENTS}
+            onClick={handleSaveQuote}
+            className="w-full rounded-full border-2 border-[#55245f] py-3 text-sm font-extrabold text-[#55245f] disabled:opacity-50"
+            data-testid="salvar-orcamento"
+          >
+            {savingQuote ? "Salvando…" : "Salvar como orçamento"}
+          </button>
+          <p className="text-center text-xs leading-5 text-[#746471]">
+            Orçamento: sem escolher o pagamento, sem reservar produtos. Fica em “Meus pedidos” (validade informada ao salvar) e você reabre, ajusta e fecha depois.
+          </p>
+
+          <PrintOrderButton
+            sheet={reviewSheet}
+            label="Imprimir / salvar PDF da revisão"
+            className="w-full rounded-full border border-[#d9c7dc] py-2.5 text-sm font-bold text-[#55245f] transition hover:bg-[#f6eef7]"
+          />
 
           <p className="text-center text-xs leading-5 text-[#746471]" data-testid="lgpd">
             Seus dados serão usados para contato comercial, conforme nossa{" "}

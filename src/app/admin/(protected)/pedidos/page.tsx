@@ -33,6 +33,15 @@ function formatDate(value: Date | null) {
 
 function orderStatusLabel(status: string) {
   switch (status) {
+    case "quote":
+      return "Orçamento (pendente)";
+
+    case "quote_converted":
+      return "Orçamento convertido em pedido";
+
+    case "quote_replaced":
+      return "Orçamento substituído";
+
     case "paid":
     case "approved":
       return "Pago";
@@ -248,11 +257,13 @@ export default async function AdminOrdersPage() {
                     {orderStatusLabel(order.status)}
                   </span>
 
-                  <span className="rounded-full bg-[#edf5ee] px-4 py-2 text-xs font-extrabold text-[#355c3d]">
-                    {fulfillmentLabel(
-                      order.fulfillmentStatus
-                    )}
-                  </span>
+                  {!order.status.startsWith("quote") && (
+                    <span className="rounded-full bg-[#edf5ee] px-4 py-2 text-xs font-extrabold text-[#355c3d]">
+                      {fulfillmentLabel(
+                        order.fulfillmentStatus
+                      )}
+                    </span>
+                  )}
                 </div>
               </div>
 

@@ -160,7 +160,7 @@ test("ligações: captura no layout, gravação nos dois pedidos, origem e expor
   const b2c = read("src/app/api/orders/create/route.ts");
   assert.ok(b2c.includes("attachAttribution(getAppSqlRunner(), order.id, attributionFromRequest("));
   const b2b = read("src/app/api/b2b/orders/create/route.ts");
-  const launchedBlock = b2b.slice(b2b.indexOf("if (!launched) {"));
+  const launchedBlock = b2b.slice(b2b.indexOf("if (!launched && !asQuote) {"));
   assert.ok(launchedBlock.slice(0, 900).includes("attachAttribution("), "B2B: só o pedido do próprio lojista");
 
   const detail = read("src/app/admin/(protected)/pedidos/[id]/page.tsx");

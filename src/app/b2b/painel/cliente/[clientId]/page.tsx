@@ -16,6 +16,9 @@ import {
 import { loadCommissionMatrix } from "@/lib/b2b/commission";
 import { loadClientLineSummary } from "@/lib/b2b/line-windows";
 import OfferLinkActions from "@/components/b2b/OfferLinkActions";
+import QuoteReopenButton from "@/components/b2b/QuoteReopenButton";
+import { QUOTE_LABEL, listClientQuotes } from "@/lib/b2b/quote-order";
+import { formatB2BCents } from "@/lib/b2b/format";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +52,9 @@ export default async function B2BClientPage({
     loadCommissionMatrix(run, responsible.id, client.id),
   ]);
   const lineSummary = await loadClientLineSummary(run, client.id, matrix);
+  // Orçamentos pendentes do cliente (pedido sem pagamento): o vendedor reabre, ajusta e fecha o pedido.
+  const quotes = await listClientQuotes(run, client.id);
+  const dateOf = (value: string) => new Date(value).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
   return (
     <main className="mx-auto max-w-[1100px] px-5 py-10 lg:px-10">
@@ -84,6 +90,28 @@ export default async function B2BClientPage({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {quotes.length > 0 && (
+        <section className="mt-8 space-y-3" data-testid="orcamentos-cliente">
+          <h2 className="font-extrabold">Orçamentos pendentes</h2>
+          {quotes.map((quote) => (
+            <article key={quote.orderId} className="rounded-[20px] border border-[#f0d9a8] bg-[#fffaf0] p-4">
+              <p className="text-sm font-bold">
+                Orçamento #{quote.orderId.slice(0, 8).toUpperCase()}{" "}
+                <span className="ml-1 rounded-full bg-[#fff3d6] px-2 py-0.5 text-xs font-extrabold text-[#8a5a00]">{quote.expired ? "Vencido" : QUOTE_LABEL}</span>
+              </p>
+              <p className="text-xs text-[#8a7886]">
+                Salvo em {dateOf(quote.createdAt)}
+                {quote.expiresAt ? ` · ${quote.expired ? "venceu" : "válido"} até ${dateOf(quote.expiresAt)}` : ""} · {formatB2BCents(quote.totalCents)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <QuoteReopenButton offerId={quote.offerId} quoteId={quote.orderId} mode="open" className="rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white disabled:opacity-60" />
+                <QuoteReopenButton offerId={quote.offerId} quoteId={quote.orderId} mode="print" className="rounded-full border border-[#55245f] px-4 py-2 text-xs font-extrabold text-[#55245f] disabled:opacity-60" />
+              </div>
+            </article>
+          ))}
         </section>
       )}
 

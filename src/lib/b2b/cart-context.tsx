@@ -70,6 +70,7 @@ type Action =
   | { type: "SET_QTY"; productId: string; qty: number }
   | { type: "REMOVE_ITEM"; productId: string }
   | { type: "ADD_KIT"; display: B2BCartDisplay; items: Array<Omit<B2BCartLine, "qty"> & { qty: number }> }
+  | { type: "LOAD"; lines: B2BCartLine[]; displays: B2BCartDisplay[] }
   | { type: "DISMISS_NOTICE" }
   | { type: "CLEAR" }
   | { type: "HYDRATE"; state: B2BCartState | null };
@@ -138,6 +139,9 @@ function reduce(state: InternalState, action: Action): InternalState {
 
       return { ...state, lines, displays: [...state.displays, action.display], notice: null };
     }
+    case "LOAD":
+      // Orçamento reaberto: a sacola passa a ser exatamente a dele.
+      return { ...state, lines: action.lines.filter((line) => line.qty > 0), displays: action.displays, notice: null };
     case "DISMISS_NOTICE":
       return { ...state, notice: null };
     case "CLEAR":
@@ -170,6 +174,8 @@ type B2BCartContextValue = {
   clear: () => void;
   /** Kit com display: coloca a composição fixa na sacola e registra o display grátis. */
   addKit: (display: B2BCartDisplay, items: Array<Omit<B2BCartLine, "qty"> & { qty: number }>) => void;
+  /** Orçamento reaberto: substitui a sacola (linhas e displays) pela do orçamento. */
+  load: (lines: B2BCartLine[], displays: B2BCartDisplay[]) => void;
   /** Aviso "o display vem grátis com o kit completo" (quando o kit ficou incompleto). */
   notice: string | null;
   dismissNotice: () => void;
@@ -225,6 +231,7 @@ export function B2BCartProvider({ children }: { children: ReactNode }) {
       removeItem: (productId) => dispatch({ type: "REMOVE_ITEM", productId }),
       clear: () => dispatch({ type: "CLEAR" }),
       addKit: (display, items) => dispatch({ type: "ADD_KIT", display, items }),
+      load: (lines, displays) => dispatch({ type: "LOAD", lines, displays }),
       notice: state.notice,
       dismissNotice: () => dispatch({ type: "DISMISS_NOTICE" }),
     }),

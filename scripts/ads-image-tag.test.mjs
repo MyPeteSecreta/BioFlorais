@@ -232,7 +232,7 @@ test("3.2/4) fiação: <img> 1x1 oculto só com consentimento; onde carrega; ban
   // oppref associado ao pedido na criação (B2C e B2B do lojista)
   assert.ok(read("src/app/api/orders/create/route.ts").includes("attachOppref("));
   const b2b = read("src/app/api/b2b/orders/create/route.ts");
-  assert.ok(b2b.includes("if (!launched)") && b2b.includes("attachOppref("));
+  assert.ok(b2b.includes("if (!launched && !asQuote)") && b2b.includes("attachOppref("));
   // onde NÃO: admin, área do vendedor, internas
   for (const path of ["/admin", "/admin/login", "/b2b/painel", "/b2b/painel/mostruario", "/b2b/login", "/b2b/convite/x", "/api/orders/ads-tag"]) assert.equal(ads.isPixelPath(path), false, path);
   for (const path of ["/", "/linha/adulto", "/checkout", "/acompanhe/x", "/parceiros", "/b2b/oferta/t", "/b2b/carrinho", "/b2b/checkout", "/b2b/pagar"]) assert.equal(ads.isPixelPath(path), true, path);

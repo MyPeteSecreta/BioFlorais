@@ -407,6 +407,7 @@ export async function listClientOrders(run: SqlRunner, clientId: string) {
 /** Rótulo curto do andamento (lista "Meus pedidos"). */
 export function progressLabel(status: string, fulfillmentStatus: string) {
   if (CANCELLED.includes(status) || fulfillmentStatus === "cancelled") return "Cancelado";
+  if (status === "quote") return "Orçamento (pendente)";
   if (fulfillmentStatus === "delivered") return "Entregue";
   if (fulfillmentStatus === "shipped") return "Enviado";
   if (["separating", "ready_to_ship"].includes(fulfillmentStatus)) return "Em separação";

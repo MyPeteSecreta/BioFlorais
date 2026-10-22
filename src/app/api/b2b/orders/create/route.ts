@@ -23,6 +23,16 @@ import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { validateComplement, validateOrderNote } from "@/lib/order-note";
+import {
+  QUOTE_CONVERTED,
+  QUOTE_REPLACED,
+  SQL_48B_MESSAGE,
+  closeQuote,
+  quoteColumnReady,
+  quoteExpiry,
+  quoteValidityDays,
+  setQuoteExpiry,
+} from "@/lib/b2b/quote-order";
 import { attachOrderNote } from "@/lib/order-note-server";
 import { buildQuoteItemSnapshots } from "@/lib/b2b/order-snapshots";
 import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
@@ -68,6 +78,10 @@ type CreateB2BOrderBody = {
   displays?: unknown;
   /** Observações do cliente (até 500 caracteres): gravadas no pedido e enviadas ao Omie. */
   orderNote?: string;
+  /** Orçamento: grava o pedido SEM forma de pagamento (status 'quote'): sem estoque, sem Omie, sem comissão. */
+  asQuote?: boolean;
+  /** Orçamento de origem (reaberto): vira 'quote_converted' (pedido) ou 'quote_replaced' (orçamento salvo de novo). */
+  quoteId?: string;
 };
 
 function onlyDigits(value: unknown) {
@@ -151,16 +165,23 @@ export async function POST(request: NextRequest) {
       return badRequest("Preencha corretamente o endereço de entrega.");
     }
 
-    // ---- Forma de pagamento (trava do pedido)
-    if (!isB2BPaymentMethod(body.paymentMethod)) {
+    // ---- Forma de pagamento (trava do pedido). Orçamento: sem forma de pagamento (escolhida ao virar pedido).
+    const asQuote = body.asQuote === true;
+
+    if (!asQuote && !isB2BPaymentMethod(body.paymentMethod)) {
       return badRequest("Escolha a forma de pagamento.");
     }
 
-    const paymentMethod = body.paymentMethod;
+    const paymentMethod = isB2BPaymentMethod(body.paymentMethod) && !asQuote ? body.paymentMethod : null;
 
     // Regra B2B: pessoa física paga só com Pix ou cartão.
     if (personType === "pf" && paymentMethod === "boleto") {
       return badRequest("Boleto disponível apenas para pessoa jurídica. Escolha Pix ou cartão.");
+    }
+
+    // Orçamento exige a coluna de validade (SQL 48b): recusa antes de gravar qualquer coisa.
+    if (asQuote && !(await quoteColumnReady(getAppSqlRunner()))) {
+      return badRequest(SQL_48B_MESSAGE, 409);
     }
 
     const chosenServiceName = text(body.shipping?.serviceName);
@@ -236,15 +257,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalCents = option.totalsByPaymentMethod[paymentMethod];
-    const paymentMethodDiscountCents = resolveB2BPaymentMethodDiscountCents(
-      quote.subtotalAfterCouponCents,
-      paymentMethod
-    );
+    // Orçamento: total de referência a preço cheio (boleto, sem desconto de forma de pagamento); Pix e cartão aparecem no documento.
+    const totalCents = paymentMethod ? option.totalsByPaymentMethod[paymentMethod] : option.totalsByPaymentMethod.boleto;
+    const paymentMethodDiscountCents = paymentMethod
+      ? resolveB2BPaymentMethodDiscountCents(quote.subtotalAfterCouponCents, paymentMethod)
+      : 0;
 
     const installments = Number(body.installments ?? 1);
 
     if (
+      paymentMethod &&
       paymentMethod !== "pix" &&
       !isB2BInstallmentCountValid(totalCents, installments)
     ) {
@@ -285,7 +307,7 @@ export async function POST(request: NextRequest) {
       version: 1,
       storeKey: "bio-b2b",
       paymentMethod,
-      installments: paymentMethod === "pix" ? 1 : installments,
+      installments: !paymentMethod || paymentMethod === "pix" ? 1 : installments,
       bonusLines: quote.bonusLines,
       // Display do kit: brinde (não vira item). A observação vai para o Omie pela Central.
       displays: quote.displays.map((display) => ({ key: display.key, name: display.name, count: display.count })),
@@ -298,7 +320,7 @@ export async function POST(request: NextRequest) {
         customerId: customer.id,
         shippingAddressId: address.id,
         shippingServiceName: option.serviceName,
-        status: "pending",
+        status: asQuote ? "quote" : "pending",
         fulfillmentStatus: "awaiting_payment",
         subtotalCents: quote.subtotalCents,
         discountCents: quote.couponDiscountCents + paymentMethodDiscountCents,
@@ -324,8 +346,15 @@ export async function POST(request: NextRequest) {
     // Nome no Omie do vendedor do pedido = nome do cadastro, se ninguém definiu outro (a Central lê a coluna).
     await ensureOmieVendorDefault(getAppSqlRunner(), context.responsibleId);
 
+    // Orçamento: validade (15 dias por padrão).
+    const expiresAt = asQuote ? quoteExpiry() : null;
+
+    if (asQuote && expiresAt) {
+      await setQuoteExpiry(getAppSqlRunner(), order.id, expiresAt);
+    }
+
     // Atribuição do anúncio (ChatGPT Ads): só no pedido do próprio lojista (o lançado pelo vendedor não leva o oppref do vendedor).
-    if (!launched) {
+    if (!launched && !asQuote) {
       await attachOppref(getAppSqlRunner(), order.id, readOppRefCookie(request.cookies.get(OPPREF_COOKIE)?.value, false));
       // Origem da venda (cookie bio_origem do lojista); o pedido lançado pelo vendedor não leva a origem do vendedor.
       await attachAttribution(getAppSqlRunner(), order.id, attributionFromRequest(request.cookies.get(ATTRIBUTION_COOKIE)?.value));
@@ -398,7 +427,7 @@ export async function POST(request: NextRequest) {
      * criação; o finalizador do Mercado Pago encontra o registro e não
      * duplica.
      */
-    if (quote.couponId && quote.couponCode) {
+    if (!asQuote && quote.couponId && quote.couponCode) {
       await db.insert(couponRedemptions).values({
         couponId: quote.couponId,
         customerEmail: email,
@@ -410,6 +439,29 @@ export async function POST(request: NextRequest) {
         .update(coupons)
         .set({ usedCount: sql`${coupons.usedCount} + 1`, updatedAt: new Date() })
         .where(eq(coupons.id, quote.couponId));
+    }
+
+    // Orçamento anterior: fecha como convertido (virou pedido) ou substituído (salvo de novo). Nada é apagado.
+    if (body.quoteId) {
+      await closeQuote(getAppSqlRunner(), String(body.quoteId), context.clientId, asQuote ? QUOTE_REPLACED : QUOTE_CONVERTED);
+    }
+
+    if (asQuote) {
+      return NextResponse.json({
+        success: true,
+        quote: {
+          id: order.id,
+          status: "quote",
+          expiresAt: expiresAt ? expiresAt.toISOString() : null,
+          validityDays: quoteValidityDays(),
+          subtotalCents: quote.subtotalCents,
+          couponDiscountCents: quote.couponDiscountCents,
+          shippingCents: option.priceCents,
+          totalCents,
+          totalsByPaymentMethod: option.totalsByPaymentMethod,
+        },
+        launched,
+      });
     }
 
     return NextResponse.json({

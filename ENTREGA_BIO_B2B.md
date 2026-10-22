@@ -9,6 +9,20 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19 · Usabilidade do pedido B2B (22/10/2026), sobre `5c5a52d`
+
+Sem push, deploy ou Neon. **SQL novo (todo aditivo; cada conferência é só leitura; rode a `a` antes e depois da `b`):**
+`46a/46b` (orders.customer_note) · `47a/47b` (endereço em b2b_clients + histórico b2b_client_edits) · `48a/48b` (orders.quote_expires_at). O 48a inclui a contagem de orçamentos pendentes/convertidos/substituídos; o 45a (rodada 17) já traz a conferência pelo slug `adulto-%`. Sem as colunas nada quebra: o pedido segue sem observação/validade, e salvar orçamento pede o 48b.
+
+- **a) Observações do pedido (até 500) + complemento validado:** campo nos checkouts B2C e B2B (o "Lançar pedido" usa o mesmo checkout B2B). Servidor valida (mensagem clara) e grava em `orders.customer_note`; aparece no admin (detalhe e folha de separação), na Central (`customerNote`) e **segue ao Omie dentro de `omieObservation` ("OBS DO CLIENTE: ...")**. Complemento: até **60 caracteres** (limite que assumi para o campo do Omie: confirmar), uma linha, só letras/números e `. , - / # ( ) & :`; texto comprido ou símbolo recusado com orientação a usar Observações.
+- **b) Admin → Clientes:** nova aba com busca (nome/razão social, CNPJ/CPF, e-mail, WhatsApp, cidade) e edição do cadastro (nome, CNPJ/CPF com dígito verificador e sem repetir outro cliente, e-mail, WhatsApp, endereço). Cada alteração grava quem/quando/antes-depois em `b2b_client_edits` e aparece no histórico. **O admin tem uma senha só: o "quem" é o nome digitado no formulário (lembrado no navegador).** Nunca apaga.
+- **c) Imprimir / PDF:** folha A4 com marca, cliente, entrega, itens (qtd, preço, desconto %, unidades grátis), displays, cupom, frete, total, condição de pagamento e observações; nunca mostra comissão nem custo real do frete. Botões: revisão do checkout (também no "Lançar pedido"), tela de pedido criado, "Meus pedidos" (lojista) e painel do vendedor (orçamentos). Pelo navegador (Imprimir → Salvar como PDF). A linha "Ajuste da forma de pagamento" mostra o valor, não o percentual.
+- **d) Salvar como orçamento:** botão no checkout grava o pedido sem forma de pagamento, status `quote` ("Orçamento (pendente)"), validade 15 dias (`B2B_QUOTE_VALIDITY_DAYS`, 1 a 90). Não reserva estoque, não conta como compra, não reserva promoção, não vai à Central/Omie e não gera comissão (tudo isso só olha pedido pago/pendente). O lojista reabre em "Meus pedidos" e o vendedor no painel do cliente: carrega a sacola, os dados e as observações com preços recalculados; ajusta, escolhe o pagamento e vira pedido (o orçamento passa a `quote_converted`; salvo de novo, o anterior vira `quote_replaced`). Vencido: abre para conferir, mas não é convertido. Total de referência = preço cheio (boleto); o documento mostra Pix/cartão/boleto.
+- **e) Sacola/checkout B2B:** quantidade editável (− / digitar / +) na sacola e no resumo do checkout. Digitar nunca remove o item (apagar o número para digitar outro era o que esvaziava a linha). A mudança revalida na hora: kit com display (sai com aviso se o kit ficar incompleto), mínimo (aviso e botões travados), promoções, frete e total (a cotação recalcula pela quantidade).
+- **Testes:** `pedido-observacoes`, `clientes-admin`, `sacola-b2b-quantidade`, `orcamento-impressao-b2b` (+ ajuste de 2 asserções antigas). tsc limpo, build ok, `npm test` verde. Prints a 375 px: folha do pedido, sacola com +/−, checkout com observações e botões.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 18 · Topo das linhas e eventos do Analytics (22/10/2026), sobre `c033e93`
 
 Sem push, deploy, Neon ou SQL. Não mexi no B2B (`/b2b/*`) nem na Home.
