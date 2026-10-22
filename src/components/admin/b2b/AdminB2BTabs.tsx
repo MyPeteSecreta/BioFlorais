@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import BoletosTab from "./BoletosTab";
+import ClientsTab from "./ClientsTab";
 import CommissionsTab from "./CommissionsTab";
 import DisplaysTab from "./DisplaysTab";
 import GroupsTab from "./GroupsTab";
@@ -15,6 +16,7 @@ import TrackingTab from "./TrackingTab";
 
 const TABS = [
   { id: "responsibles", label: "Vendedores / RCAs" },
+  { id: "clients", label: "Clientes" },
   { id: "groups", label: "Linhas comerciais" },
   { id: "promotions", label: "Promoções" },
   { id: "tracking", label: "Acompanhamento" },
@@ -56,6 +58,7 @@ export default function AdminB2BTabs({ initialTab }: { initialTab?: string }) {
 
       <div className="mt-6">
         {tab === "responsibles" && <ResponsiblesTab />}
+        {tab === "clients" && <ClientsTab />}
         {tab === "testdata" && <TestDataTab />}
         {tab === "groups" && <GroupsTab />}
         {tab === "promotions" && <PromotionsTab />}
