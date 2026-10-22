@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
+import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 
@@ -55,14 +56,14 @@ export default function B2BCartContent() {
           <>
             <ul className="mt-6 divide-y divide-[#eadfd9] rounded-[20px] border border-[#eadfd9] bg-white">
               {lines.map((line) => (
-                <li key={line.productId} className="flex items-center gap-4 p-4">
+                <li key={line.productId} className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4" data-testid="linha-sacola">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#fbf5f1]">
                     {line.image && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={line.image} alt="" className="h-full w-full object-contain" />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-[160px]">
                     <p className="text-sm font-bold">{line.name}</p>
                     <p className="text-xs text-[#8a7886]">
                       {line.discountPercent ? (
@@ -75,15 +76,7 @@ export default function B2BCartContent() {
                       )}
                     </p>
                   </div>
-                  <input
-                    aria-label={`Quantidade de ${line.name}`}
-                    inputMode="numeric"
-                    value={line.qty}
-                    onChange={(event) =>
-                      cart.setQty(line.productId, Number(event.target.value.replace(/\D/g, "")) || 0)
-                    }
-                    className="w-16 rounded-lg border border-[#d9c7dc] px-2 py-1 text-center text-sm font-bold"
-                  />
+                  <QtyStepper qty={line.qty} label={line.name} onChange={(qty) => cart.setQty(line.productId, qty)} />
                   <p className="w-24 text-right text-sm font-bold">
                     {formatB2BCents(cartLineUnitCents(line) * line.qty)}
                   </p>

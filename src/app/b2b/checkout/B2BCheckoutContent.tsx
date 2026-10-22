@@ -23,7 +23,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
+import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
@@ -842,11 +844,28 @@ export default function B2BCheckoutContent() {
 
         <aside className="h-fit space-y-4 rounded-[20px] border border-[#eadfd9] bg-white p-5 lg:sticky lg:top-6">
           <h2 className="font-bold">Resumo</h2>
+          {cart.notice && (
+            <p role="alert" data-testid="aviso-display" className="flex items-start justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">
+              <span>{cart.notice}</span>
+              <button type="button" onClick={cart.dismissNotice} className="shrink-0 font-extrabold underline">OK</button>
+            </p>
+          )}
+          {cart.subtotalCents < B2B_MIN_ORDER_CENTS && (
+            <p role="status" data-testid="aviso-minimo" className="rounded-xl bg-[#fff4e5] p-3 text-xs font-semibold text-[#8a5a12]">
+              Faltam {formatB2BCents(B2B_MIN_ORDER_CENTS - cart.subtotalCents)} para atingir o pedido mínimo de {formatB2BCents(B2B_MIN_ORDER_CENTS)}.
+            </p>
+          )}
           <ul className="space-y-2 text-sm">
             {lines.map((line) => (
-              <li key={line.productId} className="flex justify-between gap-3">
-                <span>
-                  {line.qty}× {line.name}
+              <li key={line.productId} className="flex justify-between gap-3" data-testid="linha-resumo">
+                <span className="min-w-0">
+                  <span className="block">{line.name}</span>
+                  <span className="mt-1.5 flex items-center gap-2">
+                    <QtyStepper qty={line.qty} label={line.name} onChange={(qty) => cart.setQty(line.productId, qty)} />
+                    <button type="button" onClick={() => cart.removeItem(line.productId)} className="text-xs font-bold text-[#a33]">
+                      Remover
+                    </button>
+                  </span>
                   {bonusByProduct.get(line.productId) ? (
                     <span className="block text-xs font-bold text-[#2f7a4a]">
                       + {bonusByProduct.get(line.productId)} grátis
@@ -906,7 +925,7 @@ export default function B2BCheckoutContent() {
 
           <button
             type="button"
-            disabled={submitting || !chosen || quoting}
+            disabled={submitting || !chosen || quoting || cart.subtotalCents < B2B_MIN_ORDER_CENTS}
             onClick={handleConfirm}
             className="w-full rounded-full bg-[#55245f] py-3 text-sm font-extrabold text-white disabled:opacity-50"
           >
