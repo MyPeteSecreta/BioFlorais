@@ -58,3 +58,39 @@ export function omieNoteLine(note: string | null | undefined): string | null {
 
   return value ? `OBS DO CLIENTE: ${value}` : null;
 }
+
+/**
+ * Complemento PARA O OMIE (máximo de 60 caracteres, confirmado pelo Omie): pedidos antigos (ou de outros canais) podem ter um
+ * complemento maior. No envio, o complemento é cortado em 60 e o RESTO vai para a observação do pedido, sem falhar.
+ * Quebras de linha e controles viram espaço; o corte evita partir uma palavra quando há um espaço nos últimos 20 caracteres.
+ */
+export function splitComplementForOmie(raw: unknown): { complement: string | null; overflow: string | null } {
+  const text = String(raw ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return { complement: null, overflow: null };
+  if (text.length <= COMPLEMENT_MAX) return { complement: text, overflow: null };
+
+  let cut = COMPLEMENT_MAX;
+  const nextIsSpace = text[COMPLEMENT_MAX] === " ";
+
+  if (!nextIsSpace) {
+    const space = text.lastIndexOf(" ", COMPLEMENT_MAX);
+
+    if (space >= COMPLEMENT_MAX - 20) cut = space;
+  }
+
+  const complement = text.slice(0, cut).trim();
+  const overflow = text.slice(cut).trim();
+
+  return { complement: complement || null, overflow: overflow || null };
+}
+
+/** Linha da observação do Pedido de Venda com o que sobrou do complemento. */
+export function omieComplementOverflowLine(overflow: string | null | undefined): string | null {
+  const value = String(overflow ?? "").trim();
+
+  return value ? `COMPLEMENTO (continuação): ${value}` : null;
+}

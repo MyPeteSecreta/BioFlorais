@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { CLIENT_FIELDS, CLIENT_FIELD_LABELS, type ClientField } from "@/lib/b2b/client-fields";
 
-type Client = Record<ClientField, string | null> & { id: string; responsible: string | null; updatedAt: string | null };
+type Client = Record<ClientField, string | null> & { id: string; responsible: string | null; updatedAt: string | null; isTest: boolean };
 type Edit = { id: string; changedBy: string; changedAt: string; changes: string[] };
 
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-2.5 text-sm";
@@ -36,6 +36,8 @@ export default function ClientsTab() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState("");
+  // Clientes marcados como "teste" ficam escondidos; o filtro os mostra.
+  const [showTests, setShowTests] = useState(false);
 
   const [selected, setSelected] = useState<Client | null>(null);
   const [form, setForm] = useState<Record<ClientField, string>>(emptyForm());
@@ -44,12 +46,12 @@ export default function ClientsTab() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string; field?: string } | null>(null);
 
-  const search = useCallback(async (text: string) => {
+  const search = useCallback(async (text: string, tests: boolean) => {
     setLoading(true);
     setListError("");
 
     try {
-      const response = await fetch(`/api/admin/b2b/clients?q=${encodeURIComponent(text)}`);
+      const response = await fetch(`/api/admin/b2b/clients?q=${encodeURIComponent(text)}${tests ? "&tests=1" : ""}`);
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) throw new Error(data.error ?? "Não foi possível buscar os clientes.");
@@ -71,10 +73,10 @@ export default function ClientsTab() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void search(query), 300);
+    const timer = window.setTimeout(() => void search(query, showTests), 300);
 
     return () => window.clearTimeout(timer);
-  }, [query, search]);
+  }, [query, showTests, search]);
 
   function open(client: Client) {
     setSelected(client);
@@ -130,6 +132,44 @@ export default function ClientsTab() {
     }
   }
 
+  async function toggleTest() {
+    if (!selected) return;
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/b2b/clients/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTest: !selected.isTest, changedBy: editor }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage({ ok: false, text: data.error ?? "Não foi possível alterar o cadastro.", field: response.status === 400 ? "changedBy" : undefined });
+
+        return;
+      }
+
+      try {
+        window.localStorage.setItem(NAME_KEY, editor.trim());
+      } catch {
+        // ignorar
+      }
+
+      setSelected(data.client);
+      setEdits(Array.isArray(data.edits) ? data.edits : []);
+      // Marcado como teste e o filtro está desligado: sai da lista (continua cadastrado).
+      setClients((list) => (data.client.isTest && !showTests ? list.filter((item) => item.id !== data.client.id) : list.map((item) => (item.id === data.client.id ? data.client : item))));
+      setMessage({ ok: true, text: data.client.isTest ? "Cliente marcado como teste (escondido da lista; use “Mostrar clientes de teste”)." : "Cliente voltou a ser um cliente normal." });
+    } catch {
+      setMessage({ ok: false, text: "Não foi possível alterar o cadastro." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const field = (name: ClientField, props: { placeholder?: string; inputMode?: "numeric" | "email" | "tel" | "text"; maxLength?: number } = {}) => (
     <label className="block text-xs font-bold text-[#5b4a58]">
       {CLIENT_FIELD_LABELS[name]}
@@ -155,6 +195,10 @@ export default function ClientsTab() {
             onChange={(event) => setQuery(event.target.value)}
             data-testid="clientes-busca"
           />
+          <label className="flex items-center gap-2 text-xs font-bold text-[#5b4a58]">
+            <input type="checkbox" checked={showTests} onChange={(event) => setShowTests(event.target.checked)} data-testid="clientes-mostrar-testes" />
+            Mostrar clientes de teste
+          </label>
           {listError && <p className="text-sm font-semibold text-red-700">{listError}</p>}
           {loading && <p className="text-sm text-[#7b6a77]">Buscando…</p>}
           {!loading && !listError && clients.length === 0 && <p className="text-sm text-[#7b6a77]">Nenhum cliente encontrado.</p>}
@@ -167,7 +211,10 @@ export default function ClientsTab() {
                   onClick={() => open(client)}
                   className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-[#55245f] ${selected?.id === client.id ? "border-[#55245f] bg-[#f6eef7]" : "border-[#eadfd9] bg-white"}`}
                 >
-                  <span className="block text-sm font-extrabold text-[#342737]">{client.displayName}</span>
+                  <span className="block text-sm font-extrabold text-[#342737]">
+                    {client.displayName}
+                    {client.isTest && <span className="ml-2 rounded-full bg-[#e8f0fe] px-2 py-0.5 text-[10px] font-extrabold text-[#1b4a9c]" data-testid="selo-teste">TESTE</span>}
+                  </span>
                   <span className="block text-xs text-[#7b6a77]">
                     {[formatDocument(client.document), client.city && client.state ? `${client.city}/${client.state}` : client.city, client.responsible ? `Vendedor: ${client.responsible}` : null]
                       .filter(Boolean)
@@ -231,6 +278,10 @@ export default function ClientsTab() {
 
               <button type="submit" disabled={saving} className="rounded-full bg-[#55245f] px-6 py-3 text-sm font-extrabold text-white disabled:opacity-60" data-testid="cliente-salvar">
                 {saving ? "Salvando…" : "Salvar alterações"}
+              </button>
+
+              <button type="button" onClick={toggleTest} disabled={saving} className="ml-3 rounded-full border-2 border-[#1b4a9c] px-5 py-2.5 text-sm font-extrabold text-[#1b4a9c] disabled:opacity-60" data-testid="cliente-teste">
+                {selected.isTest ? "Voltar a cliente normal" : "Marcar como cliente de teste"}
               </button>
 
               <div className="border-t border-[#eadfd9] pt-3">

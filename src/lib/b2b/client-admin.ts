@@ -17,7 +17,7 @@ import type { SqlRunner } from "@/lib/b2b/ownership";
 
 export const SQL_47B_MESSAGE = "Aplique o SQL 47b (edição de clientes) para usar esta função.";
 
-export type ClientRow = ClientValues & { id: string; responsible: string | null; updatedAt: string | null };
+export type ClientRow = ClientValues & { id: string; responsible: string | null; updatedAt: string | null; isTest: boolean };
 
 // Colunas opcionais lidas por to_jsonb: a lista abre mesmo antes do SQL 47b.
 const SELECT_FIELDS = `
@@ -32,6 +32,7 @@ const SELECT_FIELDS = `
   to_jsonb(c) ->> 'address_number' AS address_number,
   to_jsonb(c) ->> 'address_complement' AS address_complement,
   to_jsonb(c) ->> 'neighborhood' AS neighborhood,
+  (coalesce(to_jsonb(c) ->> 'is_test', 'false') = 'true') AS is_test,
   to_jsonb(c) ->> 'city' AS city,
   to_jsonb(c) ->> 'state' AS state,
   to_char(c.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS updated_at,
@@ -65,16 +66,18 @@ function toClient(row: Record<string, unknown>): ClientRow {
     state: nullable(row.state),
     responsible: nullable(row.responsible),
     updatedAt: nullable(row.updated_at),
+    isTest: row.is_test === true || row.is_test === "true",
   };
 }
 
 /** Busca por nome/razão social, contato, e-mail, cidade, CNPJ/CPF ou WhatsApp. Vazio = os mais recentes. */
-export async function searchClients(run: SqlRunner, query: string, limit = 40): Promise<ClientRow[]> {
+export async function searchClients(run: SqlRunner, query: string, limit = 40, options: { includeTests?: boolean } = {}): Promise<ClientRow[]> {
   const q = String(query ?? "").trim().slice(0, 80);
   const digitsOnly = q.replace(/\D/g, "");
   const notArchived = await andNotArchived(run, "b2b_clients", "c");
   const params: unknown[] = [];
-  let where = `WHERE true${notArchived}`;
+  // Clientes marcados como "teste" ficam escondidos por padrão ("mostrar testes" os inclui). Coluna is_test = SQL 32b.
+  let where = `WHERE true${notArchived}${options.includeTests ? "" : " AND coalesce(to_jsonb(c) ->> 'is_test', 'false') <> 'true'"}`;
 
   if (q) {
     params.push(`%${q.replace(/[%_\\]/g, (char) => `\\${char}`)}%`);
@@ -190,3 +193,37 @@ export async function updateClient(run: SqlRunner, id: string, values: ClientVal
 }
 
 export { CLIENT_FIELDS };
+
+export type TestMarkResult = { ok: true; changed: boolean; client: ClientRow } | { ok: false; status: number; error: string };
+
+/**
+ * Marca (ou desmarca) um cliente como "teste": só uma bandeira, nada é apagado nem arquivado. Fica no histórico de alterações
+ * (quem/quando). Coluna b2b_clients.is_test = SQL 32b.
+ */
+export async function setClientTest(run: SqlRunner, id: string, isTest: boolean, changedBy: string): Promise<TestMarkResult> {
+  const by = String(changedBy ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+
+  if (by.length < 2) return { ok: false, status: 400, error: "Informe o seu nome para registrar quem alterou o cadastro." };
+
+  const current = await loadClient(run, id);
+
+  if (!current) return { ok: false, status: 404, error: "Cliente não encontrado." };
+  if (current.isTest === isTest) return { ok: true, changed: false, client: current };
+
+  try {
+    const rows = await run(
+      `WITH upd AS (UPDATE b2b_clients SET is_test = $2, updated_at = now() WHERE id = $1::uuid RETURNING id)
+       INSERT INTO b2b_client_edits (client_id, changed_by, changes)
+       SELECT id, $3, $4::jsonb FROM upd RETURNING id`,
+      [id, isTest, by, JSON.stringify({ isTest: { before: current.isTest ? "sim" : "não", after: isTest ? "sim" : "não" } })]
+    );
+
+    if (rows.length === 0) return { ok: false, status: 404, error: "Cliente não encontrado." };
+  } catch (error) {
+    console.error("[admin/clients] marcar teste", error);
+
+    return { ok: false, status: 409, error: "Aplique o SQL 32b (dados de teste) e o 47b (histórico de clientes) para marcar clientes de teste." };
+  }
+
+  return { ok: true, changed: true, client: (await loadClient(run, id)) ?? current };
+}

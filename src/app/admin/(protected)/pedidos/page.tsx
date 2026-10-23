@@ -86,7 +86,10 @@ function fulfillmentLabel(status: string) {
   }
 }
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<{ cliente?: string | string[] }> }) {
+  // ?cliente=<e-mail>: pedidos de um comprador do site (aba "Clientes do site (B2C)" do B2B).
+  const clienteParam = (await searchParams).cliente;
+  const clienteEmail = String(Array.isArray(clienteParam) ? clienteParam[0] : clienteParam ?? "").trim().toLowerCase().slice(0, 254);
   // V5: pedidos arquivados (dados de teste) não aparecem na Central/Omie.
   const notArchivedOrders = await notArchivedCondition(getAppSqlRunner(), "orders");
   const orderRows = await db
@@ -165,7 +168,8 @@ export default async function AdminOrdersPage() {
           orders.status,
           "checkout_pending"
         ),
-        sql.raw(notArchivedOrders)
+        sql.raw(notArchivedOrders),
+        clienteEmail ? sql`lower(btrim(${customers.email})) = ${clienteEmail}` : undefined
       )
     )
     .orderBy(
@@ -180,6 +184,15 @@ export default async function AdminOrdersPage() {
       <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#a0742b]">
         Administração Bio Florais
       </p>
+
+      {clienteEmail && (
+        <p className="mt-2 text-sm font-bold text-[#422347]" data-testid="filtro-cliente">
+          Pedidos de {clienteEmail}{" "}
+          <Link href="/admin/pedidos" className="ml-2 text-xs underline">
+            limpar filtro
+          </Link>
+        </p>
+      )}
 
       <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

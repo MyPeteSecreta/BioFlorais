@@ -106,10 +106,7 @@ export default async function B2BClientPage({
                 Salvo em {dateOf(quote.createdAt)}
                 {quote.expiresAt ? ` · ${quote.expired ? "venceu" : "válido"} até ${dateOf(quote.expiresAt)}` : ""} · {formatB2BCents(quote.totalCents)}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <QuoteReopenButton offerId={quote.offerId} quoteId={quote.orderId} mode="open" className="rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white disabled:opacity-60" />
-                <QuoteReopenButton offerId={quote.offerId} quoteId={quote.orderId} mode="print" className="rounded-full border border-[#55245f] px-4 py-2 text-xs font-extrabold text-[#55245f] disabled:opacity-60" />
-              </div>
+              <QuoteReopenButton offerId={quote.offerId} quoteId={quote.orderId} phone={client.phone} who={client.displayName} />
             </article>
           ))}
         </section>

@@ -1,9 +1,9 @@
 /**
  * BIO FLORAIS B2B — reabrir um ORÇAMENTO (pedido sem pagamento, status 'quote') no checkout.
  *
- * GET ?b2b=<token>&id=<orderId>[&lancar=1]
- *  - O cliente vem do token da oferta; o orçamento tem de ser DESTE cliente e estar pendente.
- *  - lancar=1: só o vendedor dono da oferta (sessão validada no servidor).
+ * GET ?b2b=<token>&id=<orderId>
+ *  - Acesso (order-access.ts): link pessoal do lojista, link geral (/parceiros) ou sessão do representante (modo lançar).
+ *  - O orçamento tem de estar pendente. O token fornece a loja (produtos e preços) em que a compra continua.
  * Devolve a sacola (com preços atuais, recalculados), os dados do comprador, o endereço, as observações e a validade.
  * Orçamento vencido ainda abre (preços recalculados), mas NÃO é convertido: o checkout salva um orçamento novo.
  */
@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isUuid } from "@/lib/b2b/admin-input";
+import { authorizeOrderView } from "@/lib/b2b/order-access";
 import { composeKit, displayByKey } from "@/lib/b2b/displays";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
@@ -18,7 +19,7 @@ import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { QUOTE_STATUS, isQuoteExpired } from "@/lib/b2b/quote-order";
 import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
-import { LAUNCH_ORIGIN, verifyLaunchAccess } from "@/lib/b2b/vendor-launch";
+import { LAUNCH_ORIGIN } from "@/lib/b2b/vendor-launch";
 import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
 import { getProduct } from "@/lib/catalog/bio-products";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
@@ -34,18 +35,20 @@ export async function GET(request: NextRequest) {
 
   const resolution = await loadPublicB2BOfferContext(params.get("b2b") ?? "");
 
-  if (!resolution.ok || resolution.context.isStorefront) {
+  if (!resolution.ok) {
     return NextResponse.json({ error: "Este link de oferta não é mais válido." }, { status: 403 });
   }
 
   const context = resolution.context;
   const run = getAppSqlRunner();
 
-  if (params.get("lancar") === "1") {
-    const access = await verifyLaunchAccess(run, request.cookies.get(B2B_SESSION_COOKIE)?.value, context.responsibleId);
+  const access = await authorizeOrderView(run, {
+    orderId: id,
+    token: params.get("b2b") ?? "",
+    sessionCookie: request.cookies.get(B2B_SESSION_COOKIE)?.value ?? null,
+  });
 
-    if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-  }
+  if (!access.ok) return NextResponse.json({ error: "Orçamento não encontrado ou já utilizado." }, { status: 404 });
 
   try {
     const [order] = await run(
@@ -56,8 +59,8 @@ export async function GET(request: NextRequest) {
               to_jsonb(o) ->> 'origin' AS origin,
               to_char(o.quote_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS expires_at
          FROM orders o
-        WHERE o.id = $1::uuid AND o.b2b_client_id = $2::uuid AND o.status = $3`,
-      [id, context.clientId, QUOTE_STATUS]
+        WHERE o.id = $1::uuid AND o.status = $2`,
+      [id, QUOTE_STATUS]
     );
 
     if (!order) return NextResponse.json({ error: "Orçamento não encontrado ou já utilizado." }, { status: 404 });

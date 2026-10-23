@@ -35,7 +35,7 @@ async function fresh() {
   pg = new PGlite();
   await pg.exec(`
     CREATE TABLE customers (id uuid PRIMARY KEY, name text);
-    CREATE TABLE addresses (id uuid PRIMARY KEY, city text, state text);
+    CREATE TABLE addresses (id uuid PRIMARY KEY, cep text, street text, number text, complement text, district text, city text, state text);
     CREATE TABLE products (id uuid PRIMARY KEY, slug text, name text, category text, line_slug text);
     CREATE TABLE orders (id uuid PRIMARY KEY, customer_id uuid, shipping_address_id uuid, status text, fulfillment_status text,
       b2b_offer_id uuid, shipping_service_name text, tracking_code text, created_at timestamp DEFAULT now(), archived_at timestamp);
@@ -48,7 +48,7 @@ async function fresh() {
       postal_code text, street text, address_number text, address_complement text, neighborhood text, city text, state text,
       rca_terms_accepted_at timestamp, rca_terms_accepted_ip text, rca_terms_version text);
     INSERT INTO customers VALUES ('${UUID(1)}', 'Ana Souza');
-    INSERT INTO addresses VALUES ('${UUID(2)}', 'Campinas', 'SP');
+    INSERT INTO addresses (id, city, state) VALUES ('${UUID(2)}', 'Campinas', 'SP');
     INSERT INTO products VALUES ('${UUID(3)}', 'produto-que-nao-existe-no-catalogo', 'Agressividade', 'Shampoo', 'cosmeticos-pet'),
                                 ('${UUID(4)}', 'outro-inexistente', 'Calma', 'Floral em gotas', 'adulto');
     INSERT INTO orders (id, customer_id, shipping_address_id, status, fulfillment_status, b2b_offer_id, tracking_code, shipping_service_name, created_at, archived_at) VALUES

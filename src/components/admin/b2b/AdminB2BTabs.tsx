@@ -9,6 +9,7 @@ import DisplaysTab from "./DisplaysTab";
 import GroupsTab from "./GroupsTab";
 import MessagesTab from "./MessagesTab";
 import PromotionsTab from "./PromotionsTab";
+import SiteClientsTab from "./SiteClientsTab";
 import ResponsiblesTab from "./ResponsiblesTab";
 import ShowcaseTab from "./ShowcaseTab";
 import TestDataTab from "./TestDataTab";
@@ -17,6 +18,7 @@ import TrackingTab from "./TrackingTab";
 const TABS = [
   { id: "responsibles", label: "Vendedores / RCAs" },
   { id: "clients", label: "Clientes" },
+  { id: "siteclients", label: "Clientes do site (B2C)" },
   { id: "groups", label: "Linhas comerciais" },
   { id: "promotions", label: "Promoções" },
   { id: "tracking", label: "Acompanhamento" },
@@ -59,6 +61,7 @@ export default function AdminB2BTabs({ initialTab }: { initialTab?: string }) {
       <div className="mt-6">
         {tab === "responsibles" && <ResponsiblesTab />}
         {tab === "clients" && <ClientsTab />}
+        {tab === "siteclients" && <SiteClientsTab />}
         {tab === "testdata" && <TestDataTab />}
         {tab === "groups" && <GroupsTab />}
         {tab === "promotions" && <PromotionsTab />}

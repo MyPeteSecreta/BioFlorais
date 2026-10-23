@@ -8,7 +8,9 @@ import Link from "next/link";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
+import QuoteActions from "@/components/b2b/QuoteActions";
 import { QUOTE_LABEL, isQuoteStatus, listClientQuotes } from "@/lib/b2b/quote-order";
+import { continueQuotePath, printQuotePath } from "@/lib/b2b/quote-links";
 import { listClientOrders, progressLabel, signTrackingToken } from "@/lib/order-tracking";
 
 export const dynamic = "force-dynamic";
@@ -61,17 +63,12 @@ export default async function MyOrdersPage({ params }: { params: Promise<{ token
                     Salvo em {dateOf(quote.createdAt)}
                     {quote.expiresAt ? ` · ${quote.expired ? "venceu" : "válido"} até ${dateOf(quote.expiresAt)}` : ""} · {formatB2BCents(quote.totalCents)}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link
-                      href={`/b2b/checkout?b2b=${encodeURIComponent(token)}&orcamento=${quote.orderId}`}
-                      className="rounded-full bg-[#55245f] px-4 py-2 text-sm font-extrabold text-white"
-                    >
-                      Reabrir e escolher o pagamento
-                    </Link>
-                    <Link href={`${base}/pedidos/${quote.orderId}/imprimir`} className="rounded-full border-2 border-[#55245f] px-4 py-2 text-sm font-extrabold text-[#55245f]">
-                      Imprimir / PDF
-                    </Link>
-                  </div>
+                  <QuoteActions
+                    className="mt-3"
+                    continueHref={continueQuotePath(token, quote.orderId)}
+                    printHref={printQuotePath(quote.orderId, token)}
+                    who={resolution.context.clientDisplayName}
+                  />
                 </li>
               ))}
             </ul>

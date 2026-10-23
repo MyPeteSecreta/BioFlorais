@@ -61,6 +61,11 @@ export type CentralOrder = {
   omieObservation?: string | null;
   /** Observações escritas pelo cliente no checkout (até 500 caracteres); já seguem dentro de omieObservation. */
   customerNote?: string | null;
+  /**
+   * Endereço de entrega PRONTO para o Omie: o complemento já vem cortado em 60 caracteres (limite do Omie); o que sobrou foi
+   * para omieObservation ("COMPLEMENTO (continuação): …"). Use ESTES campos no cadastro/pedido do Omie.
+   */
+  address?: { cep: string | null; street: string | null; number: string | null; complement: string | null; district: string | null; city: string | null; state: string | null };
   items: OrderItemLine[];
   carrier?: string | null;
 };

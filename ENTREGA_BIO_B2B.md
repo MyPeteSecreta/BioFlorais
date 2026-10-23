@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19b · Correções dos testes do Luis (23/10/2026), sobre `cda3540`
+
+Sem push, deploy ou Neon. **SQL novo: nenhum.** Usa o que já existe: 32b (`b2b_clients.is_test`), 46b, 47b (histórico) e 48b. A conferência 46a já conta os complementos acima de 60.
+
+- **1) Imprimir pelos 3 caminhos:** nova autorização única `src/lib/b2b/order-access.ts`. Vale (a) o link pessoal do lojista (pedido do cliente do token), (b) o link geral `/parceiros` (storefront: só pedido de origem "parceiros" daquele vendedor da vitrine) e (c) a sessão B2B do representante (pedidos dele, inclusive no "Lançar pedido"). Sem permissão = "não encontrado". Usada na folha por token (`/b2b/oferta/<token>/pedidos/<id>/imprimir`), na nova folha só com sessão (`/b2b/pedido/<id>/imprimir`), na admin (`/admin/pedidos/<id>/folha`) e na API de reabrir orçamento. Causa do erro: a página recusava de saída qualquer token de link geral e só aceitava o cliente do token.
+- **2) "Continuar compra" é o botão principal do orçamento** em Meus pedidos, tela após salvar, painel do representante (modo lançar) e admin (detalhe do pedido em orçamento). Imprimir, WhatsApp e Copiar link ficam secundários e o link compartilhado é sempre o do lojista (sem modo lançar). O botão abre a LOJA (`/b2b/oferta/<token>?orcamento=<id>`): restaura a sacola (quantidades editáveis, dá para adicionar produtos), mostra a faixa "Ir para o checkout" e guarda o rascunho (dados, endereço, observações, cupom) na aba; o checkout o lê. Orçamento vencido restaura com preços de hoje e não é convertido.
+- **3) Clientes (admin):** (a) botão "Marcar como cliente de teste" (só uma bandeira em `is_test`, sem apagar, com histórico de quem/quando); testes escondidos por padrão e o filtro "Mostrar clientes de teste" os inclui (selo TESTE). (b) Aba nova "Clientes do site (B2C)", só leitura: compradores agrupados por e-mail a partir de `orders` B2C (nome e cidade/UF do pedido mais recente, nº de pedidos, último pedido, total pago), busca por e-mail/nome/cidade e link "Ver pedidos" (`/admin/pedidos?cliente=<e-mail>`). Sem exportação.
+- **4) Complemento no Omie:** máximo de 60 (confirmado). A API da Central (`brand-api.ts`) agora entrega `address` já pronto (complemento cortado em 60, sem partir palavra quando há espaço nos últimos 20 caracteres) e coloca o resto na `omieObservation` ("COMPLEMENTO (continuação): …"). **A Central precisa usar `order.address.complement` (e `omieObservation`) no envio ao Omie**; o contrato (`contract.ts`) foi atualizado.
+- **Testes:** `scripts/rodada19b.test.mjs` (14 casos) e ajustes de 3 asserções antigas. tsc limpo, build ok, `npm test` verde. Prints a 375 px: botões do orçamento (principal "Continuar compra"), Clientes com filtro/selo TESTE e Clientes do site.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19 · Usabilidade do pedido B2B (22/10/2026), sobre `5c5a52d`
 
 Sem push, deploy ou Neon. **SQL novo (todo aditivo; cada conferência é só leitura; rode a `a` antes e depois da `b`):**

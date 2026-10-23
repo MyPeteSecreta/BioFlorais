@@ -222,8 +222,9 @@ export function buildSheetFromRows(rows: SheetRows, now: Date = new Date()): Ord
  * Carrega a folha de UM pedido/orçamento do cliente do link (b2b_client_id do token). Pedido de outro cliente, inexistente ou
  * arquivado = null. Colunas opcionais (customer_note, quote_expires_at) são lidas por to_jsonb: abre antes dos SQL 46b/48b.
  */
-export async function loadOrderSheet(run: SqlRunner, orderId: string, clientId: string): Promise<OrderSheetData | null> {
-  if (!isUuid(orderId) || !isUuid(clientId)) return null;
+export async function loadOrderSheet(run: SqlRunner, orderId: string, clientId: string | null): Promise<OrderSheetData | null> {
+  // clientId null = a autorização já foi decidida por quem chama (order-access.ts: link pessoal, link geral ou sessão do vendedor).
+  if (!isUuid(orderId) || (clientId !== null && !isUuid(clientId))) return null;
 
   const [order] = await run(
     `SELECT o.id::text AS id, o.status, o.payment_method, o.subtotal_cents, o.coupon_code, o.coupon_discount_cents, o.payment_method_discount_cents,
@@ -234,7 +235,7 @@ export async function loadOrderSheet(run: SqlRunner, orderId: string, clientId: 
             to_jsonb(o) ->> 'customer_note' AS customer_note,
             to_jsonb(o) ->> 'quote_expires_at' AS expires_at
        FROM orders o
-      WHERE o.id = $1::uuid AND o.b2b_client_id = $2::uuid AND o.b2b_offer_id IS NOT NULL AND to_jsonb(o) ->> 'archived_at' IS NULL`,
+      WHERE o.id = $1::uuid AND ($2::uuid IS NULL OR o.b2b_client_id = $2::uuid) AND o.b2b_offer_id IS NOT NULL AND to_jsonb(o) ->> 'archived_at' IS NULL`,
     [orderId, clientId]
   );
 

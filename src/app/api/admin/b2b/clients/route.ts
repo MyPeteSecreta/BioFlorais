@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const clients = await searchClients(getAppSqlRunner(), request.nextUrl.searchParams.get("q") ?? "");
+    const clients = await searchClients(getAppSqlRunner(), request.nextUrl.searchParams.get("q") ?? "", 40, {
+      includeTests: request.nextUrl.searchParams.get("tests") === "1",
+    });
 
     return NextResponse.json({ clients });
   } catch (error) {

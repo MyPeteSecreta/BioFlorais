@@ -7,7 +7,7 @@
 import { isUuid } from "@/lib/b2b/admin-input";
 import { andNotArchived } from "@/lib/b2b/archive";
 import { effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
-import { omieNoteLine } from "@/lib/order-note";
+import { omieComplementOverflowLine, omieNoteLine, splitComplementForOmie } from "@/lib/order-note";
 import { SHOWCASE_ORIGIN } from "@/lib/b2b/showcase";
 import { displayByKey, displayOmieObservation } from "@/lib/b2b/displays";
 import { B2B_RESPONSIBLE_TYPES, buildInviteMessage, buildWhatsAppUrl } from "@/lib/b2b/invite-links";
@@ -88,7 +88,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
             COALESCE(r.name, to_jsonb(o) ->> 'b2b_responsible_name') AS seller_name,
             to_jsonb(r) ->> 'omie_vendor_code' AS omie_vendor_code,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') || 'Z' AS created_at,
-            c.name AS customer_name, a.city, a.state
+            c.name AS customer_name, a.city, a.state, a.cep, a.street, a.number, a.complement, a.district
        FROM orders o
        LEFT JOIN customers c ON c.id = o.customer_id
        LEFT JOIN addresses a ON a.id = o.shipping_address_id
@@ -160,6 +160,12 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
 
     if (noteLine) observations.push(noteLine);
 
+    // Complemento do Omie: máximo de 60. Pedido antigo com mais: corta em 60 e o resto vai para a observação (sem falhar).
+    const complement = splitComplementForOmie(row.complement);
+    const overflowLine = omieComplementOverflowLine(complement.overflow);
+
+    if (overflowLine) observations.push(overflowLine);
+
     return {
       id: String(row.id),
       number: `${ORDER_NUMBER_PREFIX}-${String(row.id).slice(0, 8).toUpperCase()}`,
@@ -177,6 +183,15 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
       omieVendor: row.b2b_responsible_id ? effectiveOmieVendor(row.omie_vendor_code, seller) || null : null,
       omieObservation: observations.length > 0 ? observations.join(" | ") : null,
       customerNote: row.customer_note ? String(row.customer_note) : null,
+      address: {
+        cep: row.cep ? String(row.cep) : null,
+        street: row.street ? String(row.street) : null,
+        number: row.number ? String(row.number) : null,
+        complement: complement.complement,
+        district: row.district ? String(row.district) : null,
+        city: row.city ? String(row.city) : null,
+        state: row.state ? String(row.state) : null,
+      },
     };
   });
 

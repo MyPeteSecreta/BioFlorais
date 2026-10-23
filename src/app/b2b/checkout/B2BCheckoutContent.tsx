@@ -27,6 +27,9 @@ import PrintOrderButton from "@/components/b2b/PrintOrderButton";
 import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { buildReviewSheet } from "@/lib/b2b/order-sheet";
+import QuoteActions from "@/components/b2b/QuoteActions";
+import { continueQuotePath, printQuotePath } from "@/lib/b2b/quote-links";
+import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
@@ -262,6 +265,55 @@ export default function B2BCheckoutContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteParam, token, cart.hydrated]);
 
+  // "Continuar compra": a sacola já foi restaurada na loja; aqui entram os dados, o endereço e as observações do orçamento.
+  const draftApplied = useRef(false);
+
+  useEffect(() => {
+    if (quoteParam || !token || !cart.hydrated || draftApplied.current) return;
+
+    draftApplied.current = true;
+
+    let draft = null;
+
+    try {
+      draft = readQuoteDraft(window.sessionStorage, token);
+    } catch {
+      draft = null;
+    }
+
+    if (!draft) return;
+
+    if (draft.customer) {
+      setPersonType(draft.customer.personType === "pj" ? "pj" : "pf");
+      setName(draft.customer.name);
+      setEmail(draft.customer.email);
+      setPhone(draft.customer.phone);
+      setCpf(draft.customer.cpf);
+      setCnpj(draft.customer.cnpj);
+      setStateRegistration(draft.customer.stateRegistration);
+    }
+
+    if (draft.address) {
+      setCep(draft.address.cep);
+      setStreet(draft.address.street);
+      setNumber(draft.address.number);
+      setComplement(draft.address.complement);
+      setDistrict(draft.address.district);
+      setCity(draft.address.city);
+      setUf(draft.address.state);
+    }
+
+    setOrderNote(draft.orderNote);
+
+    if (draft.couponCode) {
+      setCouponInput(draft.couponCode);
+      setAppliedCoupon(draft.couponCode);
+    }
+
+    setQuoteId(draft.quoteId);
+    setQuoteNotice(draft.notice);
+  }, [quoteParam, token, cart.hydrated]);
+
   const lines = cart.state.offerToken === token ? cart.state.lines : [];
   const itemsPayload = lines.map((line) => ({ productId: line.productId, qty: line.qty }));
   // Displays do kit (brinde R$ 0,00): o servidor exige o kit completo.
@@ -473,6 +525,11 @@ export default function B2BCheckoutContent() {
 
       setSavedQuote({ id: data.quote.id, expiresAt: data.quote.expiresAt ?? null, validityDays: Number(data.quote.validityDays ?? 15), totalCents: Number(data.quote.totalCents ?? 0) });
       cart.clear();
+      try {
+        clearQuoteDraft(window.sessionStorage, token);
+      } catch {
+        // sem armazenamento
+      }
     } catch {
       setError("Não foi possível salvar o orçamento. Tente novamente.");
     } finally {
@@ -535,6 +592,11 @@ export default function B2BCheckoutContent() {
       }
       setStoreLink(typeof data.storeLink === "string" ? data.storeLink : null);
       cart.clear();
+      try {
+        clearQuoteDraft(window.sessionStorage, token);
+      } catch {
+        // sem armazenamento
+      }
 
       if (created.paymentMethod === "pix") await startPix(created.id);
       if (created.paymentMethod === "boleto") await startBoleto(created.id, created.installments);
@@ -556,9 +618,6 @@ export default function B2BCheckoutContent() {
   }
 
   if (savedQuote) {
-    const printHref = `/b2b/oferta/${encodeURIComponent(token)}/pedidos/${savedQuote.id}/imprimir`;
-    const reopenHref = `/b2b/checkout?b2b=${encodeURIComponent(token)}&orcamento=${savedQuote.id}${launched ? "&lancar=1" : ""}`;
-
     return (
       <main className="min-h-screen bg-[#fffaf6] px-5 py-16 text-center text-[#422347]" data-testid="orcamento-salvo">
         <h1 className="font-serif text-3xl font-semibold text-[#55245f]">Orçamento salvo</h1>
@@ -569,16 +628,18 @@ export default function B2BCheckoutContent() {
           {savedQuote.expiresAt ? `Válido até ${new Date(savedQuote.expiresAt).toLocaleDateString("pt-BR")} (${savedQuote.validityDays} dias). ` : ""}
           Não reserva produtos e ainda não é um pedido: ele aparece em “Meus pedidos” do link e pode ser reaberto, ajustado e fechado com a forma de pagamento.
         </p>
-        <div className="mx-auto mt-6 grid max-w-sm gap-3">
-          <Link href={printHref} className="rounded-full border-2 border-[#55245f] py-3 text-sm font-extrabold text-[#55245f]" data-testid="imprimir-orcamento">
-            Imprimir / salvar PDF do orçamento
-          </Link>
-          <Link href={reopenHref} className="rounded-full bg-[#55245f] py-3 text-sm font-extrabold text-white">
-            Reabrir e escolher o pagamento
-          </Link>
-          <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
-            Ver meus pedidos e orçamentos
-          </Link>
+        <div className="mx-auto mt-6 max-w-sm text-left">
+          <QuoteActions
+            continueHref={continueQuotePath(token, savedQuote.id, launched)}
+            printHref={printQuotePath(savedQuote.id, token)}
+            phone={phone}
+            who={name}
+          />
+          <p className="mt-4 text-center">
+            <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
+              Ver meus pedidos e orçamentos
+            </Link>
+          </p>
         </div>
       </main>
     );

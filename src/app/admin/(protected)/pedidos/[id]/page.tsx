@@ -9,6 +9,10 @@ import { loadShowcaseOrderIds } from "@/lib/b2b/showcase";
 import { formatOrigin } from "@/lib/attribution";
 import { loadOrderAttribution } from "@/lib/attribution-server";
 import { loadOrderNote } from "@/lib/order-note-server";
+import QuoteActions from "@/components/b2b/QuoteActions";
+import { readActiveOfferLink } from "@/lib/b2b/offer-link";
+import { continueQuotePath } from "@/lib/b2b/quote-links";
+import { isQuoteExpired } from "@/lib/b2b/quote-order";
 import {
   addresses,
   customers,
@@ -183,6 +187,32 @@ export default async function PedidoDetalhePage({
   const address = addressRows[0];
   const payment = paymentRows[0];
 
+  // Orçamento (pedido sem pagamento): botão principal "Continuar compra" (loja do link do cliente), imprimir e compartilhar.
+  let quoteContinueHref: string | null = null;
+  let quoteExpires: string | null = null;
+
+  if (order.status === "quote") {
+    try {
+      const [expiresRow] = await getAppSqlRunner()(
+        `SELECT to_char(quote_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS expires_at FROM orders WHERE id = $1::uuid`,
+        [order.id]
+      );
+      quoteExpires = expiresRow?.expires_at ? String(expiresRow.expires_at) : null;
+    } catch {
+      quoteExpires = null;
+    }
+
+    if (order.b2bOfferId) {
+      const link = await readActiveOfferLink(order.b2bOfferId, {
+        clientName: customer?.name ?? "cliente",
+        clientPhone: customer?.phone ?? null,
+        responsibleName: order.b2bResponsibleName ?? "Bio Florais",
+      });
+      const token = link ? link.path.split("/").filter(Boolean).pop() : null;
+      quoteContinueHref = token ? continueQuotePath(token, order.id, false) : null;
+    }
+  }
+
   const paymentApproved =
     order.status === "paid" ||
     order.status === "approved";
@@ -214,6 +244,22 @@ export default async function PedidoDetalhePage({
             <p className="mt-1 text-sm font-bold text-stone-700" data-testid="pedido-origem">
               Origem: {origin}
             </p>
+
+            {order.status === "quote" && (
+              <section className="mt-3 max-w-[640px] rounded-2xl border border-amber-300 bg-amber-50 p-4" data-testid="admin-orcamento">
+                <p className="text-sm font-extrabold text-amber-950">
+                  Orçamento (pendente){quoteExpires ? ` · ${isQuoteExpired(quoteExpires) ? "venceu" : "válido"} até ${formatDate(new Date(quoteExpires))}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-amber-900">Sem forma de pagamento: não reserva produtos, não vai ao Omie e não gera comissão.</p>
+                {quoteContinueHref ? (
+                  <QuoteActions className="mt-3" continueHref={quoteContinueHref} printHref={`/admin/pedidos/${order.id}/folha`} phone={customer?.phone ?? null} who={customer?.name ?? null} />
+                ) : (
+                  <p className="mt-2 text-xs font-bold text-amber-950">
+                    O link da oferta deste cliente não tem cópia guardada: gere um novo link no painel do representante para continuar a compra.
+                  </p>
+                )}
+              </section>
+            )}
 
             {customerNote && (
               <p

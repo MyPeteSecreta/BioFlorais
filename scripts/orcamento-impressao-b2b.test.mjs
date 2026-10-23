@@ -241,7 +241,7 @@ test("ligações do orçamento: rota de criação (sem pagamento, status quote, 
   assert.ok(route.includes("quote: {") && route.includes("validityDays"));
 
   const reopen = read("src/app/api/b2b/orders/quote/route.ts");
-  assert.ok(reopen.includes("o.b2b_client_id = $2::uuid AND o.status = $3") && reopen.includes("verifyLaunchAccess"));
+  assert.ok(reopen.includes("WHERE o.id = $1::uuid AND o.status = $2") && reopen.includes("authorizeOrderView"), "acesso pela autorização única (link pessoal, link geral ou sessão)");
   assert.ok(reopen.includes("computeB2BQuote"), "preços recalculados ao reabrir");
 
   const checkout = read("src/app/b2b/checkout/B2BCheckoutContent.tsx");
@@ -250,15 +250,15 @@ test("ligações do orçamento: rota de criação (sem pagamento, status quote, 
   }
 
   const mine = read("src/app/b2b/oferta/[token]/pedidos/page.tsx");
-  assert.ok(mine.includes("listClientQuotes") && mine.includes("Reabrir e escolher o pagamento") && mine.includes("imprimir-meu-pedido"));
+  assert.ok(mine.includes("listClientQuotes") && mine.includes("<QuoteActions") && mine.includes("imprimir-meu-pedido"), "orçamento com Continuar compra (Rodada 19b); pedido com Imprimir");
   assert.ok(mine.includes("!isQuoteStatus(order.status)"), "orçamento não aparece misturado aos pedidos");
 
   const print = read("src/app/b2b/oferta/[token]/pedidos/[orderId]/imprimir/page.tsx");
-  assert.ok(print.includes("loadOrderSheet(getAppSqlRunner(), orderId, resolution.context.clientId)"), "só pedido do cliente do token");
+  assert.ok(print.includes("authorizeOrderView(run, { orderId, token, sessionCookie") && print.includes("loadOrderSheet(run, orderId, null)"), "acesso decidido por order-access.ts (Rodada 19b)");
 
   const vendor = read("src/app/b2b/painel/cliente/[clientId]/page.tsx");
   assert.ok(vendor.includes("listClientQuotes") && vendor.includes("QuoteReopenButton") && vendor.includes("Orçamentos pendentes"));
-  assert.ok(read("src/components/b2b/QuoteReopenButton.tsx").includes("&lancar=1"));
+  assert.ok(read("src/components/b2b/QuoteReopenButton.tsx").includes("continueQuotePath(token, quoteId, true)"), "painel do vendedor continua a compra em modo lançar");
 
   assert.ok(read("src/app/admin/(protected)/pedidos/[id]/page.tsx").includes("Orçamento (pendente)"));
   assert.ok(read("src/app/admin/(protected)/pedidos/page.tsx").includes("Orçamento (pendente)"));

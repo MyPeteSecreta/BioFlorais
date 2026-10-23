@@ -107,10 +107,13 @@ export function diffClient(before: Partial<Record<ClientField, string | null>>, 
 }
 
 /** Texto curto de uma alteração para o histórico: "E-mail: a@x.com → b@x.com". */
-export function describeChanges(changes: Partial<Record<ClientField, { before: string | null; after: string | null }>>): string[] {
-  return (Object.keys(changes) as ClientField[]).map((field) => {
-    const change = changes[field]!;
+const EXTRA_LABELS: Record<string, string> = { isTest: "Cliente de teste" };
 
-    return `${CLIENT_FIELD_LABELS[field]}: ${change.before ?? "(vazio)"} → ${change.after ?? "(vazio)"}`;
+export function describeChanges(changes: Partial<Record<string, { before: string | null; after: string | null }>>): string[] {
+  return Object.keys(changes).map((field) => {
+    const change = changes[field]!;
+    const label = (CLIENT_FIELD_LABELS as Record<string, string>)[field] ?? EXTRA_LABELS[field] ?? field;
+
+    return `${label}: ${change.before ?? "(vazio)"} → ${change.after ?? "(vazio)"}`;
   });
 }
