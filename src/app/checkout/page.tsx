@@ -8,11 +8,13 @@ import { useCartImages } from "@/lib/cart-images";
 import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
 
 import Link from "next/link";
+import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
 
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -1370,6 +1372,16 @@ export default function CheckoutPage() {
 
   function removeCommercialCoupon() {
     resetPendingCardAttempt();
+
+    // GPT10 (campanha /para/*): o cliente removeu, então não é aplicado de novo sozinho.
+    if (appliedCoupon?.code === "GPT10") {
+      try {
+        removeGpt10(window.localStorage);
+      } catch {
+        // sem armazenamento
+      }
+    }
+
     setAppliedCoupon(null);
     setCouponError("");
   }
@@ -1379,6 +1391,52 @@ export default function CheckoutPage() {
     setAppliedPartnerCoupon(null);
     setPartnerCouponError("");
   }
+
+  // GPT10 automático (campanha ChatGPT, /para/*): aplicado uma vez quando há sacola, cotação e nenhum cupom comercial.
+  // O servidor valida (SQL 50b); se o cupom não valer mais, o aviso aparece e o flag é limpo.
+  const gpt10Tried = useRef(false);
+
+  useEffect(() => {
+    if (gpt10Tried.current || !checkoutDraftRestored || !quote || appliedCoupon) return;
+
+    let state = null;
+
+    try {
+      state = readGpt10(window.localStorage);
+    } catch {
+      state = null;
+    }
+
+    if (!shouldAutoApplyGpt10({ state, hasCommercialCoupon: false, cartHasItems: items.length > 0 })) return;
+
+    gpt10Tried.current = true;
+
+    void (async () => {
+      try {
+        const validation = await validateCommercialCoupon("GPT10", quote.totalCents);
+
+        resetPendingCardAttempt();
+        setAppliedCoupon(validation);
+
+        // Cupom de parceira/UGC já aplicado: recalcula sobre o valor depois do comercial (mesma regra de aplicar um cupom comercial).
+        if (appliedPartnerCoupon) {
+          const partnerBaseCents = Math.max(0, quote.totalCents - validation.discountCents);
+
+          setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
+        }
+      } catch (err) {
+        try {
+          clearGpt10(window.localStorage);
+        } catch {
+          // sem armazenamento
+        }
+
+        setCouponError(err instanceof Error ? `GPT10: ${err.message}` : "Não foi possível aplicar o GPT10.");
+      }
+    })();
+    // validateCommercialCoupon/resetPendingCardAttempt são funções do próprio componente (estáveis para este uso).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutDraftRestored, quote, appliedCoupon, items.length]);
 
   const merchandiseTotalCents =
     quote?.totalCents ?? 0;

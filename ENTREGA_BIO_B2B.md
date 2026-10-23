@@ -1451,3 +1451,13 @@ Outras decisões:
 13. **Boleto:** escolher 2x num total ímpar, conferir `b2b_boleto_requests` (parcela + última = total) e 1 linha em `payments` (`method = 'boleto'`). Repetir a chamada dá `repeated: true`, sem nenhuma linha nova.
 14. **Revogação:** revogar o link no painel e confirmar que oferta, cotação e pagamentos com aquele token dão 403.
 15. **Regressão B2C:** fazer um pedido B2C com cupom normal e Pix/cartão para confirmar que continua igual.
+
+## Rodada 20 — etapa 2: 8 páginas de campanha `/para/*` (sem push)
+- Modelo único `src/app/para/[slug]/page.tsx`; dados em `src/lib/campaign/gpt-pages.ts` (título, frase, foto do topo como campo `hero`, produtos, FAQ). 8 slugs estáticos; outro `/para/x` dá 404. noindex/nofollow, fora do sitemap e do menu; `robots.ts` não bloqueia (o revisor acessa). Mesmo conteúdo para todos (sem cloaking).
+- Ordem: título → faixa "GPT10 aplicado: 10% na sua 1ª compra" → produtos (preço + Comprar: põe na sacola e abre o checkout) → confiança → 3 perguntas → "Ver a linha completa".
+- GPT10 automático: passar por `/para/*` marca o navegador (`bio_campaign_coupon_v1`); o checkout aplica o GPT10 se não houver outro cupom comercial; o cliente remove no checkout e não reaplica. Aviso na sacola. 1 uso por e-mail (sem CPF).
+- Fotos do Adulto recortadas por CSS (frasco), conferidas a 375 px, sem frases. Heróis: mesma imagem do anúncio onde existe (`public/para/`); pet-habitos, pausa e fim-do-dia usam banner da linha sem texto.
+- Saíram pelas regras: Tristeza (fim-do-dia, "Depressão" no rótulo) e Rescue (rotina). Essas páginas e bebe-soninho ficam com 3 produtos.
+- Pendências: títulos provisórios (`titleConfirmed:false`); o hero de rotina traz o quadro "Cada mudança abre espaço para algo melhor" (arte do anúncio); `B2_adulto_sensacao_ansiedade_sem_rotulo.jpg` sem uso.
+- SQL novo: nenhum (usa 50a/50b da etapa 1).
+- Verificação: tsc ok; `npm test` 401/401; build ok (8 páginas estáticas); `git diff --check` limpo; teste novo `scripts/campanha-gpt.test.mjs` (9 casos).

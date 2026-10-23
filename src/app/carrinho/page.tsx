@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import {
   useCallback,
   useEffect,
@@ -517,6 +518,8 @@ export default function CartPage() {
               <p className="mt-3 text-xs leading-5 text-[#26352c]/50">
                 Frete, cupons e demais benefícios serão calculados antes do pagamento.
               </p>
+
+              <Gpt10CartNote />
 
               <Link
                 href="/checkout"
