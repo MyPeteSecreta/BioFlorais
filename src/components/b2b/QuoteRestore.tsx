@@ -64,7 +64,7 @@ export default function QuoteRestore({ token }: { token: string }) {
         const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR") : null;
         const message = data.quote?.expired
           ? `Este orçamento venceu em ${until ?? "—"}. A sacola foi restaurada com os preços de hoje: ajuste e feche o pedido ou salve um novo orçamento.`
-          : `Orçamento restaurado${until ? ` (válido até ${until})` : ""}. Ajuste as quantidades, adicione produtos e continue para o checkout. Os preços foram recalculados.`;
+          : `Orçamento restaurado${until ? ` (válido até ${until})` : ""}. Ajuste as quantidades, adicione produtos e continue para o checkout, onde você paga por Pix ou cartão. Os preços foram recalculados.`;
 
         writeQuoteDraft(window.sessionStorage, token, {
           // Vencido não é convertido: o checkout trata como compra nova com os mesmos dados.
@@ -116,6 +116,8 @@ export default function QuoteRestore({ token }: { token: string }) {
               } catch {
                 // sem armazenamento
               }
+              // Descartar = sem sacola "fantasma": a sacola restaurada do orçamento também sai.
+              cart.clear();
               setNotice("");
               setHasDraft(false);
             }}

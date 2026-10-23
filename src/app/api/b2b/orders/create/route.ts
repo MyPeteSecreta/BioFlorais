@@ -460,6 +460,8 @@ export async function POST(request: NextRequest) {
           totalCents,
           totalsByPaymentMethod: option.totalsByPaymentMethod,
         },
+        // Loja pública (/parceiros): o link PESSOAL do lojista; as ações do orçamento voltam sempre para a loja DELE.
+        storeLink: storefront ? storefront.storeUrl : null,
         launched,
       });
     }

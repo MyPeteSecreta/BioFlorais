@@ -28,7 +28,7 @@ import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { buildReviewSheet } from "@/lib/b2b/order-sheet";
 import QuoteActions from "@/components/b2b/QuoteActions";
-import { continueQuotePath, printQuotePath } from "@/lib/b2b/quote-links";
+import { continueQuotePath, printQuotePath, tokenFromOfferUrl } from "@/lib/b2b/quote-links";
 import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
@@ -523,6 +523,7 @@ export default function B2BCheckoutContent() {
         return;
       }
 
+      setStoreLink(typeof data.storeLink === "string" ? data.storeLink : null);
       setSavedQuote({ id: data.quote.id, expiresAt: data.quote.expiresAt ?? null, validityDays: Number(data.quote.validityDays ?? 15), totalCents: Number(data.quote.totalCents ?? 0) });
       cart.clear();
       try {
@@ -618,6 +619,9 @@ export default function B2BCheckoutContent() {
   }
 
   if (savedQuote) {
+    // Dentro do link pessoal tudo volta para a loja DESTE cliente; vindo do link geral (/parceiros), usa o link pessoal que a loja devolveu.
+    const linkToken = (storeLink ? tokenFromOfferUrl(storeLink) : "") || token;
+
     return (
       <main className="min-h-screen bg-[#fffaf6] px-5 py-16 text-center text-[#422347]" data-testid="orcamento-salvo">
         <h1 className="font-serif text-3xl font-semibold text-[#55245f]">Orçamento salvo</h1>
@@ -630,16 +634,18 @@ export default function B2BCheckoutContent() {
         </p>
         <div className="mx-auto mt-6 max-w-sm text-left">
           <QuoteActions
-            continueHref={continueQuotePath(token, savedQuote.id, launched)}
-            printHref={printQuotePath(savedQuote.id, token)}
+            continueHref={continueQuotePath(linkToken, savedQuote.id, launched)}
+            printHref={printQuotePath(savedQuote.id, linkToken)}
             phone={phone}
             who={name}
+            sendToClient={launched}
           />
           <p className="mt-4 text-center">
-            <Link href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
+            <Link href={`/b2b/oferta/${encodeURIComponent(linkToken)}/pedidos`} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
               Ver meus pedidos e orçamentos
             </Link>
           </p>
+          {storeLink && !launched ? <ReorderLink token={linkToken} url={storeLink} /> : null}
         </div>
       </main>
     );

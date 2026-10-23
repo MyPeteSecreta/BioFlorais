@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 
+import B2BPublicFooter from "@/components/b2b/B2BPublicFooter";
 import DemoTokenBanner from "@/components/b2b/DemoTokenBanner";
 import SessionExpiredGuard from "@/components/SessionExpiredGuard";
 import { B2BCartProvider } from "@/lib/b2b/cart-context";
@@ -24,6 +25,7 @@ export default function B2BLayout({ children }: { children: ReactNode }) {
         <DemoTokenBanner />
       </Suspense>
       {children}
+      <B2BPublicFooter />
     </B2BCartProvider>
   );
 }

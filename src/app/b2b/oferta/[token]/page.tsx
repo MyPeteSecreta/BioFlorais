@@ -97,6 +97,11 @@ export default async function B2BOfferPage({
         title="Preço de lojista"
         subtitle={store ? null : `Oferta para ${context.clientDisplayName} · atendido por ${context.responsibleName}`}
       >
+        {store && (
+          <Link href="/b2b/entrar" className="rounded-full bg-[#55245f] px-4 py-2 text-xs font-extrabold text-white" data-testid="ja-sou-cliente-loja">
+            Já sou cliente
+          </Link>
+        )}
         {!store && (
           <Link
             href={`/b2b/oferta/${encodeURIComponent(token)}/pedidos`}

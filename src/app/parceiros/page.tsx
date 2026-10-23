@@ -7,6 +7,7 @@
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import B2BHero from "@/components/b2b/B2BHero";
@@ -48,6 +49,12 @@ export default async function PartnersPage({
         <a href={representativeUrl()} className="mt-6 inline-block rounded-full bg-[#55245f] px-7 py-4 text-base font-extrabold text-white shadow">
           Falar com um representante
         </a>
+        <p className="mt-6 text-sm text-[#746471]">
+          Já é cliente?{" "}
+          <Link href="/b2b/entrar" className="font-bold text-[#63326d] underline" data-testid="ja-sou-cliente-parceiros">
+            Já sou cliente
+          </Link>
+        </p>
       </div>
     </main>
   );

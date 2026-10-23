@@ -9,17 +9,9 @@
 import type { ReactNode } from "react";
 
 import OrderSheet from "@/components/b2b/OrderSheet";
+import { PRINT_CSS } from "@/lib/b2b/print-css";
 import type { OrderSheetData } from "@/lib/b2b/order-sheet";
 
-const PRINT_CSS = `
-@media print {
-  @page { size: A4; margin: 12mm; }
-  body * { visibility: hidden !important; }
-  .order-print-root, .order-print-root * { visibility: visible !important; }
-  .order-print-root { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-  .no-print { display: none !important; }
-}
-`;
 
 export default function PrintOrderButton({
   sheet,
@@ -49,4 +41,3 @@ export default function PrintOrderButton({
   );
 }
 
-export { PRINT_CSS };

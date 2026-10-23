@@ -9,6 +9,23 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19c · Fluxo real do lojista, do representante e acesso sem senha (23/10/2026), sobre `6e596a1`
+
+Sem push, deploy ou Neon. **SQL novo (aditivo): `sql/b2b/49b_acesso_lojista.sql`; conferência somente leitura: `49a_acesso_lojista_conferencia_one_shot.sql`** (rode o 49a antes e depois). Sem o 49b o `/b2b/entrar` funciona, só sem o limite de tentativas persistido.
+
+**Como foi testado desta vez (fluxo real, sem Neon):** montei um banco local PGlite atrás de um endpoint compatível com o HTTP do Neon (`scripts/dev-harness/`, só desenvolvimento: esquema do drizzle + os SQL de `sql/b2b` + dados de teste: representante "Vendedora Ana", cliente de teste "Loja Flor de Lis Ltda" com link pessoal e a vitrine geral; Melhor Envio, ViaCEP e e-mail respondidos por stub) e rodei o app de verdade (`next dev`) no navegador a 375 px. Isso achou um erro que os testes não pegavam (abaixo).
+
+- **Erro real corrigido: a folha de impressão quebrava** ("{imported module PrintOrderButton.tsx}.PRINT_CSS is not a function"): uma constante exportada de módulo `"use client"` chega ao servidor como referência, não como texto. O CSS foi para `src/lib/b2b/print-css.ts`. Foi aberta e conferida a folha do pedido real pelo link pessoal.
+- **1) Lojista no link pessoal:** a causa do "loja genérica" era o orçamento salvo na LOJA GERAL (/parceiros): a tela seguinte usava o token da vitrine. Agora o orçamento devolve o link PESSOAL (`storeLink`, como o pedido já fazia) e "Continuar compra", "Imprimir", "Meus pedidos" e "Salve este link" usam esse link. Sacola "fantasma": a barra da loja só mostra a sacola DESTE link, ganhou "Esvaziar", "Descartar orçamento" agora limpa a sacola e o rascunho, e converter/salvar de novo já limpavam. Conferido no real: restaurar deixa 2 linhas, descartar deixa 0; converter em pedido limpa sacola e rascunho; o orçamento vira "convertido" e some de Meus pedidos.
+- **2) "Continuar compra" para o lojista:** conferido no link real: Meus pedidos do link pessoal mostra o orçamento com "Continuar compra" (principal), Imprimir/PDF, WhatsApp e Copiar link; o botão restaura a sacola na loja (editável), mostra "Ir para o checkout" e o checkout vem preenchido (dados, endereço, observações) para pagar por Pix ou cartão.
+- **3) Representante:** no "Lançar pedido" o checkout já tem "Salvar como orçamento"; a tela seguinte e a ficha do cliente (painel) têm "Continuar compra" (modo lançar; retomar e editar) e o bloco **"Enviar para o cliente pagar"** (WhatsApp e Copiar link com o link pessoal do lojista, sem o modo lançar: o cliente abre, confere e paga por Pix ou cartão). Conferido no real: orçamento salvo pelo representante, ficha do cliente, "Continuar compra" reabre em modo lançar com a sacola restaurada; folha pela sessão do representante.
+- **4) Acesso do lojista sem senha:** `/b2b/entrar` (e-mail ou CNPJ/CPF). Resposta SEMPRE neutra. Se houver cadastro (cliente ativo, vínculo e representante ativos, fora da demonstração, com oferta pessoal ativa e link), o link pessoal vai por e-mail **só para o endereço cadastrado**. Limite: 3 por identificador e 10 por IP por hora (só hashes em `b2b_access_requests`). "Já sou cliente": na loja geral, em /parceiros (sem vitrine) e no rodapé do B2B (não aparece no painel nem no login). Conferido no real: CNPJ → e-mail para o endereço cadastrado com o link pessoal; 4ª tentativa do mesmo e-mail barrada sem mudar a resposta.
+- **ATENÇÃO (envio de e-mail):** o repositório não tinha nenhum envio de e-mail. Criei `src/lib/mail.ts` pela API do Resend (sem dependência nova), que precisa das variáveis **`RESEND_API_KEY`** e **`MAIL_FROM`** (domínio verificado no Resend) na Vercel. Sem elas o fluxo responde igual, mas nada é enviado (fica registrado no log).
+- **5) Registro:** o lojista NÃO tem login, só o link pessoal; o "login" que se via era o link dele ou um login de representante.
+- **Testes:** `scripts/rodada19c.test.mjs` (13 casos). tsc limpo, build ok, `npm test` verde. Prints a 375 px do fluxo real: orçamento salvo (link pessoal), Meus pedidos, loja restaurada com a faixa, folha de impressão, ficha do cliente (representante), orçamento salvo pelo representante e `/b2b/entrar`.
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19b · Correções dos testes do Luis (23/10/2026), sobre `cda3540`
 
 Sem push, deploy ou Neon. **SQL novo: nenhum.** Usa o que já existe: 32b (`b2b_clients.is_test`), 46b, 47b (histórico) e 48b. A conferência 46a já conta os complementos acima de 60.

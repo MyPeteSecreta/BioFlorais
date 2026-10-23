@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useB2BCart } from "@/lib/b2b/cart-context";
 import type { KitCardView, KitOption } from "@/lib/b2b/displays-view";
 import { formatB2BCents } from "@/lib/b2b/format";
+import { clearQuoteDraft } from "@/lib/b2b/quote-draft";
 import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
 import { applyB2BPercentDiscount, calculateB2BPromotionBonusQty } from "@/lib/b2b/promotion-engine";
 
@@ -283,7 +284,11 @@ export default function B2BOfferCatalog({
     if (hydrated) setOfferToken(token);
   }, [hydrated, setOfferToken, token]);
 
-  const qtyByProduct = new Map(cart.state.lines.map((line) => [line.productId, line.qty]));
+  // A sacola é de UM link: enquanto o token da sacola não é o desta loja, nada dela aparece (sem sacola "fantasma").
+  const mine = cart.state.offerToken === token;
+  const barItems = mine ? cart.itemCount : 0;
+  const barSubtotal = mine ? cart.subtotalCents : 0;
+  const qtyByProduct = new Map((mine ? cart.state.lines : []).map((line) => [line.productId, line.qty]));
   // ?kit=<chave>: só o PRIMEIRO card que tem esse display abre destacado.
   const focusCardId = focusKit ? kits.find((card) => card.options.some((option) => option.key === focusKit))?.id : undefined;
 
@@ -365,8 +370,25 @@ export default function B2BOfferCatalog({
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-5 py-3 lg:px-10">
           <div className="text-sm">
             <p className="font-bold text-[#422347]">
-              {cart.itemCount} {cart.itemCount === 1 ? "item" : "itens"} ·{" "}
-              {formatB2BCents(cart.subtotalCents)}
+              {barItems} {barItems === 1 ? "item" : "itens"} ·{" "}
+              {formatB2BCents(barSubtotal)}
+              {barItems > 0 && (
+                <button
+                  type="button"
+                  className="ml-3 text-xs font-bold text-[#a33] underline"
+                  data-testid="esvaziar-sacola"
+                  onClick={() => {
+                    cart.clear();
+                    try {
+                      clearQuoteDraft(window.sessionStorage, token);
+                    } catch {
+                      // sem armazenamento
+                    }
+                  }}
+                >
+                  Esvaziar
+                </button>
+              )}
             </p>
             <p className="text-xs text-[#8a7886]">
               Pedido mínimo: R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450

@@ -19,6 +19,7 @@ export default function QuoteActions({
   printHref,
   phone,
   who,
+  sendToClient = false,
   className = "",
 }: {
   /** Caminho (ou URL) da loja com ?orcamento=<id>. */
@@ -26,6 +27,8 @@ export default function QuoteActions({
   printHref: string | null;
   phone?: string | null;
   who?: string | null;
+  /** Representante: WhatsApp e Copiar link viram "Enviar para o cliente pagar" (o cliente abre, confere e paga por Pix ou cartão). */
+  sendToClient?: boolean;
   className?: string;
 }) {
   const [origin, setOrigin] = useState("");
@@ -43,32 +46,40 @@ export default function QuoteActions({
       <Link href={continueHref} className={PRIMARY} data-testid="continuar-compra">
         Continuar compra
       </Link>
-      <div className="flex flex-wrap gap-2">
-        {printHref && (
-          <Link href={printHref} className={SECONDARY} data-testid="orcamento-imprimir">
-            Imprimir / PDF
-          </Link>
+      {printHref && (
+        <Link href={printHref} className={SECONDARY + " self-start"} data-testid="orcamento-imprimir">
+          Imprimir / PDF
+        </Link>
+      )}
+      <div className={sendToClient ? "rounded-2xl border border-[#d9c7dc] bg-white p-3" : "flex flex-wrap gap-2"} data-testid={sendToClient ? "enviar-cliente-pagar" : undefined}>
+        {sendToClient && (
+          <p className="mb-2 text-xs font-extrabold text-[#55245f]">
+            Enviar para o cliente pagar
+            <span className="block font-normal text-[#6c5b69]">Ele abre o link, confere o orçamento e paga por Pix ou cartão.</span>
+          </p>
         )}
-        {origin && (
-          <a href={quoteWhatsAppUrl(shareUrl, phone, who)} target="_blank" rel="noopener noreferrer" className={SECONDARY} data-testid="orcamento-whatsapp">
-            WhatsApp
-          </a>
-        )}
-        <button
-          type="button"
-          className={SECONDARY}
-          data-testid="orcamento-copiar"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(shareUrl);
-              setCopied(true);
-            } catch {
-              setCopied(false);
-            }
-          }}
-        >
-          {copied ? "Link copiado" : "Copiar link"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {origin && (
+            <a href={quoteWhatsAppUrl(shareUrl, phone, who)} target="_blank" rel="noopener noreferrer" className={SECONDARY} data-testid="orcamento-whatsapp">
+              WhatsApp
+            </a>
+          )}
+          <button
+            type="button"
+            className={SECONDARY}
+            data-testid="orcamento-copiar"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(shareUrl);
+                setCopied(true);
+              } catch {
+                setCopied(false);
+              }
+            }}
+          >
+            {copied ? "Link copiado" : "Copiar link"}
+          </button>
+        </div>
       </div>
     </div>
   );

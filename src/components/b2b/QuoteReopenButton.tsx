@@ -85,16 +85,22 @@ export default function QuoteReopenButton({ offerId, quoteId, phone, who }: { of
       <button type="button" onClick={() => run("continue")} disabled={busy !== ""} className={PRIMARY} data-testid="continuar-compra">
         {busy === "continue" ? "Abrindo…" : "Continuar compra"}
       </button>
-      <div className="flex flex-wrap gap-2">
-        <Link href={printQuotePath(quoteId)} className={SECONDARY} data-testid="imprimir-orcamento-vendedor">
-          Imprimir / PDF
-        </Link>
-        <button type="button" onClick={() => run("whatsapp")} disabled={busy !== ""} className={SECONDARY} data-testid="orcamento-whatsapp">
-          WhatsApp
-        </button>
-        <button type="button" onClick={() => run("copy")} disabled={busy !== ""} className={SECONDARY} data-testid="orcamento-copiar">
-          {copied ? "Link copiado" : "Copiar link"}
-        </button>
+      <Link href={printQuotePath(quoteId)} className={SECONDARY + " self-start"} data-testid="imprimir-orcamento-vendedor">
+        Imprimir / PDF
+      </Link>
+      <div className="rounded-2xl border border-[#d9c7dc] bg-white p-3" data-testid="enviar-cliente-pagar">
+        <p className="mb-2 text-xs font-extrabold text-[#55245f]">
+          Enviar para o cliente pagar
+          <span className="block font-normal text-[#6c5b69]">Ele abre o link, confere o orçamento e paga por Pix ou cartão.</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => run("whatsapp")} disabled={busy !== ""} className={SECONDARY} data-testid="orcamento-whatsapp">
+            WhatsApp
+          </button>
+          <button type="button" onClick={() => run("copy")} disabled={busy !== ""} className={SECONDARY} data-testid="orcamento-copiar">
+            {copied ? "Link copiado" : "Copiar link"}
+          </button>
+        </div>
       </div>
       {error && <span className="text-xs font-semibold text-red-700">{error}</span>}
     </div>

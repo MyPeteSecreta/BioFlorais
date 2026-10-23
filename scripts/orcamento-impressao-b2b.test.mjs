@@ -271,5 +271,6 @@ test("impressão: folha A4 com marca, só a folha sai no papel; nunca mostra com
   const code = (component + read("src/lib/b2b/order-sheet.ts")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   assert.ok(!/comiss|realPrice|shipping_cost|shippingCost|margem/i.test(code), "sem dado interno");
   const button = read("src/components/b2b/PrintOrderButton.tsx");
-  assert.ok(button.includes("window.print()") && button.includes("@page { size: A4") && button.includes("body * { visibility: hidden"));
+  const printCss = read("src/lib/b2b/print-css.ts");
+  assert.ok(button.includes("window.print()") && printCss.includes("@page { size: A4") && printCss.includes("body * { visibility: hidden"));
 });

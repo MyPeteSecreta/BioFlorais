@@ -6,7 +6,8 @@
 import Link from "next/link";
 
 import OrderSheet from "@/components/b2b/OrderSheet";
-import PrintOrderButton, { PRINT_CSS } from "@/components/b2b/PrintOrderButton";
+import PrintOrderButton from "@/components/b2b/PrintOrderButton";
+import { PRINT_PAGE_CSS } from "@/lib/b2b/print-css";
 import type { OrderSheetData } from "@/lib/b2b/order-sheet";
 
 export function OrderPrintUnavailable({ backHref, backLabel }: { backHref: string | null; backLabel: string }) {
@@ -26,7 +27,7 @@ export function OrderPrintUnavailable({ backHref, backLabel }: { backHref: strin
 export default function OrderPrintView({ sheet, backHref, backLabel }: { sheet: OrderSheetData; backHref: string; backLabel: string }) {
   return (
     <main className="min-h-screen bg-[#fffaf6] px-4 py-6 text-[#422347]">
-      <style dangerouslySetInnerHTML={{ __html: PRINT_CSS.replaceAll(".order-print-root", ".order-print-page") }} />
+      <style dangerouslySetInnerHTML={{ __html: PRINT_PAGE_CSS }} />
       <div className="no-print mx-auto mb-4 flex max-w-[780px] flex-wrap items-center justify-between gap-3">
         <Link href={backHref} className="text-sm font-bold text-[#63326d] underline underline-offset-4">
           {backLabel}

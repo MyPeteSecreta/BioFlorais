@@ -157,7 +157,7 @@ test("2) Continuar compra é o botão PRINCIPAL em Meus pedidos, tela após salv
   assert.ok(mine.includes("<QuoteActions") && mine.includes("continueQuotePath(token, quote.orderId)") && !mine.includes("Reabrir e escolher o pagamento"));
 
   const checkout = read("src/app/b2b/checkout/B2BCheckoutContent.tsx");
-  assert.ok(checkout.includes("continueQuotePath(token, savedQuote.id, launched)") && checkout.includes("<QuoteActions") && checkout.includes("readQuoteDraft(window.sessionStorage, token)"));
+  assert.ok(checkout.includes("continueQuotePath(linkToken, savedQuote.id, launched)") && checkout.includes("<QuoteActions") && checkout.includes("readQuoteDraft(window.sessionStorage, token)"));
   assert.ok(checkout.includes("clearQuoteDraft(window.sessionStorage, token)"));
 
   const vendor = read("src/components/b2b/QuoteReopenButton.tsx");
