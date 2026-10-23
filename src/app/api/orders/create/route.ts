@@ -98,6 +98,13 @@ function onlyDigits(
   return clean(value).replace(/\D/g, "");
 }
 
+// Cupom de 1 uso por e-mail ja usado: mensagem direta ao cliente (400), nao o erro generico.
+class CouponAlreadyUsedError extends Error {
+  constructor() {
+    super("Este cupom já foi usado neste e-mail.");
+  }
+}
+
 async function resolveCoupon(
   codeInput: string | null | undefined,
   subtotalCents: number,
@@ -212,9 +219,7 @@ async function resolveCoupon(
         .limit(1);
 
     if (previousRedemption.length > 0) {
-      throw new Error(
-        `Cupom ${code} ja foi utilizado por este cliente.`
-      );
+      throw new CouponAlreadyUsedError();
     }
   }
 
@@ -1446,6 +1451,10 @@ const orderRows =
       "Erro ao criar pedido Bio Florais:",
       error
     );
+
+    if (error instanceof CouponAlreadyUsedError) {
+      return NextResponse.json({ error: error.message, field: "coupon" }, { status: 400 });
+    }
 
     return NextResponse.json(
       {

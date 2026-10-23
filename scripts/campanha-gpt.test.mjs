@@ -67,7 +67,7 @@ test("imagens: a mesma arte do anúncio onde existe; sem arte = foto da Home / b
   assert.equal(bySlug("pet-sozinho").src, "/para/Ad4_Pet.jpg");
   assert.equal(bySlug("pet-medroso").src, "/para/B_pet_ansiedade_sem_rotulo.jpg");
   assert.equal(bySlug("rotina").src, "/para/Ad2_Adulto.jpg");
-  assert.equal(bySlug("pausa").src, "/assets/home/hero/Hero.png");
+  assert.equal(bySlug("pausa").src, "/para/B2_adulto_sensacao_ansiedade_sem_rotulo.jpg");
   assert.equal(bySlug("fim-do-dia").src, "/assets/home/hero/Hero.png");
   assert.equal(bySlug("pet-habitos").src, "/assets/home/linhas/Pet.png");
   assert.ok(bySlug("pet-habitos").scale > 1, "banner da linha recortado para esconder o texto");
@@ -168,4 +168,20 @@ test("eventos: a chegada em /para/* entra (origem e campanha como nas demais pá
   const events = read("src/components/analytics/AnalyticsEvents.tsx");
   assert.ok(events.includes('if (first) void trackEvent("chegada")') && events.includes("isPixelPath(pathname)"));
   assert.ok(read("src/app/layout.tsx").includes("<AttributionCapture />") && read("src/app/layout.tsx").includes("<CookieBanner />"));
+});
+
+test("títulos reais confirmados e 2º uso do GPT10 com o mesmo e-mail mostra mensagem direta (400)", () => {
+  const titles = {
+    "pet-sozinho": "Pet fica sozinho em casa?", "pet-habitos": "Reparou nos hábitos do seu pet?", "pet-medroso": "Florais para cães e gatos",
+    pausa: "Quando a mente quer pausa", "fim-do-dia": "Seu ritual para encerrar o dia", rotina: "Rotina estressante?",
+    "bebe-soninho": "Hora do soninho", "crianca-desacelerar": "É hora de desacelerar",
+  };
+  for (const [slug, title] of Object.entries(titles)) {
+    const p = data.getCampaignPage(slug);
+    assert.equal(p.title, title);
+    assert.equal(p.titleConfirmed, true);
+  }
+  const route = read("src/app/api/orders/create/route.ts");
+  assert.ok(route.includes("class CouponAlreadyUsedError") && route.includes("Este cupom já foi usado neste e-mail."));
+  assert.ok(route.includes("throw new CouponAlreadyUsedError()") && route.includes("error instanceof CouponAlreadyUsedError"));
 });

@@ -94,8 +94,8 @@ const PET_FAQ = (use: string): CampaignFaq[] => [faqUse(`${use} Detalhes na emba
 export const campaignPages: readonly CampaignPage[] = [
   {
     slug: "pet-sozinho",
-    title: "Seu pet sofre quando fica sozinho em casa?",
-    titleConfirmed: false,
+    title: "Pet fica sozinho em casa?",
+    titleConfirmed: true,
     lead: "Florais sem álcool para acompanhar o seu cão ou gato nos momentos em que ele fica sozinho.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar cães e gatos nos momentos em que ficam sozinhos em casa.",
     hero: { src: "/para/Ad4_Pet.jpg", alt: "Cachorro e gato ao lado de um frasco de floral Bio Florais Pet", position: "50% 50%" },
@@ -112,8 +112,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "pet-habitos",
-    title: "Hábitos do seu pet tirando a sua paz?",
-    titleConfirmed: false,
+    title: "Reparou nos hábitos do seu pet?",
+    titleConfirmed: true,
     lead: "Conheça os florais Bio Florais Pet, sem álcool, para acompanhar a rotina de cães e gatos.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar a rotina e os hábitos de cães e gatos.",
     // Sem arte do anúncio: banner da linha Pet, recortado no lado direito (cão, gato e frasco) para esconder o texto do banner.
@@ -131,8 +131,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "pet-medroso",
-    title: "Seu pet é medroso?",
-    titleConfirmed: false,
+    title: "Florais para cães e gatos",
+    titleConfirmed: true,
     lead: "Florais sem álcool para acompanhar cães e gatos nos momentos de medo, como fogos e barulhos altos.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar cães e gatos medrosos.",
     hero: { src: "/para/B_pet_ansiedade_sem_rotulo.jpg", alt: "Cachorro e gato abrigados sob uma manta ao lado de um frasco de floral Bio Florais Pet", position: "50% 55%" },
@@ -149,12 +149,12 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "pausa",
-    title: "Uma pausa para respirar no meio do dia",
-    titleConfirmed: false,
+    title: "Quando a mente quer pausa",
+    titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para os momentos em que você precisa desacelerar.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para os momentos de pausa e de desacelerar a rotina.",
-    // Sem arte do anúncio: foto da Home (sem texto).
-    hero: { src: "/assets/home/hero/Hero.png", alt: "Mulher sorrindo entre flores do campo", position: "70% 50%" },
+    // Arte do anúncio "Mil coisas", que também cai nesta página (sem rótulo).
+    hero: { src: "/para/B2_adulto_sensacao_ansiedade_sem_rotulo.jpg", alt: "Frasco de floral Bio Florais Adulto sobre uma base de pedra, com flores ao fundo", position: "50% 62%" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
@@ -168,8 +168,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "fim-do-dia",
-    title: "O dia acabou. E a cabeça?",
-    titleConfirmed: false,
+    title: "Seu ritual para encerrar o dia",
+    titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para fechar o dia com mais calma.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para fechar o dia com mais calma.",
     hero: { src: "/assets/home/hero/Hero.png", alt: "Mulher sorrindo entre flores do campo", position: "70% 50%" },
@@ -186,8 +186,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "rotina",
-    title: "Sua rotina pede mais equilíbrio?",
-    titleConfirmed: false,
+    title: "Rotina estressante?",
+    titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para acompanhar os dias de correria e de mudanças.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para acompanhar a rotina e as mudanças do dia a dia.",
     // Imagem do anúncio (a mesma): o quadro ao fundo traz "Cada mudança abre espaço para algo melhor" (frase do próprio anúncio).
@@ -205,8 +205,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "bebe-soninho",
-    title: "Hora de dormir mais tranquila para o bebê",
-    titleConfirmed: false,
+    title: "Hora do soninho",
+    titleConfirmed: true,
     lead: "Florais da Linha Baby, sem álcool, pensados para acompanhar a rotina do bebê e da família.",
     metaDescription: "Florais Bio Florais Baby, sem álcool, para acompanhar a rotina do bebê e a hora de dormir.",
     hero: { src: "/para/O1_Sono_Baby.jpg", alt: "Bebê dormindo ao lado de um frasco de floral Bio Florais Baby Sono", position: "50% 50%" },
@@ -226,8 +226,8 @@ export const campaignPages: readonly CampaignPage[] = [
   },
   {
     slug: "crianca-desacelerar",
-    title: "Ajude seu filho a desacelerar",
-    titleConfirmed: false,
+    title: "É hora de desacelerar",
+    titleConfirmed: true,
     lead: "Florais da Linha Infantil, sem álcool, para acompanhar crianças de 3 a 7 anos no dia a dia.",
     metaDescription: "Florais Bio Florais Infantil, sem álcool, para acompanhar o dia a dia das crianças.",
     hero: { src: "/para/O1_Sono_Infantil.jpg", alt: "Menina dormindo abraçada a um ursinho ao lado de um frasco de floral Bio Florais Infantil Sono", position: "50% 50%" },

@@ -1461,3 +1461,9 @@ Outras decisões:
 - Pendências: títulos provisórios (`titleConfirmed:false`); o hero de rotina traz o quadro "Cada mudança abre espaço para algo melhor" (arte do anúncio); `B2_adulto_sensacao_ansiedade_sem_rotulo.jpg` sem uso.
 - SQL novo: nenhum (usa 50a/50b da etapa 1).
 - Verificação: tsc ok; `npm test` 401/401; build ok (8 páginas estáticas); `git diff --check` limpo; teste novo `scripts/campanha-gpt.test.mjs` (9 casos).
+
+## Rodada 20 — ajustes da etapa 2 (sem push)
+- Títulos reais nas 8 páginas (`titleConfirmed: true`); topo de `/para/pausa` = `B2_adulto_sensacao_ansiedade_sem_rotulo.jpg` (anúncio "Mil coisas"), copiado para `public/para/`.
+- Tristeza e Rescue continuam fora (fim-do-dia, rotina e bebe-soninho com 3 produtos).
+- 2º uso do GPT10 (ou de qualquer cupom de 1 uso por e-mail) com o mesmo e-mail: `/api/orders/create` devolve 400 com "Este cupom já foi usado neste e-mail." (antes 500 com texto técnico), mostrado no checkout.
+- Verificação: tsc ok; `npm test` 402/402; build ok; `git diff --check` limpo; print de pet-medroso e do topo de pausa a 375 px conferidos.
