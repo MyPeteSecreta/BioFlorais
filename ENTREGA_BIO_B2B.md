@@ -9,6 +9,18 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 20 · Cupom GPT10 e proposta das páginas /para/* (23/10/2026), sobre `a54ee67`
+
+Sem push, deploy ou Neon. **Etapa 1 de 2:** cupom pronto; as 8 páginas **só serão montadas depois da aprovação da tabela de produtos** (pedido da mestre).
+
+- **SQL novo (aditivo):** `sql/b2b/50b_cupom_gpt10.sql` (INSERT … ON CONFLICT (code) DO NOTHING) e a conferência somente leitura `50a_cupom_gpt10_conferencia_one_shot.sql` (rode o 50a antes e depois; ela diz se o GPT10 está "conforme"). GPT10: 10% (`percentage`), `scope='b2c'`, cupom comercial comum, `one_per_customer=true`, sem mínimo, sem limite global, sem frete, sem comissão, ativo, válido até **30/11/2026 23:59:59 BRT** (= 2026-12-01 02:59:59 UTC; `expires_at` é timestamp sem fuso em UTC). Se um GPT10 já existir, nada é alterado.
+- **1 uso por cliente:** o modelo guarda só o **e-mail** (`coupon_redemptions.customer_email`): vale por e-mail, **não por CPF** (CPF exigiria coluna nova).
+- **Sem acumular com outro cupom comercial:** o checkout e o servidor já aceitam um único cupom comercial por pedido; o de parceira/UGC segue a regra atual (calculado sobre o valor depois do comercial). O B2B só aceita cupom de escopo `b2b`, então o GPT10 nunca vale lá.
+- **Proposta de produtos (f):** `docs/campanha-chatgpt-proposta-produtos.md`, com a tabela por página, o que ficou de fora e 4 pendências (fotos do Adulto são cenas com frases de benefício; ranking de Baby/Infantil; foto de momento; CPF no cupom).
+- **Testes:** `scripts/cupom-gpt10.test.mjs` (3 casos). tsc limpo; suíte completa e build não foram repetidos (só SQL, teste e documento foram adicionados).
+
+---
+
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 19c · Fluxo real do lojista, do representante e acesso sem senha (23/10/2026), sobre `6e596a1`
 
 Sem push, deploy ou Neon. **SQL novo (aditivo): `sql/b2b/49b_acesso_lojista.sql`; conferência somente leitura: `49a_acesso_lojista_conferencia_one_shot.sql`** (rode o 49a antes e depois). Sem o 49b o `/b2b/entrar` funciona, só sem o limite de tentativas persistido.
