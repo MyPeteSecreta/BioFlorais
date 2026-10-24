@@ -97,7 +97,7 @@ test("/para/*: ícone da sacola com contagem no cabeçalho, minicards de TODAS a
   const icon = read("src/components/campaign/CampaignCartIcon.tsx");
 
   assert.ok(page.includes("<CampaignCartIcon />") && page.includes("<LineMiniCards />"));
-  assert.ok(page.indexOf('data-testid="campanha-ver-linha"') < page.indexOf("<LineMiniCards />"));
+  assert.ok(page.indexOf('aria-label="Produtos"') < page.indexOf("<LineMiniCards />") && page.indexOf("<LineMiniCards />") < page.indexOf('aria-label="Perguntas frequentes"'));
   assert.ok(icon.includes("useCart") && icon.includes("campanha-sacola-contagem"));
   assert.ok(read("src/components/cart/GlobalCartButton.tsx").includes('pathname?.startsWith("/para/")'));
 
