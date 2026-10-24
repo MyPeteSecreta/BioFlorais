@@ -109,7 +109,7 @@ test("estrutura da página: título, faixa GPT10, produtos com preço e Comprar,
   const page = read("src/app/para/[slug]/page.tsx");
   const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "formatBRL(product.priceCents)", "<CampaignBuyButton", 'data-testid="campanha-confianca"', 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
   assert.ok(order.every((index) => index > 0) && [...order].sort((a, b) => a - b).join() === order.join(), "ordem das seções");
-  for (const part of ["100% sem álcool", "Como usar:", "R$ 100,00", "subsidia 25% do frete", "Pix e cartão"]) assert.ok(page.includes(part), part);
+  for (const part of ["100% sem álcool", "Como usar:", "B2C_FREE_SHIPPING_THRESHOLD_CENTS", "B2C_SHIPPING_SUBSIDY_PERCENT", "Pix e cartão"]) assert.ok(page.includes(part), part);
   assert.ok(page.includes("`/linha/${page.lineSlug}`"));
   const banner = read("src/components/campaign/Gpt10Banner.tsx");
   assert.ok(banner.includes("CAMPAIGN_GPT10.bannerText") && data.CAMPAIGN_GPT10.bannerText === "GPT10 aplicado: 10% na sua 1ª compra");

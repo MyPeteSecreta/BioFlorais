@@ -11,10 +11,13 @@ import { notFound } from "next/navigation";
 
 import BottleCropImage from "@/components/campaign/BottleCropImage";
 import CampaignBuyButton from "@/components/campaign/CampaignBuyButton";
+import CampaignCartIcon from "@/components/campaign/CampaignCartIcon";
 import CampaignMarker from "@/components/campaign/CampaignMarker";
+import LineMiniCards from "@/components/campaign/LineMiniCards";
 import Gpt10Banner from "@/components/campaign/Gpt10Banner";
 import { formatBRL, getProduct } from "@/lib/catalog/bio-products";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT } from "@/lib/checkout/benefits";
 import { CAMPAIGN_SLUGS, getCampaignPage } from "@/lib/campaign/gpt-pages";
 
 export const dynamicParams = false;
@@ -61,6 +64,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
             <span className="block font-serif text-[26px] font-semibold tracking-[-0.03em] text-[#55245f]">Bio Florais</span>
             <span className="block text-[9px] font-extrabold uppercase tracking-[0.22em] text-[#a0742b]">Desde 1997</span>
           </Link>
+          <CampaignCartIcon />
         </div>
       </header>
 
@@ -125,7 +129,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           <ul className="mt-3 space-y-2.5 text-[14px] leading-5 text-[#4a3a4a]">
             <li><strong>100% sem álcool.</strong></li>
             <li><strong>Como usar:</strong> {page.howToUse}</li>
-            <li><strong>Frete grátis</strong> a partir de R$ 100,00 em produtos; abaixo disso, a Bio Florais subsidia 25% do frete.</li>
+            <li><strong>Frete grátis</strong> a partir de {formatBRL(B2C_FREE_SHIPPING_THRESHOLD_CENTS)} em produtos; abaixo disso, a Bio Florais subsidia {B2C_SHIPPING_SUBSIDY_PERCENT}% do frete.</li>
             <li><strong>Pix e cartão</strong> de crédito.</li>
           </ul>
         </section>
@@ -147,6 +151,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
             Ver a linha completa
           </Link>
         </div>
+
+        <LineMiniCards />
       </div>
     </main>
   );

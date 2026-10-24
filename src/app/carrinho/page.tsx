@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import {
   useCallback,
@@ -184,7 +185,7 @@ export default function CartPage() {
       ) ?? []
     );
 
-  const freeShippingThresholdCents = 10000;
+  const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
   const freeShippingBaseCents =
     quote?.grossSubtotalCents ?? 0;
   const freeShippingRemainingCents =

@@ -8,6 +8,8 @@ import { useCartImages } from "@/lib/cart-images";
 import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment";
 
 import Link from "next/link";
+import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
 
@@ -972,6 +974,77 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutDraftRestored, quote, appliedCoupon, items.length]);
 
+  // Cupons aplicados (do rascunho ou de antes de mudar a sacola) valem sobre o valor ATUAL dos produtos: quando o total muda,
+  // o servidor recalcula o desconto. Se o cupom não vale mais, sai da sacola com aviso.
+  const couponBaseChecked = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!checkoutDraftRestored || !quote) return;
+    if (couponBaseChecked.current === quote.totalCents) return;
+
+    couponBaseChecked.current = quote.totalCents;
+
+    if (!appliedCoupon && !appliedPartnerCoupon) return;
+
+    void (async () => {
+      let commercial = appliedCoupon;
+
+      try {
+        if (appliedCoupon) {
+          commercial = await validateCommercialCoupon(appliedCoupon.code, quote.totalCents);
+          setAppliedCoupon(commercial);
+        }
+      } catch (err) {
+        if (appliedCoupon?.code === "GPT10") {
+          try {
+            removeGpt10(window.localStorage);
+          } catch {
+            // sem armazenamento
+          }
+        }
+
+        commercial = null;
+        setAppliedCoupon(null);
+        setCouponError(err instanceof Error ? `${appliedCoupon?.code}: ${err.message}` : "O cupom não vale mais para este pedido.");
+      }
+
+      try {
+        if (appliedPartnerCoupon) {
+          const partnerBaseCents = Math.max(0, quote.totalCents - (commercial?.discountCents ?? 0));
+
+          setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
+        }
+      } catch (err) {
+        setAppliedPartnerCoupon(null);
+        setPartnerCouponError(err instanceof Error ? err.message : "O cupom da parceira não vale mais para este pedido.");
+      }
+    })();
+    // validate* são funções do próprio componente (estáveis para este uso).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutDraftRestored, quote, appliedCoupon, appliedPartnerCoupon]);
+
+  // CEP: o frete é calculado sempre que o campo tiver 8 dígitos, venha de digitação, autofill, colagem ou rascunho.
+  // O campo é não controlado; este verificador pega os casos em que o navegador não dispara onChange (autofill, rascunho restaurado).
+  const cepLookupRef = useRef("");
+
+  useEffect(() => {
+    if (!checkoutDraftRestored || items.length === 0) return;
+
+    const timer = window.setInterval(() => {
+      const form = document.getElementById("bio-checkout-form") as HTMLFormElement | null;
+      const field = form?.elements.namedItem("postalCode") as HTMLInputElement | null;
+      const digits = (field?.value ?? "").replace(/D/g, "");
+
+      if (form && digits.length === 8 && digits !== cepLookupRef.current) {
+        void lookupCep(digits, form);
+      }
+    }, 400);
+
+    return () => window.clearInterval(timer);
+    // lookupCep é função do próprio componente (usa só setters estáveis e a sacola atual).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutDraftRestored, items.length]);
+
   if (items.length === 0 && pendingOrderStatus !== "paid") {
     return (
       <main className="min-h-screen bg-[#f8f5ee] px-5 py-16 text-[#26352c]">
@@ -1035,6 +1108,9 @@ export default function CheckoutPage() {
       const data =
         await response.json();
 
+      // Outro CEP foi digitado enquanto este calculava: descarta esta resposta.
+      if (cepLookupRef.current !== cep) return;
+
       if (!response.ok) {
         throw new Error(
           data.error ??
@@ -1084,6 +1160,8 @@ export default function CheckoutPage() {
       setSelectedShipping(options[0]);
       setCalculatedCep(cep);
     } catch (err) {
+      if (cepLookupRef.current !== cep) return;
+
       setCalculatedCep("");
       setShippingError(
         err instanceof Error
@@ -1091,131 +1169,104 @@ export default function CheckoutPage() {
           : "Não foi possível calcular o frete."
       );
     } finally {
-      setLoadingShipping(false);
+      if (cepLookupRef.current === cep) setLoadingShipping(false);
     }
   }
 
 
 
-  async function handleCepBlur(
-    event: React.FocusEvent<HTMLInputElement>
-  ) {
-    const input =
-      event.currentTarget;
+  /** Busca o endereço (ViaCEP) e calcula o frete para um CEP de 8 dígitos. O frete não espera o ViaCEP: se ele falhar, o frete sai igual. */
+  async function lookupCep(cep: string, form: HTMLFormElement | null) {
+    cepLookupRef.current = cep;
+    setCepError("");
 
-    const form =
-      input.form;
-
-    const cep =
-      input.value.replace(
-        /\D/g,
-        ""
-      );
-
-    if (cep.length !== 8) {
-      setCepError(
-        "Digite um CEP com 8 números."
-      );
-      return;
-    }
+    const shippingDone = loadShipping(cep);
 
     if (!form) {
-      setCepError(
-        "Não foi possível localizar o formulário."
-      );
+      await shippingDone;
       return;
     }
 
     setSearchingCep(true);
-    setCepError("");
 
     try {
-      const response =
-        await fetch(
-          `https://viacep.com.br/ws/${cep}/json/`,
-          {
-            cache: "no-store",
-          }
-        );
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { cache: "no-store" });
 
       if (!response.ok) {
-        throw new Error(
-          "Erro na consulta do CEP."
-        );
+        throw new Error("Erro na consulta do CEP.");
       }
 
-      const data =
-        await response.json();
+      const data = await response.json();
+
+      if (cepLookupRef.current !== cep) return;
 
       if (data.erro) {
-        setCepError(
-          "CEP não encontrado."
-        );
+        setCepError("CEP não encontrado.");
         return;
       }
 
-      const setValue = (
-        name: string,
-        value: string
-      ) => {
-        const field =
-          form.elements.namedItem(
-            name
-          ) as HTMLInputElement | null;
+      const setValue = (name: string, value: string) => {
+        const field = form.elements.namedItem(name) as HTMLInputElement | null;
 
         if (!field) {
           return;
         }
 
-        field.value =
-          value ?? "";
+        field.value = value ?? "";
 
-        field.dispatchEvent(
-          new Event(
-            "input",
-            {
-              bubbles: true,
-            }
-          )
-        );
-
-        field.dispatchEvent(
-          new Event(
-            "change",
-            {
-              bubbles: true,
-            }
-          )
-        );
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
       };
 
-      setValue(
-        "street",
-        data.logradouro ?? ""
-      );
-
-      setValue(
-        "neighborhood",
-        data.bairro ?? ""
-      );
-
-      setValue(
-        "city",
-        data.localidade ?? ""
-      );
-
-      setValue(
-        "state",
-        data.uf ?? ""
-      );
-
-      await loadShipping(cep);
+      setValue("street", data.logradouro ?? "");
+      setValue("neighborhood", data.bairro ?? "");
+      setValue("city", data.localidade ?? "");
+      setValue("state", data.uf ?? "");
     } catch {
-      setCepError(
-        "Não foi possível consultar o CEP. Você pode preencher o endereço manualmente."
-      );
+      if (cepLookupRef.current === cep) {
+        setCepError("Não foi possível consultar o CEP. Você pode preencher o endereço manualmente.");
+      }
     } finally {
       setSearchingCep(false);
+    }
+
+    await shippingDone;
+  }
+
+  async function handleCepBlur(event: React.FocusEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const cep = input.value.replace(/D/g, "");
+
+    if (cep.length !== 8) {
+      setCepError("Digite um CEP com 8 números.");
+      return;
+    }
+
+    if (!input.form) {
+      setCepError("Não foi possível localizar o formulário.");
+      return;
+    }
+
+    // Já calculado para este CEP (digitação, colagem ou autofill): não repete, a menos que tenha falhado.
+    if (cepLookupRef.current === cep && !shippingError && !cepError && (shippingOptions.length > 0 || loadingShipping)) {
+      return;
+    }
+
+    await lookupCep(cep, input.form);
+  }
+
+  function handleCepChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const cep = input.value.replace(/D/g, "");
+
+    if (cep.length !== 8) {
+      // Apagou/editou: libera para calcular de novo quando completar 8 dígitos.
+      cepLookupRef.current = "";
+      return;
+    }
+
+    if (cep !== cepLookupRef.current) {
+      void lookupCep(cep, input.form);
     }
   }
 
@@ -1442,10 +1493,10 @@ export default function CheckoutPage() {
   const merchandiseTotalCents =
     quote?.totalCents ?? 0;
 
-  const hasFreeShipping =
-    merchandiseTotalCents >= 10000;
+  const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
 
-  const freeShippingThresholdCents = 10000;
+  const hasFreeShipping =
+    merchandiseTotalCents >= freeShippingThresholdCents;
   const freeShippingRemainingCents =
     Math.max(
       0,
@@ -1462,6 +1513,14 @@ export default function CheckoutPage() {
           100
       )
     );
+
+  // Faixa de benefícios (genérica, calculada da configuração real; o B2C da Bio não tem desconto por forma de pagamento).
+  const checkoutBenefits = buildCheckoutBenefits({
+    kind: "b2c",
+    subtotalCents: merchandiseTotalCents,
+    freeShippingThresholdCents,
+    shippingSubsidyPercent: B2C_SHIPPING_SUBSIDY_PERCENT,
+  });
 
   // Custo real da transportadora.
   const shippingCostCents =
@@ -1501,7 +1560,7 @@ export default function CheckoutPage() {
         // subsidio normal de 25%.
         : Math.round(
             shippingCostCents *
-              0.25
+              (B2C_SHIPPING_SUBSIDY_PERCENT / 100)
           )
       : 0;
 
@@ -1950,6 +2009,7 @@ export default function CheckoutPage() {
                     inputMode="numeric"
                     autoComplete="postal-code"
                     required
+                    onChange={handleCepChange}
                     onBlur={handleCepBlur}
                     className={inputClass}
                     placeholder="00000-000"
@@ -2523,6 +2583,8 @@ export default function CheckoutPage() {
               Resumo do pedido
             </h2>
 
+            <CheckoutBenefitsBar benefits={checkoutBenefits} className="mt-4" />
+
             {orderError ? (
               <div className="mt-4 rounded-2xl bg-red-50 p-4 text-sm leading-5 text-red-900">
                 {orderError}
@@ -2892,6 +2954,8 @@ export default function CheckoutPage() {
               </div>
             ) : null}
 
+            <CheckoutBenefitsBar benefits={checkoutBenefits} variant="compact" className="mt-6" />
+
             <button
               type="submit"
               form="bio-checkout-form"
@@ -2905,7 +2969,7 @@ export default function CheckoutPage() {
                 Boolean(error) ||
                 Boolean(shippingError)
               }
-              className="mt-6 w-full rounded-full bg-[#26352c] px-6 py-3.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-3 w-full rounded-full bg-[#26352c] px-6 py-3.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {creatingOrder
                 ? "Criando pedido..."

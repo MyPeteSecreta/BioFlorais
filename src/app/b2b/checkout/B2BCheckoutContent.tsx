@@ -30,7 +30,9 @@ import { buildReviewSheet } from "@/lib/b2b/order-sheet";
 import QuoteActions from "@/components/b2b/QuoteActions";
 import { continueQuotePath, printQuotePath, tokenFromOfferUrl } from "@/lib/b2b/quote-links";
 import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
-import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
+import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
+import { buildCheckoutBenefits } from "@/lib/checkout/benefits";
+import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
@@ -411,6 +413,14 @@ export default function B2BCheckoutContent() {
     ? quote?.options.find((option) => option.serviceName === serviceName) ?? null
     : null;
   const totals = chosen?.totalsByPaymentMethod ?? null;
+
+  // Faixa de benefícios (genérica, da configuração real do B2B: frete especial e desconto Pix/cartão; nunca "frete grátis").
+  const checkoutBenefits = buildCheckoutBenefits({
+    kind: "b2b",
+    subtotalCents: quoteIsCurrent && quote ? quote.subtotalAfterCouponCents : cart.subtotalCents,
+    specialFreightThresholdCents: B2B_FREIGHT_FLAT_THRESHOLD_CENTS,
+    paymentDiscountPercent: B2B_PAYMENT_METHOD_DISCOUNT_PERCENT,
+  });
   // Pessoa física: só Pix e cartão (o servidor também recusa boleto para PF).
   const availableMethods: readonly B2BPaymentMethod[] =
     personType === "pf" ? ["pix", "card"] : ["pix", "card", "boleto"];
@@ -1102,6 +1112,7 @@ export default function B2BCheckoutContent() {
 
         <aside className="h-fit space-y-4 rounded-[20px] border border-[#eadfd9] bg-white p-5 lg:sticky lg:top-6">
           <h2 className="font-bold">Resumo</h2>
+          <CheckoutBenefitsBar benefits={checkoutBenefits} />
           {cart.notice && (
             <p role="alert" data-testid="aviso-display" className="flex items-start justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">
               <span>{cart.notice}</span>
@@ -1180,6 +1191,8 @@ export default function B2BCheckoutContent() {
           {error && (
             <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-900">{error}</p>
           )}
+
+          <CheckoutBenefitsBar benefits={checkoutBenefits} variant="compact" />
 
           <button
             type="button"

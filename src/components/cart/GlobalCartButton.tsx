@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import {
   useCart,
@@ -11,7 +12,10 @@ export default function GlobalCartButton() {
     itemCount,
   } = useCart();
 
-  if (itemCount <= 0) {
+  // As páginas de campanha (/para/*) têm o ícone da sacola no próprio cabeçalho.
+  const pathname = usePathname();
+
+  if (itemCount <= 0 || pathname?.startsWith("/para/")) {
     return null;
   }
 
