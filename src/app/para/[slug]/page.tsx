@@ -13,11 +13,10 @@ import BottleCropImage from "@/components/campaign/BottleCropImage";
 import CampaignBuyButton from "@/components/campaign/CampaignBuyButton";
 import CampaignCartIcon from "@/components/campaign/CampaignCartIcon";
 import CampaignMarker from "@/components/campaign/CampaignMarker";
-import LineMiniCards from "@/components/campaign/LineMiniCards";
+import LineMiniCards, { LINE_PHOTOS } from "@/components/campaign/LineMiniCards";
 import Gpt10Banner from "@/components/campaign/Gpt10Banner";
 import { formatBRL, getProduct } from "@/lib/catalog/bio-products";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
-import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT } from "@/lib/checkout/benefits";
 import { CAMPAIGN_SLUGS, getCampaignPage } from "@/lib/campaign/gpt-pages";
 
 export const dynamicParams = false;
@@ -92,14 +91,13 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
 
         <section className="mt-6" aria-label="Produtos">
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {products.map(({ entry, product, image }, index) => {
+            {products.map(({ entry, product, image }) => {
               const name = entry.label ?? product.name;
 
               return (
                 <li
                   key={product.slug}
-                  // 3 produtos: o último fica centralizado, com a mesma largura dos outros (sem card gigante no celular)
-                  className={`flex flex-col rounded-[20px] border border-[#eadfd9] bg-white p-3 ${products.length === 3 && index === 2 ? "col-span-2 w-[calc(50%-6px)] justify-self-center sm:col-span-1 sm:w-auto" : ""}`}
+                  className="flex flex-col rounded-[20px] border border-[#eadfd9] bg-white p-3"
                   data-testid="campanha-produto"
                 >
                   <div className="overflow-hidden rounded-[14px]">
@@ -121,18 +119,27 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
                 </li>
               );
             })}
+
+            {/* A grade tem sempre 4 cards: faltando produto, o 4º é o card da linha ("Conheça a linha"). */}
+            {products.length < 4 ? (
+              <li className="flex flex-col rounded-[20px] border border-[#eadfd9] bg-white p-3" data-testid="campanha-card-linha">
+                <Link href={`/linha/${page.lineSlug}`} className="flex h-full flex-col">
+                  <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[14px] bg-[#f6efe6]">
+                    {LINE_PHOTOS[page.lineSlug] ? (
+                      <Image src={LINE_PHOTOS[page.lineSlug].src} alt="" fill sizes="(max-width: 640px) 50vw, 240px" className="object-cover" style={{ objectPosition: LINE_PHOTOS[page.lineSlug].position, transform: `scale(${LINE_PHOTOS[page.lineSlug].zoom ?? 1.25})`, transformOrigin: LINE_PHOTOS[page.lineSlug].position }} />
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a0742b]">{page.lineLabel}</p>
+                  <h2 className="mt-0.5 text-[15px] font-extrabold leading-tight text-[#422347]">Conheça a linha</h2>
+                  <p className="mt-1 text-[11px] text-[#8a7886]">Todas as versões em gotas</p>
+                  <span className="mt-auto inline-flex w-full items-center justify-center rounded-full border-2 border-[#55245f] px-4 py-2.5 text-sm font-extrabold text-[#55245f]">Ver a linha</span>
+                </Link>
+              </li>
+            ) : null}
           </ul>
         </section>
 
-        <section className="mt-8 rounded-[22px] bg-[#faf5ef] p-5" aria-label="Por que comprar" data-testid="campanha-confianca">
-          <h2 className="font-serif text-[22px] font-semibold text-[#422347]">Compre com tranquilidade</h2>
-          <ul className="mt-3 space-y-2.5 text-[14px] leading-5 text-[#4a3a4a]">
-            <li><strong>100% sem álcool.</strong></li>
-            <li><strong>Como usar:</strong> {page.howToUse}</li>
-            <li><strong>Frete grátis</strong> a partir de {formatBRL(B2C_FREE_SHIPPING_THRESHOLD_CENTS)} em produtos; abaixo disso, a Bio Florais subsidia {B2C_SHIPPING_SUBSIDY_PERCENT}% do frete.</li>
-            <li><strong>Pix e cartão</strong> de crédito.</li>
-          </ul>
-        </section>
+        <LineMiniCards />
 
         <section className="mt-8" aria-label="Perguntas frequentes" data-testid="campanha-faq">
           <h2 className="font-serif text-[22px] font-semibold text-[#422347]">Perguntas frequentes</h2>
@@ -152,7 +159,6 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           </Link>
         </div>
 
-        <LineMiniCards />
       </div>
     </main>
   );

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { bioLines } from "@/lib/catalog/bio-products";
 
 /** Banner de cada linha (public/assets/home/linhas) e o recorte que mostra o frasco/cena sem as frases do banner. */
-const LINE_PHOTOS: Record<string, { src: string; position: string; zoom?: number }> = {
+export const LINE_PHOTOS: Record<string, { src: string; position: string; zoom?: number }> = {
   adulto: { src: "/assets/home/linhas/Adulto.png", position: "96% 50%", zoom: 1.5 },
   pet: { src: "/assets/home/linhas/Pet.png", position: "78% 50%" },
   infantil: { src: "/assets/home/linhas/Infantil.png", position: "92% 50%" },

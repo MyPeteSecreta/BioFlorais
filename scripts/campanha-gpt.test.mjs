@@ -16,14 +16,14 @@ const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8"
 const exists = (rel) => existsSync(new URL(`../public${rel}`, import.meta.url));
 
 const EXPECTED = {
-  "pet-sozinho": ["pet-floral-em-gotas-ansiedade", "pet-floral-em-gotas-stress", "pet-floral-em-gotas-carencia-e-sindrome-do-abandono", "pet-floral-em-gotas-adaptacao-a-um-novo-lar"],
+  "pet-sozinho": ["pet-floral-em-gotas-ansiedade", "pet-floral-em-gotas-stress", "pet-floral-em-gotas-carencia-e-sindrome-do-abandono", "pet-floral-em-gotas-latido-excessivo"],
   "pet-habitos": ["pet-floral-em-gotas-lambedura-e-automutilacao", "pet-floral-em-gotas-hiperatividade", "pet-floral-em-gotas-coprofagia", "pet-floral-em-gotas-latido-excessivo"],
   "pet-medroso": ["pet-floral-em-gotas-ansiedade", "pet-floral-em-gotas-s-o-s", "pet-floral-em-gotas-medo-de-fogos", "pet-floral-em-gotas-medo"],
   pausa: ["adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-reequilibrio-dos-chakras", "adulto-floral-em-gotas-medo"],
   // saiu "Tristeza e Depressão" (rótulo do frasco traz "Depressão")
-  "fim-do-dia": ["adulto-floral-em-gotas-sono", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade"],
+  "fim-do-dia": ["adulto-floral-em-gotas-sono", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-falta-de-tolerancia"],
   // saiu "Rescue" (rótulo do frasco traz RESCUE)
-  rotina: ["adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-mudancas-na-vida"],
+  rotina: ["adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-mudancas-na-vida", "adulto-floral-em-gotas-falta-de-tolerancia"],
   "bebe-soninho": ["baby-floral-em-gotas-sono", "baby-floral-em-gotas-choro-excessivo", "baby-floral-em-gotas-bebe-nervoso"],
   "crianca-desacelerar": ["infantil-floral-em-gotas-hiperatividade", "infantil-floral-em-gotas-ansiedade", "infantil-floral-em-gotas-sono", "infantil-floral-em-gotas-medos-infantis-e-pesadelos"],
 };
@@ -39,7 +39,8 @@ test("dados: 8 páginas exatamente, com os produtos aprovados; todos existem no 
       assert.equal(product.lineSlug, page.lineSlug, `${entry.slug}: linha`);
     }
     assert.ok(page.products.length >= 3 && page.products.length <= 4);
-    assert.equal(page.faq.length, 3, `${page.slug}: 3 perguntas`);
+    assert.equal(page.faq.length, 5, `${page.slug}: um bloco só de perguntas (uso, álcool, medicamento, frete, pagamento)`);
+    assert.ok(page.faq.some((item) => /frete/i.test(item.question)) && page.faq.some((item) => /pagar/i.test(item.question)));
     assert.ok(page.lead.length <= 120, `${page.slug}: frase curta (${page.lead.length})`);
   }
   assert.equal(data.getCampaignPage("nao-existe"), undefined);
@@ -107,9 +108,14 @@ test("sem cloaking: página estática, igual para todos (nada lê cabeçalho, co
 
 test("estrutura da página: título, faixa GPT10, produtos com preço e Comprar, confiança, 3 perguntas, ver a linha completa", () => {
   const page = read("src/app/para/[slug]/page.tsx");
-  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "formatBRL(product.priceCents)", "<CampaignBuyButton", 'data-testid="campanha-confianca"', 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
+  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "formatBRL(product.priceCents)", "<CampaignBuyButton", "<LineMiniCards />", 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
   assert.ok(order.every((index) => index > 0) && [...order].sort((a, b) => a - b).join() === order.join(), "ordem das seções");
-  for (const part of ["100% sem álcool", "Como usar:", "B2C_FREE_SHIPPING_THRESHOLD_CENTS", "B2C_SHIPPING_SUBSIDY_PERCENT", "Pix e cartão"]) assert.ok(page.includes(part), part);
+  assert.ok(!page.includes("campanha-confianca") && !page.includes("Compre com tranquilidade"), "o bloco de confiança saiu: minicards das linhas no lugar");
+  assert.equal(page.split('aria-label="Perguntas frequentes"').length - 1, 1, "um bloco só de perguntas");
+  assert.ok(page.includes("products.length < 4") && page.includes("campanha-card-linha") && page.includes("Conheça a linha"), "sempre 4 cards: o 4º pode ser o card da linha");
+  assert.equal(data.getCampaignPage("bebe-soninho").products.length, 3);
+  const faqTexts = data.campaignPages.map((p) => p.faq.map((f) => f.answer).join(" ")).join(" ");
+  assert.ok(faqTexts.includes("Frete grátis a partir de R$ 100,00") && faqTexts.includes("subsidia 25% do frete") && faqTexts.includes("Pix ou cartão"));
   assert.ok(page.includes("`/linha/${page.lineSlug}`"));
   const banner = read("src/components/campaign/Gpt10Banner.tsx");
   assert.ok(banner.includes("CAMPAIGN_GPT10.bannerText") && data.CAMPAIGN_GPT10.bannerText === "GPT10 aplicado: 10% na sua 1ª compra");

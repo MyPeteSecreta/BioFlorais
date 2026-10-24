@@ -8,6 +8,8 @@
  * Para trocar a imagem do topo de uma página, edite `hero` (campo src/alt/posição). Para trocar produtos, edite `products`.
  */
 
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT } from "@/lib/checkout/benefits";
+
 export const CAMPAIGN_GPT10 = {
   code: "GPT10",
   /** 30/11/2026 23:59:59 em Brasília (= 2026-12-01 02:59:59 UTC), a mesma validade do cupom (SQL 50b). */
@@ -89,7 +91,17 @@ const faqMedicine = (who: string): CampaignFaq => ({
   answer: `Não. Os florais Bio Florais não são medicamento e não substituem avaliação ou acompanhamento profissional. Em caso de dúvida, consulte ${who}.`,
 });
 
-const PET_FAQ = (use: string): CampaignFaq[] => [faqUse(`${use} Detalhes na embalagem de cada produto.`), faqAlcohol, faqMedicine("o seu veterinário")];
+const brl = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
+const faqShipping: CampaignFaq = {
+  question: "Como é o frete?",
+  answer: `Frete grátis a partir de ${brl(B2C_FREE_SHIPPING_THRESHOLD_CENTS)} em produtos; abaixo disso, a Bio Florais subsidia ${B2C_SHIPPING_SUBSIDY_PERCENT}% do frete.`,
+};
+const faqPayment: CampaignFaq = { question: "Como posso pagar?", answer: "Pix ou cartão de crédito." };
+
+// Um bloco só de perguntas frequentes (uso, álcool, medicamento, frete e pagamento).
+const faqList = (use: CampaignFaq, medicine: CampaignFaq): CampaignFaq[] => [use, faqAlcohol, medicine, faqShipping, faqPayment];
+
+const PET_FAQ = (use: string): CampaignFaq[] => faqList(faqUse(`${use} Detalhes na embalagem de cada produto.`), faqMedicine("o seu veterinário"));
 
 export const campaignPages: readonly CampaignPage[] = [
   {
@@ -106,7 +118,7 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "pet-floral-em-gotas-ansiedade" },
       { slug: "pet-floral-em-gotas-stress" },
       { slug: "pet-floral-em-gotas-carencia-e-sindrome-do-abandono" },
-      { slug: "pet-floral-em-gotas-adaptacao-a-um-novo-lar" },
+      { slug: "pet-floral-em-gotas-latido-excessivo" },
     ],
     faq: PET_FAQ(HOW_PET),
   },
@@ -164,7 +176,7 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "adulto-floral-em-gotas-reequilibrio-dos-chakras", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-medo", crop: MEDO_CROP },
     ],
-    faq: [faqUse(HOW_ADULT), faqAlcohol, faqMedicine("o seu médico")],
+    faq: faqList(faqUse(HOW_ADULT), faqMedicine("o seu médico")),
   },
   {
     slug: "fim-do-dia",
@@ -181,8 +193,9 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "adulto-floral-em-gotas-sono", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-stress", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-sensacao-de-ansiedade", crop: ADULT_CROP },
+      { slug: "adulto-floral-em-gotas-falta-de-tolerancia", crop: ADULT_CROP },
     ],
-    faq: [faqUse(HOW_ADULT), faqAlcohol, faqMedicine("o seu médico")],
+    faq: faqList(faqUse(HOW_ADULT), faqMedicine("o seu médico")),
   },
   {
     slug: "rotina",
@@ -200,8 +213,9 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "adulto-floral-em-gotas-stress", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-sensacao-de-ansiedade", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-mudancas-na-vida", crop: ADULT_CROP },
+      { slug: "adulto-floral-em-gotas-falta-de-tolerancia", crop: ADULT_CROP },
     ],
-    faq: [faqUse(HOW_ADULT), faqAlcohol, faqMedicine("o seu médico")],
+    faq: faqList(faqUse(HOW_ADULT), faqMedicine("o seu médico")),
   },
   {
     slug: "bebe-soninho",
@@ -213,16 +227,13 @@ export const campaignPages: readonly CampaignPage[] = [
     lineSlug: "baby",
     lineLabel: "Linha Baby",
     howToUse: HOW_BABY,
+    // 3 produtos: o 4º card da grade é o card da linha Baby ("Conheça a linha"); a grade tem sempre 4 cards.
     products: [
       { slug: "baby-floral-em-gotas-sono" },
       { slug: "baby-floral-em-gotas-choro-excessivo" },
       { slug: "baby-floral-em-gotas-bebe-nervoso" },
     ],
-    faq: [
-      faqUse(HOW_BABY),
-      faqAlcohol,
-      { question: "É um medicamento?", answer: "Não. Não é medicamento, sedativo nem indutor do sono. Se o sono do bebê mudar de forma persistente, converse com o pediatra." },
-    ],
+    faq: faqList(faqUse(HOW_BABY), { question: "É um medicamento?", answer: "Não. Não é medicamento, sedativo nem indutor do sono. Se o sono do bebê mudar de forma persistente, converse com o pediatra." }),
   },
   {
     slug: "crianca-desacelerar",
@@ -240,7 +251,7 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "infantil-floral-em-gotas-sono" },
       { slug: "infantil-floral-em-gotas-medos-infantis-e-pesadelos" },
     ],
-    faq: [faqUse(HOW_INFANTIL), faqAlcohol, faqMedicine("o pediatra")],
+    faq: faqList(faqUse(HOW_INFANTIL), faqMedicine("o pediatra")),
   },
 ];
 
