@@ -22,6 +22,7 @@ import type {
   CentralOrder,
   InviteRequest,
   InviteResponse,
+  OrderDiscountLine,
   OrdersResponse,
   ProgressRequest,
   ProgressResponse,
@@ -73,6 +74,15 @@ export async function createBrandInvite(run: SqlRunner, issue: IssueInviteFn, in
 
 export type OrderStage = "separation" | "tracking" | "shipped";
 
+/** Desconto por forma de pagamento (Pix/cartão) como linha própria para o Omie; vazio quando não há. */
+export function paymentDiscountLines(method: unknown, cents: unknown): OrderDiscountLine[] {
+  const value = Math.round(Number(cents ?? 0));
+
+  if (!Number.isFinite(value) || value <= 0) return [];
+
+  return method === "card" ? [{ code: "DESCONTO_CARTAO", label: "Desconto cartão", cents: value }] : [{ code: "DESCONTO_PIX", label: "Desconto Pix", cents: value }];
+}
+
 export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promise<OrdersResponse> {
   const stageFilter =
     stage === "separation"
@@ -85,6 +95,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
   const rows = await run(
     `SELECT o.id, o.fulfillment_status, o.b2b_offer_id, o.shipping_service_name,
             to_jsonb(o) ->> 'origin' AS origin, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, to_jsonb(o) ->> 'customer_note' AS customer_note, to_jsonb(o) ->> 'b2b_responsible_id' AS b2b_responsible_id,
+            to_jsonb(o) ->> 'payment_method' AS payment_method, to_jsonb(o) ->> 'payment_method_discount_cents' AS payment_discount_cents,
             COALESCE(r.name, to_jsonb(o) ->> 'b2b_responsible_name') AS seller_name,
             to_jsonb(r) ->> 'omie_vendor_code' AS omie_vendor_code,
             to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') || 'Z' AS created_at,
@@ -176,6 +187,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
       fulfillment: String(row.fulfillment_status),
       b2b: row.b2b_offer_id !== null && row.b2b_offer_id !== undefined,
       items: byOrder.get(String(row.id)) ?? [],
+      discountLines: paymentDiscountLines(row.payment_method, row.payment_discount_cents),
       carrier: row.shipping_service_name ? String(row.shipping_service_name) : null,
       showcase,
       seller,

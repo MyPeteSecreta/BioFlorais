@@ -519,6 +519,17 @@ export default async function PedidoDetalhePage({
               </div>
             )}
 
+            {order.paymentMethodDiscountCents > 0 && (
+              <div className="flex justify-between gap-4" data-testid="admin-desconto-pagamento">
+                <span className="text-stone-500">
+                  {order.paymentMethod === "card" ? "Desconto no cartão" : "Desconto no Pix"}
+                </span>
+                <span>
+                  - {formatMoney(order.paymentMethodDiscountCents)}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-between">
               <span className="text-stone-500">
                 Frete

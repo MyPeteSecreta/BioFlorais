@@ -1,3 +1,4 @@
+import { pixDiscountCents } from "@/lib/checkout/benefits";
 import {
   NextRequest,
   NextResponse,
@@ -998,24 +999,26 @@ export async function POST(
           )
         : 0;
 
+    // Forma de pagamento escolhida no checkout: Pix tem desconto (4%) sobre os PRODUTOS, depois dos cupons; o frete não entra.
+    // Cartão não tem desconto no B2C. O percentual nunca é mostrado ao comprador; o pedido guarda o valor.
+    const requestedPaymentMethod = String((body as { paymentMethod?: unknown }).paymentMethod ?? "").trim().toLowerCase();
+
+    const merchandiseAfterDiscountsCents = Math.max(
+      0,
+      subtotalCents - offerDiscountCents - promotionDiscountCents - couponDiscountCents - partnerCouponDiscountCents - creditCents
+    );
+
+    const paymentMethodDiscountCents = requestedPaymentMethod === "pix" ? pixDiscountCents(merchandiseAfterDiscountsCents) : 0;
+
     const discountCents =
       offerDiscountCents +
       promotionDiscountCents +
       couponDiscountCents +
       partnerCouponDiscountCents +
-      creditCents;
+      creditCents +
+      paymentMethodDiscountCents;
 
-    const totalCents =
-      Math.max(
-        0,
-        subtotalCents -
-          offerDiscountCents -
-          promotionDiscountCents -
-          couponDiscountCents -
-          partnerCouponDiscountCents -
-          creditCents +
-          shippingCents
-      );
+    const totalCents = Math.max(0, merchandiseAfterDiscountsCents - paymentMethodDiscountCents + shippingCents);
 const commercialAdjustmentsJson =
       JSON.stringify({
         storeKey: "bio",
@@ -1041,6 +1044,10 @@ const commercialAdjustmentsJson =
         partnerCommissionCents,
 
         creditCents,
+
+        // Desconto Pix (linha própria para a conciliação e para o Omie); já está dentro do total do pedido.
+        paymentMethod: requestedPaymentMethod === "pix" || requestedPaymentMethod === "card" ? requestedPaymentMethod : null,
+        paymentMethodDiscountCents,
 
         shippingSubsidyCents,
         freeShippingDiscountCents,
@@ -1190,6 +1197,9 @@ const orderRows =
               : null,
 
           creditCents,
+
+          paymentMethod: requestedPaymentMethod === "pix" || requestedPaymentMethod === "card" ? requestedPaymentMethod : null,
+          paymentMethodDiscountCents,
 
           commercialAdjustmentsJson,
 
@@ -1430,6 +1440,8 @@ const orderRows =
         partnerCommissionCents,
 
         creditCents,
+
+        paymentMethodDiscountCents,
 
         discountCents,
 

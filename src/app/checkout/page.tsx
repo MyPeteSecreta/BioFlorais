@@ -9,7 +9,8 @@ import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment
 
 import Link from "next/link";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
-import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits } from "@/lib/checkout/benefits";
+import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
 
@@ -1033,7 +1034,7 @@ export default function CheckoutPage() {
     const timer = window.setInterval(() => {
       const form = document.getElementById("bio-checkout-form") as HTMLFormElement | null;
       const field = form?.elements.namedItem("postalCode") as HTMLInputElement | null;
-      const digits = (field?.value ?? "").replace(/D/g, "");
+      const digits = (field?.value ?? "").replace(/\D/g, "");
 
       if (form && digits.length === 8 && digits !== cepLookupRef.current) {
         void lookupCep(digits, form);
@@ -1235,7 +1236,7 @@ export default function CheckoutPage() {
 
   async function handleCepBlur(event: React.FocusEvent<HTMLInputElement>) {
     const input = event.currentTarget;
-    const cep = input.value.replace(/D/g, "");
+    const cep = input.value.replace(/\D/g, "");
 
     if (cep.length !== 8) {
       setCepError("Digite um CEP com 8 números.");
@@ -1257,7 +1258,7 @@ export default function CheckoutPage() {
 
   function handleCepChange(event: React.ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
-    const cep = input.value.replace(/D/g, "");
+    const cep = input.value.replace(/\D/g, "");
 
     if (cep.length !== 8) {
       // Apagou/editou: libera para calcular de novo quando completar 8 dígitos.
@@ -1520,6 +1521,14 @@ export default function CheckoutPage() {
     subtotalCents: merchandiseTotalCents,
     freeShippingThresholdCents,
     shippingSubsidyPercent: B2C_SHIPPING_SUBSIDY_PERCENT,
+    paymentDiscountPercent: { pix: B2C_PIX_DISCOUNT_PERCENT / 100 },
+  });
+
+  const checkoutTopStrip = buildCheckoutTopStrip({
+    kind: "b2c",
+    freeShippingThresholdCents,
+    shippingSubsidyPercent: B2C_SHIPPING_SUBSIDY_PERCENT,
+    paymentDiscountPercent: { pix: B2C_PIX_DISCOUNT_PERCENT / 100 },
   });
 
   // Custo real da transportadora.
@@ -1587,8 +1596,13 @@ export default function CheckoutPage() {
         partnerCouponDiscountCents
     );
 
+  // Pix com desconto (B2C): sobre os produtos depois dos cupons, nunca sobre o frete. O percentual não aparece, só o valor.
+  const pixSavingsCents = pixDiscountCents(merchandiseAfterCouponsCents);
+  const pixDiscountAppliedCents = paymentMethod === "pix" ? pixSavingsCents : 0;
+
   const checkoutTotalCents =
-    merchandiseAfterCouponsCents +
+    merchandiseAfterCouponsCents -
+    pixDiscountAppliedCents +
     customerShippingCents;
 
   const inputClass =
@@ -1597,6 +1611,8 @@ export default function CheckoutPage() {
   return (
     <main className="min-h-screen bg-[#f8f5ee] px-5 py-10 text-[#26352c] md:py-14">
       <div className="mx-auto max-w-6xl">
+        <CheckoutTopStrip parts={checkoutTopStrip} className="mb-6" />
+
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#26352c]/50">
@@ -2546,6 +2562,12 @@ export default function CheckoutPage() {
                   <p className="mt-1 max-w-xs text-sm leading-5 text-[#26352c]/55">
                     Pagamento à vista com QR Code e Pix Copia e Cola.
                   </p>
+
+                  {pixSavingsCents > 0 ? (
+                    <p className="mt-2 text-sm font-semibold text-[#46644f]" data-testid="pix-economia">
+                      {formatMoney(pixSavingsCents)} a menos no Pix
+                    </p>
+                  ) : null}
                 </button>
 
                 <button
@@ -2745,6 +2767,14 @@ export default function CheckoutPage() {
                 </strong>
               </div>
             ) : null}
+            {pixDiscountAppliedCents > 0 ? (
+              <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]" data-testid="linha-desconto-pix">
+                <span>Desconto no Pix</span>
+                <strong className="font-medium">
+                  − {formatMoney(pixDiscountAppliedCents)}
+                </strong>
+              </div>
+            ) : null}
             <div className="my-6 h-px bg-[#26352c]/10" />
 
                         <div className="mb-5 rounded-2xl bg-[#f5f7f2] p-4">
@@ -2761,7 +2791,9 @@ export default function CheckoutPage() {
 
                 <span className="text-right text-[#26352c]/55">
                   {paymentMethod === "pix"
-                    ? "À vista"
+                    ? pixSavingsCents > 0
+                      ? `À vista · ${formatMoney(pixSavingsCents)} a menos`
+                      : "À vista"
                     : "Parcelamento conforme adquirente"}
                 </span>
               </div>

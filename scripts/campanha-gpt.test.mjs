@@ -21,9 +21,9 @@ const EXPECTED = {
   "pet-medroso": ["pet-floral-em-gotas-ansiedade", "pet-floral-em-gotas-s-o-s", "pet-floral-em-gotas-medo-de-fogos", "pet-floral-em-gotas-medo"],
   pausa: ["adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-reequilibrio-dos-chakras", "adulto-floral-em-gotas-medo"],
   // saiu "Tristeza e Depressão" (rótulo do frasco traz "Depressão")
-  "fim-do-dia": ["adulto-floral-em-gotas-sono", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-falta-de-tolerancia"],
+  "fim-do-dia": ["adulto-floral-em-gotas-sono", "adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade"],
   // saiu "Rescue" (rótulo do frasco traz RESCUE)
-  rotina: ["adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-mudancas-na-vida", "adulto-floral-em-gotas-falta-de-tolerancia"],
+  rotina: ["adulto-floral-em-gotas-stress", "adulto-floral-em-gotas-sensacao-de-ansiedade", "adulto-floral-em-gotas-mudancas-na-vida"],
   "bebe-soninho": ["baby-floral-em-gotas-sono", "baby-floral-em-gotas-choro-excessivo", "baby-floral-em-gotas-bebe-nervoso"],
   "crianca-desacelerar": ["infantil-floral-em-gotas-hiperatividade", "infantil-floral-em-gotas-ansiedade", "infantil-floral-em-gotas-sono", "infantil-floral-em-gotas-medos-infantis-e-pesadelos"],
 };
@@ -65,13 +65,19 @@ test("imagens: a mesma arte do anúncio onde existe; sem arte = foto da Home / b
   const bySlug = (slug) => data.getCampaignPage(slug).hero;
   assert.equal(bySlug("bebe-soninho").src, "/para/O1_Sono_Baby.jpg");
   assert.equal(bySlug("crianca-desacelerar").src, "/para/O1_Sono_Infantil.jpg");
-  assert.equal(bySlug("pet-sozinho").src, "/para/Ad4_Pet.jpg");
   assert.equal(bySlug("pet-medroso").src, "/para/B_pet_ansiedade_sem_rotulo.jpg");
-  assert.equal(bySlug("rotina").src, "/para/Ad2_Adulto.jpg");
-  assert.equal(bySlug("pausa").src, "/para/B2_adulto_sensacao_ansiedade_sem_rotulo.jpg");
-  assert.equal(bySlug("fim-do-dia").src, "/assets/home/hero/Hero.png");
-  assert.equal(bySlug("pet-habitos").src, "/assets/home/linhas/Pet.png");
-  assert.ok(bySlug("pet-habitos").scale > 1, "banner da linha recortado para esconder o texto");
+  // topo das 5 páginas: SÓ O RECORTE DA FOTO das artes de produto do site, sem nenhum texto da arte (frases de benefício derrubam a revisão)
+  assert.equal(bySlug("pet-sozinho").src, "/para/hero-pet-sozinho.jpg");
+  assert.equal(bySlug("pet-habitos").src, "/para/hero-pet-habitos.jpg");
+  assert.equal(bySlug("pausa").src, "/para/hero-pausa.jpg");
+  assert.equal(bySlug("fim-do-dia").src, "/para/hero-fim-do-dia.jpg");
+  assert.equal(bySlug("rotina").src, "/para/hero-rotina.jpg");
+  for (const slug of ["pet-sozinho", "pet-habitos", "pausa", "fim-do-dia", "rotina"]) assert.ok(bySlug(slug).aspect, `${slug}: proporção do recorte`);
+  // Pausa e rotina: produtos da tabela do Luis; fim-do-dia e rotina com 3 produtos + o 4º espaço = card "Conheça a linha Adulto"
+  assert.deepEqual(data.getCampaignPage("pausa").products.map((p) => p.slug), EXPECTED.pausa);
+  assert.ok(!JSON.stringify(data.getCampaignPage("fim-do-dia").products).includes("falta-de-tolerancia") && !JSON.stringify(data.getCampaignPage("rotina").products).includes("falta-de-tolerancia"));
+  assert.equal(data.getCampaignPage("fim-do-dia").products.length, 3);
+  assert.equal(data.getCampaignPage("rotina").products.length, 3);
 });
 
 test("fotos do Adulto: só o frasco (recorte por CSS); as demais linhas usam a foto limpa sem recorte", () => {

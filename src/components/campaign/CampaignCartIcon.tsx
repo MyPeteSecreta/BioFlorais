@@ -1,6 +1,6 @@
 "use client";
 
-/** Ícone da sacola no cabeçalho das páginas /para/*: aparece sempre, com a contagem de itens (leva à sacola). */
+/** Ícone da sacola no cabeçalho das páginas /para/*: só aparece quando há item, com a contagem (leva à sacola). */
 
 import Link from "next/link";
 
@@ -8,6 +8,8 @@ import { useCart } from "@/components/cart/CartProvider";
 
 export default function CampaignCartIcon() {
   const { itemCount } = useCart();
+
+  if (itemCount <= 0) return null;
 
   return (
     <Link

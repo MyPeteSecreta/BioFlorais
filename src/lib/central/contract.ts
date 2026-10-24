@@ -41,6 +41,14 @@ export type OrderItemLine = {
   qty: number;
 };
 
+/** Desconto do pedido que o Omie deve lançar como LINHA PRÓPRIA (não embutido no preço dos itens). Valores em centavos, positivos. */
+export type OrderDiscountLine = {
+  /** DESCONTO_PIX | DESCONTO_CARTAO */
+  code: string;
+  label: string;
+  cents: number;
+};
+
 export type CentralOrder = {
   id: string;
   /** Número de exibição (ex.: BIO-1359F0ED). */
@@ -67,6 +75,8 @@ export type CentralOrder = {
    */
   address?: { cep: string | null; street: string | null; number: string | null; complement: string | null; district: string | null; city: string | null; state: string | null };
   items: OrderItemLine[];
+  /** Descontos por forma de pagamento (Pix/cartão) como linha própria; ausente/vazio = sem desconto. */
+  discountLines?: OrderDiscountLine[];
   carrier?: string | null;
 };
 

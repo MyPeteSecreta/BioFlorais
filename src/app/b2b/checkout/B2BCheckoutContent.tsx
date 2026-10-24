@@ -31,7 +31,8 @@ import QuoteActions from "@/components/b2b/QuoteActions";
 import { continueQuotePath, printQuotePath, tokenFromOfferUrl } from "@/lib/b2b/quote-links";
 import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
-import { buildCheckoutBenefits } from "@/lib/checkout/benefits";
+import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
+import { buildCheckoutBenefits, buildCheckoutTopStrip } from "@/lib/checkout/benefits";
 import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
@@ -415,6 +416,11 @@ export default function B2BCheckoutContent() {
   const totals = chosen?.totalsByPaymentMethod ?? null;
 
   // Faixa de benefícios (genérica, da configuração real do B2B: frete especial e desconto Pix/cartão; nunca "frete grátis").
+  const checkoutTopStrip = buildCheckoutTopStrip({
+    kind: "b2b",
+    specialFreightThresholdCents: B2B_FREIGHT_FLAT_THRESHOLD_CENTS,
+    paymentDiscountPercent: B2B_PAYMENT_METHOD_DISCOUNT_PERCENT,
+  });
   const checkoutBenefits = buildCheckoutBenefits({
     kind: "b2b",
     subtotalCents: quoteIsCurrent && quote ? quote.subtotalAfterCouponCents : cart.subtotalCents,
@@ -900,6 +906,7 @@ export default function B2BCheckoutContent() {
           {quoteNotice}
         </p>
       )}
+      <CheckoutTopStrip parts={checkoutTopStrip} className="mx-auto mb-6 max-w-5xl" />
       <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">
           <div>

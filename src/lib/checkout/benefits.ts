@@ -72,3 +72,42 @@ export function buildCheckoutBenefits(input: CheckoutBenefitsInput): CheckoutBen
 
   return out;
 }
+
+/** Pix com desconto no B2C (Bio): 4% sobre os produtos, depois dos cupons; nunca sobre o frete. O percentual não é mostrado ao comprador. */
+export const B2C_PIX_DISCOUNT_PERCENT = 4;
+
+/** Desconto do Pix em centavos (arredonda ao centavo). `baseCents` = produtos já com todos os descontos, sem frete. */
+export function pixDiscountCents(baseCents: number, percent: number = B2C_PIX_DISCOUNT_PERCENT): number {
+  return Math.max(0, Math.round((Math.max(0, baseCents) * percent) / 100));
+}
+
+/**
+ * Faixa do TOPO do checkout (texto fixo, da configuração real; sem cupom específico).
+ *  B2C: "Frete grátis a partir de R$ 100 (abaixo disso, frete subsidiado) · Desconto no Pix" (sem cartão)
+ *  B2B: "Frete especial a partir de R$ 450 · Desconto no Pix · Desconto no cartão" (nunca "frete grátis")
+ */
+export function buildCheckoutTopStrip(input: {
+  kind: "b2c" | "b2b";
+  freeShippingThresholdCents?: number;
+  shippingSubsidyPercent?: number;
+  specialFreightThresholdCents?: number;
+  paymentDiscountPercent?: { pix?: number; card?: number };
+}): string[] {
+  const parts: string[] = [];
+  const brlWhole = (cents: number) => `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`;
+
+  if (input.kind === "b2c") {
+    if ((input.freeShippingThresholdCents ?? 0) > 0) {
+      parts.push(
+        `Frete grátis a partir de ${brlWhole(input.freeShippingThresholdCents!)}${(input.shippingSubsidyPercent ?? 0) > 0 ? " (abaixo disso, frete subsidiado)" : ""}`
+      );
+    }
+  } else if ((input.specialFreightThresholdCents ?? 0) > 0) {
+    parts.push(`Frete especial a partir de ${brlWhole(input.specialFreightThresholdCents!)}`);
+  }
+
+  if ((input.paymentDiscountPercent?.pix ?? 0) > 0) parts.push("Desconto no Pix");
+  if ((input.paymentDiscountPercent?.card ?? 0) > 0) parts.push("Desconto no cartão");
+
+  return parts;
+}

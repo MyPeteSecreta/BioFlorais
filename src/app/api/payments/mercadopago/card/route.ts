@@ -58,6 +58,7 @@ export async function POST(request: Request) {
         id: orders.id,
         status: orders.status,
         totalCents: orders.totalCents,
+        paymentMethodDiscountCents: orders.paymentMethodDiscountCents,
         customerId: orders.customerId,
       })
       .from(orders)
@@ -74,6 +75,14 @@ export async function POST(request: Request) {
     if (order.status === "paid") {
       return NextResponse.json(
         { error: "Pedido jÃƒÂ¡ estÃƒÂ¡ pago." },
+        { status: 409 }
+      );
+    }
+
+    // Pedido criado para pagar no Pix tem o desconto do Pix dentro do total: não pode ser pago no cartão (o desconto é só do Pix).
+    if ((order.paymentMethodDiscountCents ?? 0) > 0) {
+      return NextResponse.json(
+        { error: "Este pedido foi criado com desconto para pagamento no Pix. Para pagar no cartão, volte ao checkout e escolha cartão." },
         { status: 409 }
       );
     }

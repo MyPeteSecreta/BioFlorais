@@ -77,7 +77,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           <Gpt10Banner />
         </div>
 
-        <div className="relative mt-4 aspect-[16/10] w-full overflow-hidden rounded-[22px] bg-[#f6efe6]">
+        <div className="relative mt-4 max-h-[460px] w-full overflow-hidden rounded-[22px] bg-[#f6efe6]" style={{ aspectRatio: hero.aspect ?? "16 / 10" }}>
           <Image
             src={hero.src}
             alt={hero.alt}

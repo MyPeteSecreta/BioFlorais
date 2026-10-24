@@ -30,6 +30,21 @@ globalThis.fetch = async function patchedFetch(input, init) {
     });
   }
 
+  if (url.includes("api.mercadopago.com/v1/orders")) {
+    // Registra o valor enviado ao Mercado Pago (conferência do Pix com desconto) e devolve um Pix de teste.
+    if (process.env.HARNESS_MP_LOG) fs.appendFileSync(process.env.HARNESS_MP_LOG, `${init && init.body ? init.body : ""}
+`);
+
+    return new Response(
+      JSON.stringify({
+        id: "ORD-harness-1",
+        status: "action_required",
+        transactions: { payments: [{ id: "PAY-harness-1", status: "action_required", payment_method: { id: "pix", type: "bank_transfer", qr_code: "00020126HARNESS", qr_code_base64: "", ticket_url: "https://example.test/pix" } }] },
+      }),
+      { status: 201, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   if (url.includes("api.resend.com/emails")) {
     if (process.env.HARNESS_MAIL_LOG) fs.appendFileSync(process.env.HARNESS_MAIL_LOG, `${init && init.body ? init.body : ""}\n`);
 

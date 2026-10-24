@@ -24,6 +24,8 @@ export type CampaignHero = {
   alt: string;
   /** object-position do recorte (ex.: "50% 40%"). */
   position?: string;
+  /** Proporção do topo (padrão 16 / 10): as fotos recortadas das artes de produto usam 4 / 3 ou 1 / 1. */
+  aspect?: string;
   /** Zoom do recorte (1 = sem zoom) e origem do zoom, para esconder texto do banner. */
   scale?: number;
   origin?: string;
@@ -110,7 +112,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais sem álcool para acompanhar o seu cão ou gato nos momentos em que ele fica sozinho.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar cães e gatos nos momentos em que ficam sozinhos em casa.",
-    hero: { src: "/para/Ad4_Pet.jpg", alt: "Cachorro e gato ao lado de um frasco de floral Bio Florais Pet", position: "50% 50%" },
+    // Recorte (só a foto, sem nenhum texto) da arte de produto "Carência e Síndrome de Abandono".
+    hero: { src: "/para/hero-pet-sozinho.jpg", alt: "Cachorro e gato juntos ao lado da janela", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "pet",
     lineLabel: "Linha Pet",
     howToUse: HOW_PET,
@@ -128,8 +131,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Conheça os florais Bio Florais Pet, sem álcool, para acompanhar a rotina de cães e gatos.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar a rotina e os hábitos de cães e gatos.",
-    // Sem arte do anúncio: banner da linha Pet, recortado no lado direito (cão, gato e frasco) para esconder o texto do banner.
-    hero: { src: "/assets/home/linhas/Pet.png", alt: "Cachorro e gato ao lado de um frasco de floral Bio Florais Pet", position: "100% 50%", scale: 1.9, origin: "100% 50%" },
+    // Recorte (só a foto, sem nenhum texto) da arte de produto "Lambedura e Automutilação".
+    hero: { src: "/para/hero-pet-habitos.jpg", alt: "Cachorro em uma caminha", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "pet",
     lineLabel: "Linha Pet",
     howToUse: HOW_PET,
@@ -165,8 +168,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para os momentos em que você precisa desacelerar.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para os momentos de pausa e de desacelerar a rotina.",
-    // Arte do anúncio "Mil coisas", que também cai nesta página (sem rótulo).
-    hero: { src: "/para/B2_adulto_sensacao_ansiedade_sem_rotulo.jpg", alt: "Frasco de floral Bio Florais Adulto sobre uma base de pedra, com flores ao fundo", position: "50% 62%" },
+    // Recorte (só a foto, sem nenhum texto) da arte de produto "Sensação de Ansiedade": a mulher à esquerda.
+    hero: { src: "/para/hero-pausa.jpg", alt: "Mulher de olhos fechados, com as mãos no rosto, em um momento de pausa", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
@@ -184,7 +187,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para fechar o dia com mais calma.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para fechar o dia com mais calma.",
-    hero: { src: "/assets/home/hero/Hero.png", alt: "Mulher sorrindo entre flores do campo", position: "70% 50%" },
+    // Recorte (só a foto, sem nenhum texto) da arte de produto "Sono": a mulher dormindo, à esquerda.
+    hero: { src: "/para/hero-fim-do-dia.jpg", alt: "Mulher dormindo tranquila sobre o travesseiro", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
@@ -193,7 +197,6 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "adulto-floral-em-gotas-sono", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-stress", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-sensacao-de-ansiedade", crop: ADULT_CROP },
-      { slug: "adulto-floral-em-gotas-falta-de-tolerancia", crop: ADULT_CROP },
     ],
     faq: faqList(faqUse(HOW_ADULT), faqMedicine("o seu médico")),
   },
@@ -203,8 +206,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para acompanhar os dias de correria e de mudanças.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para acompanhar a rotina e as mudanças do dia a dia.",
-    // Imagem do anúncio (a mesma): o quadro ao fundo traz "Cada mudança abre espaço para algo melhor" (frase do próprio anúncio).
-    hero: { src: "/para/Ad2_Adulto.jpg", alt: "Frasco de floral Bio Florais Mudanças na Vida sobre uma mesa com velas e livros", position: "50% 50%" },
+    // Recorte (só a foto, sem nenhum texto de arte) da arte "Equilíbrio para viver melhor cada dia": o frasco com flores, à esquerda.
+    hero: { src: "/para/hero-rotina.jpg", alt: "Frasco de floral Bio Florais Adulto ao lado de um vaso de flores", position: "50% 40%", aspect: "1 / 1" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
@@ -213,7 +216,6 @@ export const campaignPages: readonly CampaignPage[] = [
       { slug: "adulto-floral-em-gotas-stress", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-sensacao-de-ansiedade", crop: ADULT_CROP },
       { slug: "adulto-floral-em-gotas-mudancas-na-vida", crop: ADULT_CROP },
-      { slug: "adulto-floral-em-gotas-falta-de-tolerancia", crop: ADULT_CROP },
     ],
     faq: faqList(faqUse(HOW_ADULT), faqMedicine("o seu médico")),
   },
