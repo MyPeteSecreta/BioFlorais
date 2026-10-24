@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 
 const data = await import("../src/lib/campaign/gpt-pages.ts");
 const gpt10 = await import("../src/lib/campaign/gpt10.ts");
@@ -67,12 +67,16 @@ test("imagens: a mesma arte do anúncio onde existe; sem arte = foto da Home / b
   assert.equal(bySlug("crianca-desacelerar").src, "/para/O1_Sono_Infantil.jpg");
   assert.equal(bySlug("pet-medroso").src, "/para/B_pet_ansiedade_sem_rotulo.jpg");
   // topo das 5 páginas: SÓ O RECORTE DA FOTO das artes de produto do site, sem nenhum texto da arte (frases de benefício derrubam a revisão)
-  assert.equal(bySlug("pet-sozinho").src, "/para/hero-pet-sozinho.jpg");
+  assert.equal(bySlug("pet-sozinho").src, "/para/hero-pet-sozinho-v2.jpg");
   assert.equal(bySlug("pet-habitos").src, "/para/hero-pet-habitos.jpg");
-  assert.equal(bySlug("pausa").src, "/para/hero-pausa.jpg");
+  assert.equal(bySlug("pausa").src, "/para/hero-pausa-v3.jpg");
   assert.equal(bySlug("fim-do-dia").src, "/para/hero-fim-do-dia.jpg");
-  assert.equal(bySlug("rotina").src, "/para/hero-rotina.jpg");
+  assert.equal(bySlug("rotina").src, "/para/hero-rotina-v3.jpg");
   for (const slug of ["pet-sozinho", "pet-habitos", "pausa", "fim-do-dia", "rotina"]) assert.ok(bySlug(slug).aspect, `${slug}: proporção do recorte`);
+  // fotos definitivas de pausa e rotina (Janela 3): textos alternativos aprovados e arquivos otimizados (largura máx. 1600, até 200 KB)
+  assert.equal(bySlug("pausa").alt, "Mulher fazendo uma pausa com uma xícara de chá");
+  assert.equal(bySlug("rotina").alt, "Mulher em uma pausa tranquila na mesa de trabalho");
+  for (const slug of ["pausa", "rotina"]) assert.ok(statSync(new URL(`../public${bySlug(slug).src}`, import.meta.url)).size <= 200 * 1024, `${slug}: até 200 KB`);
   // Pausa e rotina: produtos da tabela do Luis; fim-do-dia e rotina com 3 produtos + o 4º espaço = card "Conheça a linha Adulto"
   assert.deepEqual(data.getCampaignPage("pausa").products.map((p) => p.slug), EXPECTED.pausa);
   assert.ok(!JSON.stringify(data.getCampaignPage("fim-do-dia").products).includes("falta-de-tolerancia") && !JSON.stringify(data.getCampaignPage("rotina").products).includes("falta-de-tolerancia"));

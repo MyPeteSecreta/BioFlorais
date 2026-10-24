@@ -113,7 +113,7 @@ export const campaignPages: readonly CampaignPage[] = [
     lead: "Florais sem álcool para acompanhar o seu cão ou gato nos momentos em que ele fica sozinho.",
     metaDescription: "Florais Bio Florais Pet, sem álcool, para acompanhar cães e gatos nos momentos em que ficam sozinhos em casa.",
     // Recorte (só a foto, sem nenhum texto) da arte de produto "Carência e Síndrome de Abandono".
-    hero: { src: "/para/hero-pet-sozinho.jpg", alt: "Cachorro e gato juntos ao lado da janela", position: "50% 50%", aspect: "4 / 3" },
+    hero: { src: "/para/hero-pet-sozinho-v2.jpg", alt: "Cachorro e gato juntos ao lado da janela", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "pet",
     lineLabel: "Linha Pet",
     howToUse: HOW_PET,
@@ -168,8 +168,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para os momentos em que você precisa desacelerar.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para os momentos de pausa e de desacelerar a rotina.",
-    // Recorte (só a foto, sem nenhum texto) da arte de produto "Sensação de Ansiedade": a mulher à esquerda.
-    hero: { src: "/para/hero-pausa.jpg", alt: "Mulher de olhos fechados, com as mãos no rosto, em um momento de pausa", position: "50% 50%", aspect: "4 / 3" },
+    // Foto definitiva (Janela 3, aprovada pela mestre): mulher no sofá com a xícara. Quadro inteiro 4/3 (rosto e frasco visíveis a 375 px); WebP/JPG otimizado, largura 1448, menos de 200 KB.
+    hero: { src: "/para/hero-pausa-v3.jpg", alt: "Mulher fazendo uma pausa com uma xícara de chá", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
@@ -206,8 +206,8 @@ export const campaignPages: readonly CampaignPage[] = [
     titleConfirmed: true,
     lead: "Florais Bio Florais, sem álcool, para acompanhar os dias de correria e de mudanças.",
     metaDescription: "Florais Bio Florais Adulto, sem álcool, para acompanhar a rotina e as mudanças do dia a dia.",
-    // Recorte (só a foto, sem nenhum texto de arte) da arte "Equilíbrio para viver melhor cada dia": o frasco com flores, à esquerda.
-    hero: { src: "/para/hero-rotina.jpg", alt: "Frasco de floral Bio Florais Adulto ao lado de um vaso de flores", position: "50% 40%", aspect: "1 / 1" },
+    // Foto definitiva (Janela 3, aprovada pela mestre): mulher na mesa de trabalho. Quadro inteiro 4/3 (rosto e frasco visíveis a 375 px); otimizada, menos de 200 KB.
+    hero: { src: "/para/hero-rotina-v3.jpg", alt: "Mulher em uma pausa tranquila na mesa de trabalho", position: "50% 50%", aspect: "4 / 3" },
     lineSlug: "adulto",
     lineLabel: "Linha Adulto",
     howToUse: HOW_ADULT,
