@@ -925,6 +925,53 @@ export default function CheckoutPage() {
     requestKey,
   ]);
 
+  // GPT10 automático (campanha ChatGPT, /para/*): aplicado uma vez quando há sacola, cotação e nenhum cupom comercial.
+  // O servidor valida (SQL 50b); se o cupom não valer mais, o aviso aparece e o flag é limpo.
+  // Os hooks ficam ANTES do retorno da sacola vazia: hook depois de um return condicional quebra o checkout (React #310).
+  const gpt10Tried = useRef(false);
+
+  useEffect(() => {
+    if (gpt10Tried.current || items.length === 0 || !checkoutDraftRestored || !quote || appliedCoupon) return;
+
+    let state = null;
+
+    try {
+      state = readGpt10(window.localStorage);
+    } catch {
+      state = null;
+    }
+
+    if (!shouldAutoApplyGpt10({ state, hasCommercialCoupon: false, cartHasItems: items.length > 0 })) return;
+
+    gpt10Tried.current = true;
+
+    void (async () => {
+      try {
+        const validation = await validateCommercialCoupon("GPT10", quote.totalCents);
+
+        resetPendingCardAttempt();
+        setAppliedCoupon(validation);
+
+        // Cupom de parceira/UGC já aplicado: recalcula sobre o valor depois do comercial (mesma regra de aplicar um cupom comercial).
+        if (appliedPartnerCoupon) {
+          const partnerBaseCents = Math.max(0, quote.totalCents - validation.discountCents);
+
+          setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
+        }
+      } catch (err) {
+        try {
+          clearGpt10(window.localStorage);
+        } catch {
+          // sem armazenamento
+        }
+
+        setCouponError(err instanceof Error ? `GPT10: ${err.message}` : "Não foi possível aplicar o GPT10.");
+      }
+    })();
+    // validateCommercialCoupon/resetPendingCardAttempt são funções do próprio componente (estáveis para este uso).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutDraftRestored, quote, appliedCoupon, items.length]);
+
   if (items.length === 0 && pendingOrderStatus !== "paid") {
     return (
       <main className="min-h-screen bg-[#f8f5ee] px-5 py-16 text-[#26352c]">
@@ -1391,52 +1438,6 @@ export default function CheckoutPage() {
     setAppliedPartnerCoupon(null);
     setPartnerCouponError("");
   }
-
-  // GPT10 automático (campanha ChatGPT, /para/*): aplicado uma vez quando há sacola, cotação e nenhum cupom comercial.
-  // O servidor valida (SQL 50b); se o cupom não valer mais, o aviso aparece e o flag é limpo.
-  const gpt10Tried = useRef(false);
-
-  useEffect(() => {
-    if (gpt10Tried.current || !checkoutDraftRestored || !quote || appliedCoupon) return;
-
-    let state = null;
-
-    try {
-      state = readGpt10(window.localStorage);
-    } catch {
-      state = null;
-    }
-
-    if (!shouldAutoApplyGpt10({ state, hasCommercialCoupon: false, cartHasItems: items.length > 0 })) return;
-
-    gpt10Tried.current = true;
-
-    void (async () => {
-      try {
-        const validation = await validateCommercialCoupon("GPT10", quote.totalCents);
-
-        resetPendingCardAttempt();
-        setAppliedCoupon(validation);
-
-        // Cupom de parceira/UGC já aplicado: recalcula sobre o valor depois do comercial (mesma regra de aplicar um cupom comercial).
-        if (appliedPartnerCoupon) {
-          const partnerBaseCents = Math.max(0, quote.totalCents - validation.discountCents);
-
-          setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
-        }
-      } catch (err) {
-        try {
-          clearGpt10(window.localStorage);
-        } catch {
-          // sem armazenamento
-        }
-
-        setCouponError(err instanceof Error ? `GPT10: ${err.message}` : "Não foi possível aplicar o GPT10.");
-      }
-    })();
-    // validateCommercialCoupon/resetPendingCardAttempt são funções do próprio componente (estáveis para este uso).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkoutDraftRestored, quote, appliedCoupon, items.length]);
 
   const merchandiseTotalCents =
     quote?.totalCents ?? 0;
