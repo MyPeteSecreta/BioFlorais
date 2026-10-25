@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { trackEvent } from "@/lib/analytics-events";
+import { metaAddToCartEvent } from "@/lib/measurement";
+import { trackMeta } from "@/lib/measurement-client";
 import {
   createContext,
   useCallback,
@@ -288,6 +290,11 @@ export function CartProvider({
           AddProductInput
       ) => {
         void trackEvent("sacola");
+        {
+          // Meta AddToCart (só com o pixel carregado e o aceite de marketing)
+          const event = metaAddToCartEvent(product.productSlug);
+          trackMeta(event.name, event.params);
+        }
         setState(
           (current) =>
             reconcileOffers({

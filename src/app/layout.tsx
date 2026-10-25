@@ -14,6 +14,8 @@ import OppRefCapture from "@/components/consent/OppRefCapture";
 import AttributionCapture from "@/components/consent/AttributionCapture";
 import AnalyticsEvents from "@/components/analytics/AnalyticsEvents";
 import CookieBanner from "@/components/consent/CookieBanner";
+import GoogleTag from "@/components/measurement/GoogleTag";
+import MetaPixel from "@/components/measurement/MetaPixel";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -59,6 +61,9 @@ export default function RootLayout({
         <AttributionCapture />
         {/* Eventos do Vercel Analytics (chegada, ver_produto, sacola, checkout) com origem e campanha; sem dado pessoal. */}
         <AnalyticsEvents />
+        {/* Google tag (Consent Mode v2, padrão negado) e pixel da Meta (só com aceite de marketing). IDs em variáveis de ambiente; sem ID, nada carrega. */}
+        <GoogleTag />
+        <MetaPixel />
       </body>
     </html>
   );

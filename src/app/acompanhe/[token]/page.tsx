@@ -6,6 +6,7 @@
 import Link from "next/link";
 
 import AdsPurchaseTag from "@/components/consent/AdsPurchaseTag";
+import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import TrackShare from "@/components/TrackShare";
 import { formatB2BCents } from "@/lib/b2b/format";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
@@ -46,6 +47,7 @@ export default async function TrackingPage({ params }: { params: Promise<{ token
     <main className="min-h-screen bg-[#fffaf6] px-4 py-8 text-[#422347]">
       {/* Image Tag de Compra (ChatGPT Ads): 1 vez por pedido PAGO, só com consentimento de marketing. */}
       <AdsPurchaseTag orderId={view.orderId} />
+      <PurchaseMeasurement orderId={view.orderId} />
       <div className="mx-auto max-w-2xl space-y-5">
         <header>
           <div className="flex items-center justify-between gap-3">

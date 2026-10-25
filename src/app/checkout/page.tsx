@@ -10,6 +10,9 @@ import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment
 import Link from "next/link";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
+import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
+import { metaInitiateCheckoutEvent } from "@/lib/measurement";
+import { trackMeta } from "@/lib/measurement-client";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
@@ -974,6 +977,17 @@ export default function CheckoutPage() {
     // validateCommercialCoupon/resetPendingCardAttempt são funções do próprio componente (estáveis para este uso).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutDraftRestored, quote, appliedCoupon, items.length]);
+
+  // Meta InitiateCheckout: uma vez ao abrir o checkout com sacola calculada (só com o pixel carregado e o aceite de marketing).
+  const initiateCheckoutSent = useRef(false);
+
+  useEffect(() => {
+    if (initiateCheckoutSent.current || !quote || items.length === 0) return;
+
+    const event = metaInitiateCheckoutEvent({ valueCents: quote.totalCents, items: items.map((item) => ({ slug: item.productSlug, qty: item.qty })) });
+
+    if (trackMeta(event.name, event.params)) initiateCheckoutSent.current = true;
+  }, [quote, items]);
 
   // Cupons aplicados (do rascunho ou de antes de mudar a sacola) valem sobre o valor ATUAL dos produtos: quando o total muda,
   // o servidor recalcula o desconto. Se o cupom não vale mais, sai da sacola com aviso.
@@ -2816,6 +2830,7 @@ export default function CheckoutPage() {
 
             {pendingOrderId && <TrackOrderCard orderId={pendingOrderId} />}
             {pendingOrderId && <AdsPurchaseTag orderId={pendingOrderId} active={pendingOrderStatus === "paid"} />}
+            {pendingOrderId && <PurchaseMeasurement orderId={pendingOrderId} active={pendingOrderStatus === "paid"} />}
 
 
             {pendingOrderId ? (

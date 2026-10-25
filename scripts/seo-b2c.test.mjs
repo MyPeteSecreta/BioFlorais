@@ -149,8 +149,10 @@ test("NÃO QUEBRAR: query string, referrer, tags de terceiros, URLs de destino, 
   // nunca Referrer-Policy no-referrer (a OpenAI recusa o evento de compra sem Referer)
   assert.ok(!all.some((source) => /referrerPolicy\s*[=:]\s*\{?\s*["']no-referrer/i.test(source) || /Referrer-Policy[^\n]*no-referrer/i.test(source)));
   for (const file of ["next.config.ts", "src/middleware.ts", "vercel.json"]) assert.ok(!/Referrer-Policy/i.test(read(file)), file);
-  // nenhuma tag de terceiros nova (GTM, gtag, pixel JS)
-  assert.ok(!all.some((source) => /googletagmanager|gtag\(|fbq\(|oaiq\(|bzrcdn\.openai/i.test(source)));
+  // nenhuma tag de terceiros fora da medição autorizada (Google tag e pixel da Meta, só em src/components/measurement e src/lib/measurement*, com consentimento); OpenAI só por Image Tag
+  const outsideMeasurement = sources.filter((file) => !/(^|[\\/])(components[\\/]measurement[\\/]|lib[\\/]measurement)/.test(file)).map((file) => read(file));
+  assert.ok(!outsideMeasurement.some((source) => /googletagmanager|gtag\(|fbq\(/i.test(source)));
+  assert.ok(!all.some((source) => /oaiq\(|bzrcdn\.openai/i.test(source)));
   // query string preservada nos redirects
   assert.ok(read("src/app/parceiros/page.tsx").includes("withForwardedParams(storePath, query)"));
   assert.equal((read("src/app/produto/[slug]/page.tsx").match(/forwardQuery\(/g) ?? []).length, 2);

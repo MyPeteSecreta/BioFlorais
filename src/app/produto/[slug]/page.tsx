@@ -10,6 +10,7 @@ import Image from "next/image";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchaseActions from "@/components/product/ProductPurchaseActions";
+import ViewContentEvent from "@/components/measurement/ViewContentEvent";
 import { getProductEditorialContent } from "@/lib/content/product-content";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -714,6 +715,7 @@ export default async function ProductPage({
         text-[#2f2231]
       "
     >
+      <ViewContentEvent slug={product.slug} name={product.name} priceCents={product.priceCents} />
       <script
         type="application/ld+json"
         // "<" escapado: o JSON nunca fecha a tag <script>.

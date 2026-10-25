@@ -20,7 +20,7 @@ export default function Page() {
         <div className="mt-6 h-px w-16 bg-[#c39745]" />
 
         <div className="mt-8 space-y-8 text-base leading-8 text-[#665765]">
-          <p>Última atualização: 18 de outubro de 2026.</p>
+          <p>Última atualização: 25 de outubro de 2026.</p>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
@@ -137,6 +137,31 @@ export default function Page() {
             </p>
           </section>
 
+
+          <section data-testid="google-meta-politica">
+            <h2 className="mb-3 text-xl font-semibold text-[#422347]">
+              9.1. Google e Meta (medição e anúncios)
+            </h2>
+            <p>
+              Com o seu consentimento, usamos o <strong>Google</strong> (Google tag, com o Consent Mode v2) e a <strong>Meta</strong> (Pixel
+              da Meta) para medir visitas, visualização de produtos, itens colocados na sacola, início de compra e compras, e para medir e
+              melhorar nossos anúncios. O Google e a Meta podem gravar cookies e identificadores próprios no seu navegador e tratar esses
+              dados conforme as suas políticas (<a href="https://policies.google.com/technologies/cookies" className="font-semibold text-[#63326d] underline" rel="noopener noreferrer" target="_blank">Google</a>{" "}
+              e <a href="https://www.facebook.com/privacy/policy/" className="font-semibold text-[#63326d] underline" rel="noopener noreferrer" target="_blank">Meta</a>).
+            </p>
+            <p className="mt-3">
+              Antes da sua escolha, a Google tag fica com todos os consentimentos <strong>negados</strong> (sem cookies de análise nem de
+              anúncios) e o Pixel da Meta <strong>nem é carregado</strong>. Ao aceitar, o Google passa a receber o consentimento de análise e
+              de anúncios e a Meta passa a receber os eventos. Ao recusar ou retirar o consentimento, nada é enviado à Meta e o Google
+              segue com os consentimentos negados.
+            </p>
+            <p className="mt-3">
+              Enviamos apenas o tipo de ação, o valor em reais e um código interno do pedido (para não contar a mesma compra duas vezes).
+              Não enviamos nome, e-mail, telefone nem documentos, e os endereços das páginas vão sem códigos pessoais. Para a Meta, o
+              mesmo código do pedido poderá ser usado, no futuro, na API de Conversões, também para evitar duplicidade. Você pode
+              mudar a escolha a qualquer momento em &quot;Configurar cookies&quot;.
+            </p>
+          </section>
 
           <section data-testid="origem-politica">
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
