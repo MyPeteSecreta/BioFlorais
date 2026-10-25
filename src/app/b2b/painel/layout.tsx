@@ -52,6 +52,9 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
                     </Link>
                   </>
                 )}
+                <Link href="/b2b/painel/materiais" className="font-bold text-[#63326d] underline underline-offset-4" data-testid="menu-materiais">
+                  Materiais de venda
+                </Link>
                 <Link href="/b2b/painel/comissoes" className="font-bold text-[#63326d] underline underline-offset-4">
                   Minhas comissões
                 </Link>
