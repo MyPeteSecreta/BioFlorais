@@ -27,6 +27,9 @@ export async function buildSalesMaterial(run: SqlRunner, input: { responsibleId:
   if (!material) return { ok: false, status: 404, error: "Material não encontrado." };
 
   const baseFile = material.files[input.audience];
+
+  if (!baseFile) return { ok: false, status: 404, error: "Este material é só de uso interno (versão representante)." };
+
   // turbopackIgnore: o caminho é dinâmico; os PDFs entram no pacote por outputFileTracingIncludes (next.config.ts).
   const absolute = path.join(/*turbopackIgnore: true*/ process.cwd(), MATERIALS_DIR, baseFile);
 

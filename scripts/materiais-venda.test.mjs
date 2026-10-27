@@ -28,18 +28,26 @@ async function xobjectCount(pdfBytes) {
   return { pages: pages.length, xobjects: xo ? xo.keys().length : 0 };
 }
 
-test("catálogo: 8 linhas, cada uma com LOJISTA e REPRESENTANTE existentes no repositório, e nada disso em /public", () => {
-  assert.equal(SALES_MATERIALS.length, 8);
-  assert.equal(new Set(SALES_MATERIALS.map((m) => m.id)).size, 8);
+test("catálogo: 8 linhas com LOJISTA e REPRESENTANTE + 1 material só interno (Preços e promoções), todos no repositório e nada disso em /public", () => {
+  assert.equal(SALES_MATERIALS.length, 9);
+  assert.equal(new Set(SALES_MATERIALS.map((m) => m.id)).size, 9);
 
-  for (const material of SALES_MATERIALS) {
+  const lines = SALES_MATERIALS.filter((m) => !m.internalOnly);
+  assert.equal(lines.length, 8);
+
+  for (const material of lines) {
     assert.match(material.files.lojista, /_LOJISTA\.pdf$/);
     assert.match(material.files.representante, /_REPRESENTANTE\.pdf$/);
-
-    for (const file of Object.values(material.files)) assert.ok(existsSync(new URL(`${MATERIALS_DIR}/${file}`, root)), file);
   }
 
-  assert.equal(readdirSync(new URL(`${MATERIALS_DIR}/`, root)).filter((f) => f.endsWith(".pdf")).length, 16);
+  const internal = SALES_MATERIALS.filter((m) => m.internalOnly);
+  assert.equal(internal.length, 1);
+  assert.equal(internal[0].id, "precos-e-promocoes");
+  assert.equal(internal[0].files.lojista, undefined, "Preços e promoções não tem versão lojista");
+
+  for (const material of SALES_MATERIALS) for (const file of Object.values(material.files)) assert.ok(existsSync(new URL(`${MATERIALS_DIR}/${file}`, root)), file);
+
+  assert.equal(readdirSync(new URL(`${MATERIALS_DIR}/`, root)).filter((f) => f.endsWith(".pdf")).length, 17);
   assert.ok(!existsSync(new URL("public/materiais", root)), "os PDFs não ficam em /public");
   assert.equal(findMaterial("floral-pet").title, "Floral Pet");
   assert.equal(findMaterial("nao-existe"), null);
@@ -60,7 +68,7 @@ test("formatação: WhatsApp em (DDD) número e nome de arquivo seguro", () => {
 test("carimbo: nos 8 PDFs LOJISTA reais, mesma quantidade de páginas e a última ganha o QR do vendedor", async () => {
   const qr = new Uint8Array(await QRCode.toBuffer("https://www.bioflorais.com.br/parceiros?v=ANA123", { ...QR_OPTIONS, type: "png" }));
 
-  for (const material of SALES_MATERIALS) {
+  for (const material of SALES_MATERIALS.filter((m) => !m.internalOnly)) {
     const base = bytes(`${MATERIALS_DIR}/${material.files.lojista}`);
     const before = await xobjectCount(base);
     const stamped = await stampSellerOnLastPage(base, { name: "Ana Souza de Oliveira Lima", whatsapp: "(11) 99999-8888", qrPng: qr });
@@ -111,6 +119,15 @@ test("download: LOJISTA exige vendedor ativo e link pessoal; sem WhatsApp sai s�
   assert.ok(rep.ok);
   assert.deepEqual(Buffer.from(rep.bytes), readFileSync(new URL(`${MATERIALS_DIR}/Bio_Floral_Adulto_REPRESENTANTE.pdf`, root)));
   assert.equal(rep.fileName, "Bio_Floral_Adulto_REPRESENTANTE.pdf");
+
+  // Preços e promoções: só representante, sem carimbo e sem consultar o banco; a versão lojista não existe
+  const prices = await buildSalesMaterial(async () => { throw new Error("não deve consultar o banco"); }, { responsibleId: "x", materialId: "precos-e-promocoes", audience: "representante" });
+  assert.ok(prices.ok);
+  assert.deepEqual(Buffer.from(prices.bytes), readFileSync(new URL(`${MATERIALS_DIR}/Bio_Precos_Promocoes_REPRESENTANTE.pdf`, root)));
+  assert.equal((await xobjectCount(prices.bytes)).pages, 2);
+
+  const pricesLojista = await buildSalesMaterial(seller("11999998888"), { responsibleId: "x", materialId: "precos-e-promocoes", audience: "lojista" });
+  assert.ok(!pricesLojista.ok && pricesLojista.status === 404);
 });
 
 test("rota e painel: só com sessão do vendedor, versão validada, sem cache; aba no menu; REPRESENTANTE marcada como uso interno", () => {
@@ -124,6 +141,7 @@ test("rota e painel: só com sessão do vendedor, versão validada, sem cache; a
   assert.ok(page.includes("requireResponsiblePage()"));
   assert.ok(page.includes("Baixar versão LOJISTA (para encaminhar)") && page.includes("Baixar versão REPRESENTANTE · uso interno"));
   assert.ok(page.includes("sem WhatsApp") && page.includes("materiais-demo"));
+  assert.ok(page.includes("material.internalOnly") && page.includes("Preços e condições"), "Preços e promoções aparece na aba, só com o botão de uso interno");
   assert.ok(read("src/app/b2b/painel/layout.tsx").includes('href="/b2b/painel/materiais"') && read("src/app/b2b/painel/layout.tsx").includes("Materiais de venda"));
 
   // os PDFs-base entram no pacote da função (leitura em tempo de execução)

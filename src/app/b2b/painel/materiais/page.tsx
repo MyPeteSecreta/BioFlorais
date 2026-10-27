@@ -7,7 +7,7 @@ import { SALES_MATERIALS, formatWhatsApp } from "@/lib/b2b/sales-materials";
 
 export const dynamic = "force-dynamic";
 
-const GROUPS = ["Florais", "Cosméticos e Home Care"] as const;
+const GROUPS = ["Preços e condições", "Florais", "Cosméticos e Home Care"] as const;
 
 export default async function MaterialsPage() {
   const responsible = await requireResponsiblePage();
@@ -19,7 +19,7 @@ export default async function MaterialsPage() {
     <main className="mx-auto max-w-[1100px] px-5 py-10 lg:px-10" data-testid="materiais-venda">
       <h1 className="font-serif text-3xl font-semibold text-[#55245f] sm:text-4xl">Materiais de venda</h1>
       <p className="mt-2 max-w-[760px] text-sm leading-6 text-[#746471]">
-        Um PDF por linha, em duas versões. A <strong>versão para o lojista</strong> pode ser encaminhada: ao baixar, ela sai com o seu nome, o seu
+        O PDF de <strong>preços e promoções</strong> é só para você (uso interno). Para cada linha há um PDF em duas versões. A <strong>versão para o lojista</strong> pode ser encaminhada: ao baixar, ela sai com o seu nome, o seu
         WhatsApp e o QR do seu link pessoal na página &quot;Como pedir&quot;. A <strong>versão para o representante</strong> é de uso interno (traz as
         respostas às objeções do lojista) e não deve ser encaminhada.
       </p>
@@ -54,7 +54,7 @@ export default async function MaterialsPage() {
                 <p className="text-lg font-extrabold text-[#55245f]">{material.title}</p>
                 <p className="mt-0.5 text-sm text-[#746471]">{material.description}</p>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  {demo.isDemo ? (
+                  {material.internalOnly ? null : demo.isDemo ? (
                     <span className="flex min-h-[44px] flex-1 items-center justify-center rounded-full border-2 border-[#d9c7dc] px-4 text-center text-sm font-extrabold text-[#8a7886]">Versão lojista (após o cadastro)</span>
                   ) : (
                     <a
@@ -70,7 +70,7 @@ export default async function MaterialsPage() {
                     className="flex min-h-[44px] flex-1 items-center justify-center rounded-full border-2 border-[#9b1c1c] px-4 text-center text-sm font-extrabold text-[#9b1c1c]"
                     data-testid="baixar-representante"
                   >
-                    Baixar versão REPRESENTANTE · uso interno
+                    {material.internalOnly ? "Baixar PDF · uso interno" : "Baixar versão REPRESENTANTE · uso interno"}
                   </a>
                 </div>
               </li>

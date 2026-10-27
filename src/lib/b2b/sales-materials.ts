@@ -4,6 +4,7 @@
  *  - LOJISTA (para encaminhar): ao baixar, o servidor carimba na página "Como pedir" o NOME, o WHATSAPP e o QR do link pessoal
  *    (link de captação /parceiros?v=<código>) DAQUELE vendedor, no espaço reservado;
  *  - REPRESENTANTE (uso interno): baixa como está (traz o selo "USO INTERNO — NÃO ENCAMINHAR" em todas as páginas).
+ * "Preços e promoções" existe SÓ na versão representante (uso interno, sem carimbo): `internalOnly`.
  */
 
 export const MATERIALS_DIR = "src/lib/b2b/materiais/bio";
@@ -13,14 +14,24 @@ export type MaterialAudience = "lojista" | "representante";
 export type SalesMaterial = {
   id: string;
   title: string;
-  group: "Florais" | "Cosméticos e Home Care";
+  group: "Preços e condições" | "Florais" | "Cosméticos e Home Care";
   description: string;
-  files: Record<MaterialAudience, string>;
+  /** Material só de uso interno: não tem versão lojista (nada a encaminhar nem a carimbar). */
+  internalOnly?: boolean;
+  files: { representante: string; lojista?: string };
 };
 
-const pair = (base: string): Record<MaterialAudience, string> => ({ lojista: `${base}_LOJISTA.pdf`, representante: `${base}_REPRESENTANTE.pdf` });
+const pair = (base: string): { lojista: string; representante: string } => ({ lojista: `${base}_LOJISTA.pdf`, representante: `${base}_REPRESENTANTE.pdf` });
 
 export const SALES_MATERIALS: readonly SalesMaterial[] = [
+  {
+    id: "precos-e-promocoes",
+    title: "Preços e promoções",
+    group: "Preços e condições",
+    description: "Tabela por linha, condições do pedido e as promoções vigentes explicadas, com exemplos",
+    internalOnly: true,
+    files: { representante: "Bio_Precos_Promocoes_REPRESENTANTE.pdf" },
+  },
   { id: "floral-adulto", title: "Floral Adulto", group: "Florais", description: "33 versões · kit display compacto", files: pair("Bio_Floral_Adulto") },
   { id: "florais-infantis", title: "Florais Infantis", group: "Florais", description: "Baby, Infantil, Kids e Teen · 41 versões", files: pair("Bio_Florais_Infantis") },
   { id: "floral-pet", title: "Floral Pet", group: "Florais", description: "25 versões e Snack Floral · 3 displays", files: pair("Bio_Floral_Pet") },
