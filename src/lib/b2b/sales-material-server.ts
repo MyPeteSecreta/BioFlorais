@@ -1,7 +1,7 @@
 /**
  * Geração, no servidor, do PDF de venda do vendedor logado. A versão LOJISTA sai carimbada com nome, WhatsApp e QR do link pessoal
  * (link de captação /parceiros?v=<código>); a REPRESENTANTE (uso interno) sai como está. Os PDFs-base são lidos de
- * `materiais-vendas/bio/` (fora de /public).
+ * `src/lib/b2b/materiais/bio/` (fora de /public).
  */
 
 import fs from "node:fs";

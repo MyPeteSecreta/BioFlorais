@@ -1,12 +1,12 @@
 /**
  * BIO FLORAIS B2B — Materiais de venda (Fase 2 dos PDFs de linha). Os PDFs-base ficam no repositório, em
- * `materiais-vendas/bio/` (NUNCA em /public: a versão REPRESENTANTE é de uso interno). Duas versões por linha:
+ * `src/lib/b2b/materiais/bio/` (NUNCA em /public: a versão REPRESENTANTE é de uso interno). Duas versões por linha:
  *  - LOJISTA (para encaminhar): ao baixar, o servidor carimba na página "Como pedir" o NOME, o WHATSAPP e o QR do link pessoal
  *    (link de captação /parceiros?v=<código>) DAQUELE vendedor, no espaço reservado;
  *  - REPRESENTANTE (uso interno): baixa como está (traz o selo "USO INTERNO — NÃO ENCAMINHAR" em todas as páginas).
  */
 
-export const MATERIALS_DIR = "materiais-vendas/bio";
+export const MATERIALS_DIR = "src/lib/b2b/materiais/bio";
 
 export type MaterialAudience = "lojista" | "representante";
 

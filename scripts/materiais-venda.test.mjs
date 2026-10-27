@@ -40,7 +40,7 @@ test("catálogo: 8 linhas, cada uma com LOJISTA e REPRESENTANTE existentes no re
   }
 
   assert.equal(readdirSync(new URL(`${MATERIALS_DIR}/`, root)).filter((f) => f.endsWith(".pdf")).length, 16);
-  assert.ok(!existsSync(new URL("public/materiais-vendas", root)), "os PDFs não ficam em /public");
+  assert.ok(!existsSync(new URL("public/materiais", root)), "os PDFs não ficam em /public");
   assert.equal(findMaterial("floral-pet").title, "Floral Pet");
   assert.equal(findMaterial("nao-existe"), null);
   assert.equal(parseAudience("lojista"), "lojista");
@@ -127,7 +127,7 @@ test("rota e painel: só com sessão do vendedor, versão validada, sem cache; a
   assert.ok(read("src/app/b2b/painel/layout.tsx").includes('href="/b2b/painel/materiais"') && read("src/app/b2b/painel/layout.tsx").includes("Materiais de venda"));
 
   // os PDFs-base entram no pacote da função (leitura em tempo de execução)
-  assert.ok(read("next.config.ts").includes('"/api/b2b/materiais/[id]": ["./materiais-vendas/**/*"]'));
+  assert.ok(read("next.config.ts").includes('"/api/b2b/materiais/*": ["./src/lib/b2b/materiais/**/*"]'));
   // o link pessoal é o de captação do vendedor
   const server = read("src/lib/b2b/sales-material-server.ts");
   assert.ok(server.includes("ensureReferralCode(") && server.includes("partnersPath(code)"));
