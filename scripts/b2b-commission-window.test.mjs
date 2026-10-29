@@ -48,7 +48,7 @@ test("cliente sem compra anterior: janela não começou, preço normal 10+15=25"
 
   const item = resolveItemCommission({ basePercent: 10, normalExtraPercent: 15, promotionExtraPercent: null, window });
   assert.deepEqual([item.basis, item.extraPercent, item.totalPercent], ["normal_price", 15, 25]);
-  assert.match(describeCommissionWindow(matrix, window), /válido por 180 dias a partir da 1ª compra paga; depois 10%/);
+  assert.equal(describeCommissionWindow(matrix, window), "Comissão de 25% (10% fixo + 15% de bônus) por 180 dias a partir da 1ª compra paga; depois 10%");
 });
 
 test("dentro da promoção: item bonificado = base + extra da promoção, mesmo com janela fechada", () => {
@@ -86,10 +86,10 @@ test("depois de 180 dias: só a base (10%); no dia 180 ainda vale 25%", () => {
   assert.match(describeCommissionWindow(matrix, after), /encerrada em 30[/]03[/]2027/);
 });
 
-test("texto ao vendedor com janela aberta: 10% + 15% = 25% até dd/mm/aaaa; depois 10%", () => {
+test("texto ao vendedor com janela aberta: comissão de 25% (10% fixo + 15% de bônus) até dd/mm/aaaa; depois 10%", () => {
   const window = commissionWindowFor(first, new Date(first.getTime() + 10 * DAY));
   assert.equal(
     describeCommissionWindow(matrix, window),
-    "10% + 15% = 25% até 30/03/2027 (180 dias após a 1ª compra); depois 10%"
+    "Comissão de 25% (10% fixo + 15% de bônus) até 30/03/2027 (180 dias após a 1ª compra); depois 10%"
   );
 });

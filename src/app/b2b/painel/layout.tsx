@@ -11,6 +11,7 @@ import { demoCtaUrl, loadDemoState } from "@/lib/b2b/demo";
 import CompleteProfileForm from "@/components/b2b/CompleteProfileForm";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { bannerText, loadVendorAccess } from "@/lib/b2b/vendor-profile";
+import { TRAINING_VIDEOS_URL } from "@/lib/b2b/sales-materials";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,9 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
                 <Link href="/b2b/painel/comissoes" className="font-bold text-[#63326d] underline underline-offset-4">
                   Minhas comissões
                 </Link>
+                <a href={TRAINING_VIDEOS_URL} target="_blank" rel="noopener noreferrer" className="font-bold text-[#63326d] underline underline-offset-4" data-testid="menu-videos">
+                  Vídeos de treinamento
+                </a>
                 <Link href="/b2b/painel/instalar" className="font-bold text-[#63326d] underline underline-offset-4" data-testid="menu-instalar">
                   Instale no celular
                 </Link>

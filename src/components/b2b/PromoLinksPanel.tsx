@@ -8,9 +8,22 @@
 
 import { useState } from "react";
 
+import HelpTip from "@/components/b2b/HelpTip";
 import QrCodeModal from "@/components/b2b/QrCodeModal";
+import { HELP } from "@/lib/b2b/promo-explain";
 
-export type PromoOption = { id: string; name: string; label: string; lines: string[]; uses: number[]; days: number[] };
+export type PromoChoice = { value: string; mode: "uses" | "days"; title: string; hint: string; commission: string };
+export type PromoOption = {
+  id: string;
+  name: string;
+  label: string;
+  priceText: string | null;
+  summary: string;
+  math: string | null;
+  lines: string[];
+  kind: "abertura_reconquista" | "recorrente";
+  choices: PromoChoice[];
+};
 export type DisplayOption = { key: string; name: string };
 export type PromoLinkView = {
   id: string;
@@ -50,12 +63,7 @@ export default function PromoLinksPanel({
   const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   const promotion = promotions.find((item) => item.id === promotionId) ?? null;
-  const eligibilityChoices = promotion
-    ? [
-        ...promotion.uses.map((n) => ({ value: `uses:${n}`, label: `${n} compra${n === 1 ? "" : "s"}` })),
-        ...promotion.days.map((n) => ({ value: `days:${n}`, label: `${n} dias` })),
-      ]
-    : [];
+  const eligibilityChoices = promotion?.choices ?? [];
   const chosenEligibility = eligibilityChoices.some((item) => item.value === eligibility) ? eligibility : (eligibilityChoices[0]?.value ?? "");
 
   async function create() {
@@ -162,22 +170,53 @@ export default function PromoLinksPanel({
                   ))}
                 </select>
               </label>
-              {promotion && <p className="text-xs text-[#746471]">Vale nas linhas: {promotion.lines.join(", ")}.</p>}
-              <label className="grid gap-1 font-bold">
-                Quanto tempo a promoção vale para o cliente que comprar
-                <select
-                  value={chosenEligibility}
-                  onChange={(event) => setEligibility(event.target.value)}
-                  className="rounded-xl border border-[#eadfd9] bg-white px-3 py-2 font-normal"
-                  data-testid="link-promocao-elegibilidade"
-                >
-                  {eligibilityChoices.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {promotion && (
+                <div className="rounded-2xl border border-[#eadfd9] bg-white p-4" data-testid="promocao-explicada">
+                  {promotion.priceText && (
+                    <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#9b6c24]">
+                      Preço B2B <HelpTip text={HELP.price} />
+                      <span className="mt-1 block text-lg font-black normal-case tracking-normal text-[#55245f]">{promotion.priceText}</span>
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs font-extrabold uppercase tracking-[0.12em] text-[#9b6c24]">
+                    O que o cliente ganha <HelpTip text={HELP.deal} />
+                  </p>
+                  <p className="mt-1 text-base font-black text-[#422347]">{promotion.label}</p>
+                  <p className="text-sm text-[#422347]">{promotion.summary}</p>
+                  {promotion.math && (
+                    <p className="mt-2 rounded-xl bg-[#f6eef7] px-3 py-2 font-bold text-[#55245f]" data-testid="conta-pronta">
+                      {promotion.math}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-[#746471]">
+                    Vale nas linhas: {promotion.lines.join(", ")}. {promotion.kind === "abertura_reconquista" ? "Para quem nunca comprou a linha ou está há meses sem comprar." : "Vale para qualquer cliente."}
+                    <HelpTip text={HELP.opening} />
+                  </p>
+                </div>
+              )}
+              <fieldset className="grid gap-2">
+                <legend className="font-bold">
+                  Por quanto tempo vale para o cliente? <HelpTip text={HELP.duration} />
+                </legend>
+                <p className="text-xs text-[#746471]">
+                  Ao lado de cada opção, quanto você ganha. <HelpTip text={HELP.commission} label="Como funciona a comissão?" />
+                </p>
+                {eligibilityChoices.map((item) => (
+                  <label
+                    key={item.value}
+                    className={`grid cursor-pointer gap-0.5 rounded-xl border-2 p-3 font-normal ${chosenEligibility === item.value ? "border-blue-600 bg-blue-50" : "border-[#eadfd9] bg-white"}`}
+                  >
+                    <span className="flex items-center gap-2 font-extrabold">
+                      <input type="radio" name="elegibilidade-link" checked={chosenEligibility === item.value} onChange={() => setEligibility(item.value)} data-testid="link-promocao-elegibilidade" />
+                      {item.title}
+                    </span>
+                    <span className="text-xs text-[#746471]">{item.hint}</span>
+                    <span className="text-sm font-bold text-[#55245f]" data-testid="comissao-frase">
+                      {item.commission}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
             </>
           ) : (
             <label className="grid gap-1 font-bold">

@@ -13,6 +13,7 @@
 
 import { MAX_LINKS_PER_SELLER, MAX_VALIDITY_DAYS, PROMO_ENDED_NOTICE, generatePromoCode, normalizePromoCode, promoLinkPath, promoLinkStatus, withQueryParam, type PromoLinkStatus } from "@/lib/b2b/promo-link-core";
 import { findPromotionRule, loadCommissionMatrix, type EligibilityMode } from "@/lib/b2b/commission";
+import { commissionText, describeDeal, eligibilityText, mergeRanges, priceRangeText } from "@/lib/b2b/promo-explain";
 import { displayByKey } from "@/lib/b2b/displays";
 import { loadDisabledDisplays } from "@/lib/b2b/displays-server";
 import { loadBuilderLines } from "@/lib/b2b/offer-builder";
@@ -123,19 +124,36 @@ export async function revokePromoLink(run: SqlRunner, responsibleId: string, id:
 // Opções para o formulário: só promoções ATIVAS do admin, com as elegibilidades configuradas
 // ---------------------------------------------------------------------------
 
+export type PromoLinkChoice = {
+  /** "uses:1" | "days:30" */
+  value: string;
+  mode: EligibilityMode;
+  title: string;
+  hint: string;
+  /** "Sua comissão: 16% (10% fixo + 6% de bônus)" */
+  commission: string;
+};
+
 export type PromoLinkPromotionOption = {
   id: string;
   name: string;
+  /** "4 por 2" ou "−15%". */
   label: string;
+  /** "R$ 29,90 por unidade" ou "de R$ X a R$ Y por unidade". */
+  priceText: string | null;
+  /** Uma linha do que é + a conta pronta. */
+  summary: string;
+  math: string | null;
   /** Linhas onde a promoção vale. */
   lines: string[];
-  uses: number[];
-  days: number[];
+  kind: "abertura_reconquista" | "recorrente";
+  choices: PromoLinkChoice[];
 };
 
 export async function loadPromoLinkOptions(run: SqlRunner, responsibleId: string): Promise<PromoLinkPromotionOption[]> {
   const [lines, matrix] = await Promise.all([loadBuilderLines(new Date(), null), loadCommissionMatrix(run, responsibleId, null)]);
   const byId = new Map<string, PromoLinkPromotionOption>();
+  const ranges = new Map<string, Array<import("@/lib/b2b/promo-explain").PriceRange | null>>();
 
   for (const line of lines) {
     for (const promotion of line.promotions) {
@@ -144,23 +162,43 @@ export async function loadPromoLinkOptions(run: SqlRunner, responsibleId: string
       if (!option) {
         const rules = matrix.rules.filter((rule) => rule.promotionId === promotion.id);
 
+        const deal = describeDeal(promotion, promotion.priceRange);
+        const choice = (rule: (typeof rules)[number]): PromoLinkChoice => {
+          const mode = rule.eligibilityMode;
+          const amount = (mode === "uses" ? rule.maxUses : rule.durationDays) as number;
+          const text = eligibilityText(mode, amount);
+
+          return { value: `${mode}:${amount}`, mode, title: text.title, hint: text.hint, commission: commissionText(matrix.basePercent, rule.extraPercent) };
+        };
+        const ordered = [
+          ...rules.filter((rule) => rule.eligibilityMode === "uses" && rule.maxUses).sort((a, b) => (a.maxUses ?? 0) - (b.maxUses ?? 0)),
+          ...rules.filter((rule) => rule.eligibilityMode === "days" && rule.durationDays).sort((a, b) => (a.durationDays ?? 0) - (b.durationDays ?? 0)),
+        ];
+
         option = {
           id: promotion.id,
           name: promotion.name,
-          label: promotion.percent !== null ? `${String(promotion.percent).replace(".", ",")}% de desconto` : `Compre ${promotion.buyQuantity + promotion.freeQuantity} pague ${promotion.buyQuantity}`,
+          label: deal.headline,
+          priceText: null,
+          summary: deal.summary,
+          math: deal.math,
           lines: [],
-          uses: rules.filter((rule) => rule.eligibilityMode === "uses" && rule.maxUses).map((rule) => rule.maxUses as number).sort((a, b) => a - b),
-          days: rules.filter((rule) => rule.eligibilityMode === "days" && rule.durationDays).map((rule) => rule.durationDays as number).sort((a, b) => a - b),
+          kind: promotion.promoType,
+          choices: ordered.map(choice),
         };
         byId.set(promotion.id, option);
+        ranges.set(promotion.id, []);
       }
 
       option.lines.push(line.name);
+      ranges.get(promotion.id)?.push(promotion.priceRange ?? line.priceRange ?? null);
     }
   }
 
+  for (const [id, option] of byId) option.priceText = priceRangeText(mergeRanges(ranges.get(id) ?? []));
+
   // Sem elegibilidade configurada o vendedor não consegue escolher a promoção.
-  return [...byId.values()].filter((option) => option.uses.length > 0 || option.days.length > 0);
+  return [...byId.values()].filter((option) => option.choices.length > 0);
 }
 
 // ---------------------------------------------------------------------------

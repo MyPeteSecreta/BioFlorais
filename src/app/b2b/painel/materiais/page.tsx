@@ -3,7 +3,7 @@ import Link from "next/link";
 import { loadDemoState } from "@/lib/b2b/demo";
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
-import { SALES_MATERIALS, formatWhatsApp } from "@/lib/b2b/sales-materials";
+import { SALES_MATERIALS, TRAINING_VIDEOS_URL, formatWhatsApp } from "@/lib/b2b/sales-materials";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +44,25 @@ export default async function MaterialsPage() {
           )}
         </div>
       )}
+
+      <section className="mt-8" data-testid="cartao-videos-treinamento">
+        <h2 className="text-xl font-extrabold text-[#422347]">Treinamento</h2>
+        <div className="mt-3 flex flex-col gap-3 rounded-[22px] border border-[#eadfd9] bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-lg font-extrabold text-[#55245f]">Vídeos de treinamento</p>
+            <p className="mt-0.5 text-sm text-[#746471]">Aprenda a apresentar as linhas, montar ofertas e usar o painel. Abre o canal da Bio Florais no YouTube.</p>
+          </div>
+          <a
+            href={TRAINING_VIDEOS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-[44px] shrink-0 items-center justify-center rounded-full bg-[#55245f] px-6 text-center text-sm font-extrabold text-white"
+            data-testid="abrir-videos"
+          >
+            Assistir aos vídeos
+          </a>
+        </div>
+      </section>
 
       {GROUPS.map((group) => (
         <section key={group} className="mt-8">

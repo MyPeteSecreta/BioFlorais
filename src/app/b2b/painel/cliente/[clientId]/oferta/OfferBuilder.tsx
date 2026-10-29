@@ -30,6 +30,8 @@ import {
   type EligibilityMode,
 } from "@/lib/b2b/commission";
 import type { BuilderLine, BuilderPromotion } from "@/lib/b2b/offer-builder";
+import HelpTip from "@/components/b2b/HelpTip";
+import { HELP, commissionText, describeDeal, eligibilityText, priceRangeText } from "@/lib/b2b/promo-explain";
 
 export type BuilderChoice = {
   promotionId: string;
@@ -79,12 +81,9 @@ function CommissionBadge({
 
   return (
     <div className={`rounded-2xl bg-[#342737] text-white ${compact ? "px-3 py-2" : "px-5 py-3"}`}>
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-white/60">Sua comissão</p>
-      <p className="mt-0.5 text-sm font-bold">
-        {formatPercent(matrix.basePercent)} + {formatPercent(extraPercent)}
-      </p>
-      <p className={`${compact ? "text-base" : "text-xl"} font-black`}>
-        = {formatPercent(matrix.basePercent + extraPercent)}
+      <p className={`${compact ? "text-base" : "text-xl"} font-black`}>{formatPercent(matrix.basePercent + extraPercent)}</p>
+      <p className="mt-0.5 text-xs font-bold text-white/80" data-testid="comissao-frase">
+        {commissionText(matrix.basePercent, extraPercent)}
       </p>
     </div>
   );
@@ -112,11 +111,8 @@ function promotionScopeText(promotion: BuilderPromotion) {
 
 function choiceLabel(line: BuilderLine, choice: BuilderChoice) {
   const promotion = line.promotions.find((item) => item.id === choice.promotionId);
-  const label = promotion ? promoLabel(promotion) : "Promoção";
-  const eligibility =
-    choice.eligibilityMode === "uses"
-      ? `${choice.maxUses} compra${choice.maxUses === 1 ? "" : "s"}`
-      : `${choice.durationDays} dias`;
+  const label = promotion ? describeDeal(promotion, promotion.priceRange).headline : "Promoção";
+  const eligibility = choice.eligibilityMode === "uses" ? eligibilityText("uses", choice.maxUses ?? 1).title : eligibilityText("days", choice.durationDays ?? 0).title;
   return `${label} · ${eligibility}`;
 }
 
@@ -456,6 +452,16 @@ export default function OfferBuilder({
             </div>
 
             <div className="p-6 sm:p-8">
+              {priceRangeText(modalLine.priceRange) && (
+                <div className="mb-6 rounded-2xl border border-[#eadfd9] bg-white px-5 py-4" data-testid="preco-b2b-linha">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#9b6c24]">
+                    Preço B2B da linha
+                    <HelpTip text={HELP.price} />
+                  </p>
+                  <p className="mt-1 text-2xl font-black text-[#55245f]">{priceRangeText(modalLine.priceRange)}</p>
+                </div>
+              )}
+
               {modalLine.promotions.some((promotion) => promotion.onlyProducts.length > 0) && (
                 <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                   <p className="font-extrabold text-amber-950">Promoção pontual por produto</p>
@@ -480,7 +486,9 @@ export default function OfferBuilder({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xl font-extrabold">Preço B2B normal</p>
-                    <p className="mt-1 text-sm text-[#746471]">Sem promoção de quantidade.</p>
+                    <p className="mt-1 text-sm text-[#746471]">
+                      Sem promoção: o cliente paga {priceRangeText(modalLine.priceRange) ?? "o preço B2B de tabela"}.
+                    </p>
                     {windowTextByLine[modalLine.id] && (
                       <p className="mt-2 text-xs font-semibold text-[#55245f]">{windowTextByLine[modalLine.id]}</p>
                     )}
@@ -495,7 +503,10 @@ export default function OfferBuilder({
 
                 return (
                 <div key={group.type} className="mt-6">
-                <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#9b6c24]">{group.title}</p>
+                <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#9b6c24]">
+                  {group.title}
+                  <HelpTip text={HELP.opening} />
+                </p>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 {groupPromotions.map((promotion) => {
                   const active = draftChoice?.promotionId === promotion.id;
@@ -516,19 +527,15 @@ export default function OfferBuilder({
                         active ? "border-blue-500 bg-blue-50" : "border-[#eadfd9] bg-white hover:border-blue-300",
                       ].join(" ")}
                     >
-                      <p className="text-2xl font-black">{active ? "✓ " : ""}{promoLabel(promotion)}</p>
+                      <p className="text-2xl font-black">{active ? "✓ " : ""}{describeDeal(promotion, promotion.priceRange).headline}</p>
                       <p className="mt-2 text-sm font-bold text-blue-700">{promotionScopeText(promotion)}</p>
-                      <p className="mt-3 text-sm text-[#746471]">
-                        {promotion.percent !== null ? (
-                          <>
-                            <strong>{String(promotion.percent).replace(".", ",")}%</strong> de desconto no preço B2B.
-                          </>
-                        ) : (
-                          <>
-                            Compre <strong>{promotion.buyQuantity}</strong> e ganhe <strong>{promotion.freeQuantity}</strong> do mesmo produto.
-                          </>
-                        )}
-                      </p>
+                      <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#9b6c24]">O que o cliente ganha</p>
+                      <p className="mt-1 text-sm text-[#422347]">{describeDeal(promotion, promotion.priceRange).summary}</p>
+                      {describeDeal(promotion, promotion.priceRange).math && (
+                        <p className="mt-2 rounded-xl bg-[#f6eef7] px-3 py-2 text-sm font-bold text-[#55245f]" data-testid="conta-pronta">
+                          {describeDeal(promotion, promotion.priceRange).math}
+                        </p>
+                      )}
                       {promotion.reason && (
                         <p className={`mt-2 text-xs font-bold ${promotion.available ? "text-emerald-700" : "text-[#b33]"}`}>
                           {promotion.reason}
@@ -579,11 +586,10 @@ export default function OfferBuilder({
                       ].join(" ")}
                     >
                       <p className="text-lg font-black">{isActive ? "✓ " : ""}{label}</p>
-                      <p className="mt-2 text-xs">Comissão</p>
-                      <p className="mt-1 text-sm font-bold">
-                        {formatPercent(matrix.basePercent)} + {formatPercent(extraPercent)}
+                      <p className={`mt-1 text-xs ${isActive ? "text-white/90" : "text-[#746471]"}`}>{eligibilityText(mode, value).hint}</p>
+                      <p className="mt-2 text-sm font-bold" data-testid="comissao-frase">
+                        {commissionText(matrix.basePercent, extraPercent)}
                       </p>
-                      <p className="mt-1 text-lg font-black">= {formatPercent(matrix.basePercent + extraPercent)}</p>
                     </button>
                   );
                 };
@@ -591,14 +597,21 @@ export default function OfferBuilder({
                 return (
                   <div className="mt-6 rounded-[26px] border border-blue-200 bg-white p-5 sm:p-6">
                     <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-blue-700">Configure a promoção</p>
-                    <h3 className="mt-1 text-xl font-extrabold">Escolha a elegibilidade</h3>
+                    <h3 className="mt-1 text-xl font-extrabold">
+                      Por quanto tempo vale para o cliente?
+                      <HelpTip text={HELP.duration} />
+                    </h3>
+                    <p className="mt-1 text-sm text-[#746471]">
+                      Escolha uma opção. Ao lado de cada uma, quanto você ganha.
+                      <HelpTip text={HELP.commission} label="Como funciona a comissão?" />
+                    </p>
 
                     {options.uses.length > 0 && (
                       <div className="mt-5">
-                        <p className="font-extrabold">Por número de compras</p>
-                        <div className="mt-3 grid grid-cols-3 gap-3">
+                        <p className="font-extrabold">Só nas primeiras compras</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           {options.uses.map((rule) =>
-                            option("uses", rule.maxUses!, rule.extraPercent, `${rule.maxUses}x`)
+                            option("uses", rule.maxUses!, rule.extraPercent, eligibilityText("uses", rule.maxUses!).title)
                           )}
                         </div>
                       </div>
@@ -606,11 +619,10 @@ export default function OfferBuilder({
 
                     {options.days.length > 0 && (
                       <div className="mt-6">
-                        <p className="font-extrabold">Por período</p>
-                        <p className="mt-1 text-sm text-[#746471]">Compras ilimitadas durante o período, a partir da geração do link.</p>
-                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <p className="font-extrabold">Por tempo, com compras sem limite</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           {options.days.map((rule) =>
-                            option("days", rule.durationDays!, rule.extraPercent, `${rule.durationDays} dias`)
+                            option("days", rule.durationDays!, rule.extraPercent, eligibilityText("days", rule.durationDays!).title)
                           )}
                         </div>
                       </div>

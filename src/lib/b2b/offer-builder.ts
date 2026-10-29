@@ -25,6 +25,8 @@ import { isTestCommercialGroup } from "@/lib/b2b/test-groups";
 import { promotionScopeForGroup, type GroupMembership } from "@/lib/b2b/promotion-scope";
 import { B2B_PERCENT_PROMOTION_TYPE, isB2BPromotionComplete } from "@/lib/b2b/promotion-resolver";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { resolveB2BUnitPriceCents } from "@/lib/b2b/pricing";
+import type { PriceRange } from "@/lib/b2b/promo-explain";
 import {
   historyForGroup,
   loadClientPurchases,
@@ -50,6 +52,8 @@ export type BuilderPromotion = {
   onlyProducts: Array<{ id: string; name: string }>;
   /** Aviso único do alcance ("os sabonetes líquidos"): mostrado como "Oferta válida para ...". */
   scopeText: string | null;
+  /** Preço B2B por unidade dos produtos que a promoção cobre (para a conta pronta). null = sem preço. */
+  priceRange?: PriceRange | null;
 };
 
 export type BuilderLine = {
@@ -58,6 +62,8 @@ export type BuilderLine = {
   name: string;
   image: string | null;
   promotions: BuilderPromotion[];
+  /** Preço B2B por unidade dos produtos da linha (menor e maior). */
+  priceRange?: PriceRange | null;
 };
 
 export { isTestCommercialGroup };
@@ -131,6 +137,7 @@ export async function loadBuilderLines(
             slug: products.slug,
             category: products.category,
             lineSlug: products.lineSlug,
+            priceCents: products.priceCents,
           })
           .from(b2bPromotionProducts)
           .innerJoin(products, eq(products.id, b2bPromotionProducts.productId))
@@ -156,6 +163,15 @@ export async function loadBuilderLines(
     membership.set(row.groupId, set);
   }
 
+  // Preço B2B por unidade (menor e maior) de cada linha, para a conta pronta das promoções.
+  const lineProductRows = await db
+    .select({ groupId: b2bCommercialGroupProducts.commercialGroupId, priceCents: products.priceCents, category: products.category })
+    .from(b2bCommercialGroupProducts)
+    .innerJoin(products, eq(products.id, b2bCommercialGroupProducts.productId))
+    .where(and(inArray(b2bCommercialGroupProducts.commercialGroupId, groups.map((group) => group.id)), eq(products.active, true)));
+  const rangeOf = (prices: number[]): PriceRange | null => (prices.length > 0 ? { min: Math.min(...prices), max: Math.max(...prices) } : null);
+  const b2bPrice = (row: { priceCents: number; category: string | null }) => resolveB2BUnitPriceCents(row.priceCents, row.category);
+
   const run = getAppSqlRunner();
   const [purchases, months] = clientId
     ? await Promise.all([loadClientPurchases(run, clientId, excludeOfferId), loadReconquistaMonths(run)])
@@ -166,6 +182,7 @@ export async function loadBuilderLines(
     slug: group.slug,
     name: group.name,
     image: homeLineImage(group.slug),
+    priceRange: rangeOf(lineProductRows.filter((row) => row.groupId === group.id).map(b2bPrice)),
     promotions: usable
       .map((row) => ({
         row,
@@ -193,6 +210,12 @@ export async function loadBuilderLines(
         scopeText: describeScope(
           productRows.filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))
         ),
+        priceRange: (() => {
+          const only = productRows.filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id));
+          const pool = only.length > 0 ? only.map(b2bPrice) : lineProductRows.filter((item) => item.groupId === group.id).map(b2bPrice);
+
+          return rangeOf(pool);
+        })(),
         // Só os produtos DESTA linha (C4): o aviso "somente X" não vaza para outras linhas.
         onlyProducts: productRows
           .filter((product) => product.promotionId === row.id && scope.onlyProductIds.includes(product.id))

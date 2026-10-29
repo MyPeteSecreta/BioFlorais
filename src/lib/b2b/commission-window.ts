@@ -91,7 +91,7 @@ export function describeCommissionWindow(
   const total = `${round4(rules.basePercent + rules.normalExtraPercent)}%`;
 
   if (!window.endsAt) {
-    return `${base} + ${extra} = ${total} · válido por ${COMMISSION_WINDOW_DAYS} dias a partir da 1ª compra paga; depois ${base}`;
+    return `Comissão de ${total} (${base} fixo + ${extra} de bônus) por ${COMMISSION_WINDOW_DAYS} dias a partir da 1ª compra paga; depois ${base}`;
   }
 
   const until = new Intl.DateTimeFormat("pt-BR", {
@@ -102,6 +102,6 @@ export function describeCommissionWindow(
   }).format(window.endsAt);
 
   return window.open
-    ? `${base} + ${extra} = ${total} até ${until} (${COMMISSION_WINDOW_DAYS} dias após a 1ª compra); depois ${base}`
+    ? `Comissão de ${total} (${base} fixo + ${extra} de bônus) até ${until} (${COMMISSION_WINDOW_DAYS} dias após a 1ª compra); depois ${base}`
     : `Janela de ${COMMISSION_WINDOW_DAYS} dias encerrada em ${until}: preço normal rende só ${base}`;
 }

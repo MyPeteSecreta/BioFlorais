@@ -9,6 +9,9 @@
 
 export const MATERIALS_DIR = "src/lib/b2b/materiais/bio";
 
+/** Canal do YouTube com os vídeos de treinamento da Bio Florais (abre em nova aba: menu do vendedor e aba Materiais de venda). */
+export const TRAINING_VIDEOS_URL = "https://www.youtube.com/channel/UCHua8MveMyC0fdNuWnRBhOQ";
+
 export type MaterialAudience = "lojista" | "representante";
 
 export type SalesMaterial = {
