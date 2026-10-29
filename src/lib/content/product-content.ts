@@ -2133,7 +2133,7 @@ importantNote:
 
   "cosmeticos-creme-corpo-rescue-sos": {
     about:
-      "Creme corporal Bio Florais desenvolvido para proporcionar hidratação e cuidado da pele associados à experiência sensorial da versão Rescue SOS. Sua proposta é transformar a aplicação em um momento de pausa, conforto e autocuidado.",
+      "Creme corporal Bio Florais desenvolvido para proporcionar hidratação e cuidado da pele associados à experiência sensorial da versão S.O.S.. Sua proposta é transformar a aplicação em um momento de pausa, conforto e autocuidado.",
 
     indication:
       "Indicado para hidratação corporal e para momentos em que se deseja incorporar à rotina uma experiência sensorial de cuidado e conforto.",
@@ -2142,7 +2142,7 @@ importantNote:
       "Aplicar sobre a pele limpa e seca, espalhando com movimentos suaves até completa absorção. Reaplicar sempre que desejar hidratação e cuidado corporal.",
 
     importantNote:
-      "Uso externo. O termo Rescue SOS faz parte do conceito da versão e não significa atendimento ou tratamento de emergência. O produto possui finalidade cosmética.",
+      "Uso externo. O termo S.O.S. faz parte do conceito da versão e não significa atendimento ou tratamento de emergência. O produto possui finalidade cosmética.",
   },
 
   /*
@@ -2308,7 +2308,7 @@ importantNote:
 
   "cosmeticos-sabonete-liquido-rescue-sos": {
     about:
-      "Sabonete líquido desenvolvido para a higiene diária da pele e associado à experiência sensorial da versão Rescue SOS. Sua proposta é integrar limpeza e autocuidado em momentos de pausa e conforto.",
+      "Sabonete líquido desenvolvido para a higiene diária da pele e associado à experiência sensorial da versão S.O.S.. Sua proposta é integrar limpeza e autocuidado em momentos de pausa e conforto.",
 
     indication:
       "Indicado para higiene cotidiana das mãos e da pele, proporcionando uma experiência sensorial de cuidado durante a rotina.",
@@ -2317,7 +2317,7 @@ importantNote:
       "Aplicar sobre a pele úmida, massagear suavemente até formar espuma e enxaguar completamente com água.",
 
     importantNote:
-      "Uso externo. Rescue SOS é o nome conceitual da versão e não significa produto de emergência, medicamento ou tratamento.",
+      "Uso externo. S.O.S. é o nome conceitual da versão e não significa produto de emergência, medicamento ou tratamento.",
   },
 
   /*
@@ -2512,16 +2512,16 @@ importantNote:
   },
   "cosmeticos-pet-shampoo-rescue-sos": {
     about:
-      "Shampoo Bio Florais Pet desenvolvido para higiene da pelagem associado à experiência da versão Rescue SOS. Sua proposta é transformar o momento do banho em uma rotina de cuidado, atenção e bem-estar.",
+      "Shampoo Bio Florais Pet desenvolvido para higiene da pelagem associado à experiência da versão S.O.S.. Sua proposta é transformar o momento do banho em uma rotina de cuidado, atenção e bem-estar.",
 
     indication:
-      "Indicado para higiene de cães e gatos e para tutores que desejam incorporar a versão Rescue SOS à rotina cosmética do pet.",
+      "Indicado para higiene de cães e gatos e para tutores que desejam incorporar a versão S.O.S. à rotina cosmética do pet.",
 
     howToUse:
       "Molhar a pelagem, aplicar o shampoo, massagear suavemente até formar espuma e enxaguar completamente. Repetir se necessário.",
 
     importantNote:
-      "Uso externo. Rescue SOS é o nome da versão e não significa produto de emergência ou tratamento veterinário.",
+      "Uso externo. S.O.S. é o nome da versão e não significa produto de emergência ou tratamento veterinário.",
   },
 
   "cosmeticos-pet-condicionador-rescue-sos": {
@@ -2660,7 +2660,7 @@ importantNote:
   },
   "cosmeticos-pet-floral-de-ambiente-rescue-sos": {
     about:
-      "Floral de Ambiente Bio Florais Pet da versão Rescue SOS, desenvolvido para integrar a proposta da versão aos ambientes frequentados pelo animal.",
+      "Floral de Ambiente Bio Florais Pet da versão S.O.S., desenvolvido para integrar a proposta da versão aos ambientes frequentados pelo animal.",
 
     indication:
       "Indicado para aplicação no ambiente, caminha e locais onde o pet costuma permanecer.",
@@ -2672,7 +2672,7 @@ importantNote:
       "Álcool, BHT, água termal, perfume e Composto BioFlorais.",
 
     importantNote:
-      "Uso ambiental. Rescue SOS é o nome da versão e não substitui atendimento veterinário em situações de emergência.",
+      "Uso ambiental. S.O.S. é o nome da versão e não substitui atendimento veterinário em situações de emergência.",
   },
 
   "cosmeticos-pet-floral-de-ambiente-tristeza-e-depressao": {
@@ -2915,7 +2915,7 @@ importantNote:
 
   "home-care-sabonete-liquido-rescue-sos": {
     about:
-      "Sabonete Líquido Bio Florais desenvolvido para higiene diária da pele e associado à experiência sensorial da versão Rescue SOS.",
+      "Sabonete Líquido Bio Florais desenvolvido para higiene diária da pele e associado à experiência sensorial da versão S.O.S..",
 
     indication:
       "Indicado para higiene cotidiana das mãos e da pele.",
@@ -2927,7 +2927,7 @@ importantNote:
       "Composição completa a validar na rotulagem oficial do produto durante a auditoria final de ingredientes.",
 
     importantNote:
-      "Uso externo. Rescue SOS é o nome conceitual da versão e não representa produto de emergência ou tratamento.",
+      "Uso externo. S.O.S. é o nome conceitual da versão e não representa produto de emergência ou tratamento.",
   },
 };
 
