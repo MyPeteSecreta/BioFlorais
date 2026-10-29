@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -5,12 +6,24 @@ import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import DemoBanner from "@/components/b2b/DemoBanner";
 import DemoWelcome from "@/components/b2b/DemoWelcome";
 import LogoutButton from "@/components/b2b/LogoutButton";
+import PwaRegister from "@/components/b2b/PwaRegister";
 import { demoCtaUrl, loadDemoState } from "@/lib/b2b/demo";
 import CompleteProfileForm from "@/components/b2b/CompleteProfileForm";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { bannerText, loadVendorAccess } from "@/lib/b2b/vendor-profile";
 
 export const dynamic = "force-dynamic";
+
+// App instalável "Bio Florais Vendas": manifesto, ícone do iPhone e cor da barra.
+export const metadata: Metadata = {
+  title: "Bio Florais Vendas",
+  manifest: "/b2b/painel/manifest.webmanifest",
+  robots: { index: false, follow: false },
+  icons: { apple: "/b2b/app/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Bio Vendas", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = { themeColor: "#55245f" };
 
 /** Área do vendedor: exige sessão B2B ativa em todas as páginas. */
 export default async function B2BPanelLayout({ children }: { children: ReactNode }) {
@@ -20,6 +33,7 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
 
   return (
     <div className="min-h-screen bg-[#fffaf6] text-[#422347]">
+      <PwaRegister />
       {/* Modo demonstração: faixa fixa em TODAS as telas do painel + boas-vindas na primeira entrada. */}
       {demo.isDemo ? (
         <>
@@ -57,6 +71,9 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
                 </Link>
                 <Link href="/b2b/painel/comissoes" className="font-bold text-[#63326d] underline underline-offset-4">
                   Minhas comissões
+                </Link>
+                <Link href="/b2b/painel/instalar" className="font-bold text-[#63326d] underline underline-offset-4" data-testid="menu-instalar">
+                  Instale no celular
                 </Link>
               </>
             )}

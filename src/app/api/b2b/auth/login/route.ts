@@ -12,6 +12,7 @@ import { verifyPassword } from "@/lib/b2b/password";
 import {
   B2B_SESSION_COOKIE,
   B2B_SESSION_MAX_AGE,
+  B2B_SESSION_REMEMBER_MAX_AGE,
   createB2BResponsibleSession,
 } from "@/lib/b2b/responsible-session";
 
@@ -23,10 +24,13 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as {
       login?: unknown;
       password?: unknown;
+      remember?: unknown;
     };
 
     const login = String(body.login ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
+    // "Manter conectado": 30 dias; sem marcar, a sessão dura 12 horas como sempre.
+    const maxAge = body.remember === true ? B2B_SESSION_REMEMBER_MAX_AGE : B2B_SESSION_MAX_AGE;
 
     if (!login || !password) {
       return NextResponse.json({ error: "Informe e-mail (ou login) e senha." }, { status: 400 });
@@ -69,12 +73,12 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ ok: true });
 
-    response.cookies.set(B2B_SESSION_COOKIE, createB2BResponsibleSession(responsible.id), {
+    response.cookies.set(B2B_SESSION_COOKIE, createB2BResponsibleSession(responsible.id, maxAge), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: B2B_SESSION_MAX_AGE,
+      maxAge,
     });
 
     return response;

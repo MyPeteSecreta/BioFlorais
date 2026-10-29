@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 export default function B2BLoginPage() {
   const router = useRouter();
@@ -10,6 +10,12 @@ export default function B2BLoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [forgot, setForgot] = useState(false);
+  const [remember, setRemember] = useState(false);
+
+  // No celular o padrão é manter conectado (30 dias); no computador, desmarcado.
+  useEffect(() => {
+    setRemember(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -20,7 +26,7 @@ export default function B2BLoginPage() {
       const response = await fetch("/api/b2b/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, password }),
+        body: JSON.stringify({ login, password, remember }),
       });
 
       const data = await response.json();
@@ -67,6 +73,10 @@ export default function B2BLoginPage() {
           onChange={(event) => setPassword(event.target.value)}
           className="w-full rounded-xl border border-[#d9c7dc] px-3 py-2.5 text-sm"
         />
+        <label className="flex items-center gap-2 text-sm font-bold text-[#422347]">
+          <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4" data-testid="manter-conectado" />
+          Manter conectado por 30 dias neste aparelho
+        </label>
         {error && <p className="text-sm text-red-700">{error}</p>}
         <button
           type="submit"

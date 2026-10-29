@@ -6,6 +6,13 @@ export const runtime = "nodejs";
 
 export async function POST() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.delete(B2B_SESSION_COOKIE);
+  // Sair encerra a sessão neste aparelho: apaga o cookie (mesmo caminho do login), inclusive o de 30 dias.
+  response.cookies.set(B2B_SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
   return response;
 }

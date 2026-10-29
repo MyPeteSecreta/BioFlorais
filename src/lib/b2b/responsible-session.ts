@@ -12,6 +12,9 @@ export const B2B_SESSION_COOKIE = "bioflorais_b2b_session";
 
 export const B2B_SESSION_MAX_AGE = 60 * 60 * 12;
 
+/** "Manter conectado" (celular): a sessão do vendedor fica lembrada por 30 dias; "Sair" apaga o cookie. */
+export const B2B_SESSION_REMEMBER_MAX_AGE = 60 * 60 * 24 * 30;
+
 function getSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET;
 
@@ -40,11 +43,11 @@ function timingSafeMatch(a: string, b: string): boolean {
   return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
 
-export function createB2BResponsibleSession(responsibleId: string): string {
+export function createB2BResponsibleSession(responsibleId: string, maxAgeSeconds: number = B2B_SESSION_MAX_AGE): string {
   const payload = Buffer.from(
     JSON.stringify({
       responsibleId,
-      expiresAt: Date.now() + B2B_SESSION_MAX_AGE * 1000,
+      expiresAt: Date.now() + maxAgeSeconds * 1000,
     }),
     "utf8"
   ).toString("base64url");
