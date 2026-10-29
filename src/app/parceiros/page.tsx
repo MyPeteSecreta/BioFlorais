@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import B2BHero from "@/components/b2b/B2BHero";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { resolvePartnerSeller, withForwardedParams } from "@/lib/b2b/partners";
+import { findPromoLinkByCode, resolvePromoLinkTarget } from "@/lib/b2b/promo-links";
 import { ensureStorefrontPath } from "@/lib/b2b/storefront";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,16 @@ export default async function PartnersPage({
 }) {
   const query = await searchParams;
   const v = Array.isArray(query.v) ? query.v[0] : query.v;
+  const promo = Array.isArray(query.promo) ? query.promo[0] : query.promo;
+
+  // Link com promoção (&promo=<código>): abre a vitrine da promoção; vencido abre a loja normal com o aviso.
+  if (promo) {
+    const link = await findPromoLinkByCode(getAppSqlRunner(), promo);
+    const target = link ? await resolvePromoLinkTarget(getAppSqlRunner(), link) : null;
+
+    if (target) redirect(withForwardedParams(target, query));
+  }
+
   const { seller } = await resolvePartnerSeller(getAppSqlRunner(), v);
   const storePath = seller ? await ensureStorefrontPath(getAppSqlRunner(), { id: seller.id, name: seller.name }) : null;
 

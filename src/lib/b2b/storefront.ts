@@ -74,15 +74,17 @@ export async function ensureStorefrontPath(run: SqlRunner, seller: StorefrontSel
   }
 }
 
-async function findStorefront(run: SqlRunner, sellerId: string) {
+/** Vitrine PADRÃO do vendedor (as vitrines dos links com promoção, SQL 52b, têm promo_link_id e ficam de fora). */
+export async function findStorefront(run: SqlRunner, sellerId: string) {
   const [row] = await run(
-    `SELECT o.id FROM b2b_offers o
+    `SELECT o.id, o.client_id FROM b2b_offers o
       WHERE o.responsible_id = $1::uuid AND o.is_storefront = true AND o.status = 'active' AND o.revoked_at IS NULL
+        AND to_jsonb(o) ->> 'promo_link_id' IS NULL
       ORDER BY o.created_at DESC LIMIT 1`,
     [sellerId]
   );
 
-  return row ? { offerId: String(row.id) } : null;
+  return row ? { offerId: String(row.id), clientId: String(row.client_id) } : null;
 }
 
 export type Owner = { clientId: string; responsibleId: string; responsibleName: string; responsibleType: string; clientName: string; phone: string | null };
@@ -201,6 +203,12 @@ export async function attributeStorefrontOrder(
     documentDigits: string;
     lead: LeadInput;
     referralCode: string | null;
+    /** Vitrine de um link com promoção: a oferta do cliente sai com a promoção do link (null = cai na oferta padrão). */
+    promoOffer?: (
+      run: SqlRunner,
+      seller: { id: string; name: string },
+      client: { id: string; displayName: string; phone: string | null }
+    ) => Promise<{ offerId: string; url: string } | null>;
   },
   deps: StorefrontDeps = defaultDeps
 ): Promise<StorefrontAttribution | null> {
@@ -224,7 +232,9 @@ export async function attributeStorefrontOrder(
         );
       })();
 
-  const offer = await ensureStandardOffer(run, { id: seller.id, name: seller.name }, client, deps);
+  const offer =
+    (input.promoOffer ? await input.promoOffer(run, { id: seller.id, name: seller.name }, client) : null) ??
+    (await ensureStandardOffer(run, { id: seller.id, name: seller.name }, client, deps));
 
   if (!offer) return null;
 

@@ -25,6 +25,7 @@ import { hashToken } from "@/lib/b2b/token";
 import { isTestCommercialGroup } from "@/lib/b2b/offer-builder";
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { promoLinkPath, promoLinkStatus } from "@/lib/b2b/promo-link-core";
 
 export type PublicB2BProduct = {
   id: string;
@@ -51,17 +52,52 @@ export type PublicB2BOfferContext = {
   isDemo: boolean;
   /** Vitrine pública (/parceiros): o cliente e o vendedor do pedido são resolvidos no checkout. */
   isStorefront: boolean;
+  /** Vitrine de um LINK COM PROMOÇÃO do vendedor (SQL 52b): nome, validade e o link curto para o aviso. */
+  promoLink: { id: string; code: string; name: string; expiresAt: Date | null; sellerCode: string | null } | null;
 };
 
 export type PublicB2BOfferResolutionError =
   | "invalid_token"
+  | "promo_link_ended"
   | "link_revoked_or_expired"
   | "offer_not_active"
   | "client_relationship_inactive";
 
 export type PublicB2BOfferResolution =
   | { ok: true; context: PublicB2BOfferContext }
-  | { ok: false; error: PublicB2BOfferResolutionError };
+  | { ok: false; error: PublicB2BOfferResolutionError; /** promo_link_ended: /parceiros?v=…&promo=… (abre a loja normal com o aviso). */ promoRedirect?: string };
+
+/** Link com promoção (SQL 52b) dono da vitrine; null se a vitrine é a padrão ou se o SQL 52b ainda não foi aplicado. */
+async function loadOfferPromoLink(offerId: string) {
+  try {
+    const [row] = await getAppSqlRunner()(
+      `SELECT l.id, l.code, l.name, l.expires_at, l.revoked_at, r.referral_code
+         FROM b2b_offers o
+         JOIN b2b_promo_links l ON l.id = (to_jsonb(o) ->> 'promo_link_id')::uuid
+         JOIN b2b_responsibles r ON r.id = l.responsible_id
+        WHERE o.id = $1::uuid`,
+      [offerId]
+    );
+
+    if (!row) return null;
+
+    const asDate = (value: unknown) => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+
+      const text = String(value);
+
+      return new Date(/Z$|[+-]\d\d(:?\d\d)?$/.test(text) ? text : `${text.replace(" ", "T")}Z`);
+    };
+
+    return {
+      link: { id: String(row.id), code: String(row.code), name: String(row.name), expiresAt: asDate(row.expires_at), revokedAt: asDate(row.revoked_at) },
+      sellerCode: row.referral_code ? String(row.referral_code) : null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function loadPublicB2BOfferContext(
   rawToken: string
@@ -129,6 +165,7 @@ export async function loadPublicB2BOfferContext(
   // Demonstração (SQL 36b): lida por to_jsonb, então segue funcionando antes do SQL. Expirada: o link deixa de abrir.
   let isDemo = false;
   let isStorefront = false;
+  let promoLink: PublicB2BOfferContext["promoLink"] = null;
 
   try {
     const [demoRow] = await getAppSqlRunner()(
@@ -145,12 +182,25 @@ export async function loadPublicB2BOfferContext(
 
     isStorefront = storefrontRow?.is_storefront === "true";
 
+    if (isStorefront) {
+      const found = await loadOfferPromoLink(offer.id);
+
+      if (found) {
+        if (promoLinkStatus(found.link) !== "active") {
+          return { ok: false, error: "promo_link_ended", promoRedirect: found.sellerCode ? promoLinkPath(found.sellerCode, found.link.code) : undefined };
+        }
+
+        promoLink = { id: found.link.id, code: found.link.code, name: found.link.name, expiresAt: found.link.expiresAt, sellerCode: found.sellerCode };
+      }
+    }
+
     if (isDemo && (!demoRow?.demo_expires_at || new Date(String(demoRow.demo_expires_at)).getTime() <= Date.now())) {
       return { ok: false, error: "link_revoked_or_expired" };
     }
   } catch {
     isDemo = false;
     isStorefront = false;
+    promoLink = null;
   }
 
   const [relationship] = await db
@@ -253,6 +303,7 @@ export async function loadPublicB2BOfferContext(
       products: offerProducts,
       isDemo,
       isStorefront,
+      promoLink,
     },
   };
 }

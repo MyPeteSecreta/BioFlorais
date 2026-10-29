@@ -33,7 +33,7 @@ export function partnersPath(code: string) {
 }
 
 /** Parâmetros INTERNOS do /parceiros (não vão para a loja): o código do vendedor e o modo lançamento. */
-export const PARTNER_INTERNAL_PARAMS = ["v", "lancar"] as const;
+export const PARTNER_INTERNAL_PARAMS = ["v", "lancar", "promo"] as const;
 
 /**
  * O redirecionamento /parceiros -> /b2b/oferta/<token> não pode descartar a query string: repassa utm_* e demais

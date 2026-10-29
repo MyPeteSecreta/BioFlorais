@@ -19,6 +19,7 @@ import { ATTRIBUTION_COOKIE, attachAttribution, attributionFromRequest } from "@
 import { DEMO_PURCHASE_DISABLED_MESSAGE } from "@/lib/b2b/demo";
 import { ensureOmieVendorDefault } from "@/lib/b2b/omie-vendor";
 import { STOREFRONT_ORIGIN, attributeStorefrontOrder, findDocumentOwner } from "@/lib/b2b/storefront";
+import { ensurePromoClientOffer, findPromoLinkById } from "@/lib/b2b/promo-links";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 import { computeB2BQuote } from "@/lib/b2b/quote";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
@@ -103,6 +104,10 @@ export async function POST(request: NextRequest) {
     const resolution = await loadPublicB2BOfferContext(body.b2bToken ?? "");
 
     if (!resolution.ok) {
+      if (resolution.error === "promo_link_ended") {
+        return badRequest("Esta promoção terminou. Abra de novo o link do seu representante para ver o preço normal.", 409);
+      }
+
       return badRequest("Este link de oferta não é mais válido.", 403);
     }
 
@@ -207,7 +212,11 @@ export async function POST(request: NextRequest) {
       ).catch(() => [undefined]);
       const originCode = storeSeller?.referral_code ? String(storeSeller.referral_code) : null;
 
+      // Link com promoção: o pedido vai para uma oferta DO lojista com a promoção do link (elegibilidade e comissão da regra atual).
+      const promoLink = context.promoLink ? await findPromoLinkById(getAppSqlRunner(), context.promoLink.id) : null;
+
       const attribution = await attributeStorefrontOrder(getAppSqlRunner(), {
+        promoOffer: promoLink ? (run, seller, client) => ensurePromoClientOffer(run, promoLink, seller, client) : undefined,
         storeSeller: { id: context.responsibleId, name: context.responsibleName, type: context.responsibleType },
         documentDigits: personType === "pj" ? cnpj : cpf,
         lead: { name, document: personType === "pj" ? cnpj : cpf, phone, email, city, state },

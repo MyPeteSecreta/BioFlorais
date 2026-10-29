@@ -10,6 +10,7 @@
  */
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import B2BHero from "@/components/b2b/B2BHero";
 import B2BLineCard from "@/components/b2b/B2BLineCard";
@@ -22,6 +23,7 @@ import { homeLineImage } from "@/lib/b2b/line-images";
 import { describeScope } from "@/lib/b2b/product-label";
 import { lineBadge, lineEligibilityCaption } from "@/lib/b2b/offer-notices";
 import { listOfferPromotionNotices } from "@/lib/b2b/promotion-resolver";
+import { PROMO_ENDED_NOTICE } from "@/lib/b2b/promo-link-core";
 import { loadPublicB2BOfferContext } from "@/lib/b2b/public-offer-context";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_token: "Este link de oferta não existe.",
   link_revoked_or_expired: "Este link de oferta expirou ou foi substituído por um novo.",
   offer_not_active: "Esta oferta não está mais ativa.",
+  promo_link_ended: "Esta promoção terminou.",
   client_relationship_inactive: "Esta oferta não está mais disponível.",
 };
 
@@ -48,14 +51,21 @@ function Unavailable({ message }: { message: string }) {
 
 export default async function B2BOfferPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
+  const query = await searchParams;
+  const notice = Array.isArray(query.aviso) ? query.aviso[0] : query.aviso;
   // Token base64url: não precisa de decodificação.
   const resolution = await loadPublicB2BOfferContext(token);
 
   if (!resolution.ok) {
+    // Promoção do link vencida/revogada: abre a loja normal com o aviso "esta promoção terminou".
+    if (resolution.error === "promo_link_ended" && resolution.promoRedirect) redirect(resolution.promoRedirect);
+
     return <Unavailable message={ERROR_MESSAGES[resolution.error]} />;
   }
 
@@ -119,6 +129,19 @@ export default async function B2BOfferPage({
       </B2BHero>
 
       <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-10">
+        {context.promoLink && (
+          <p role="status" className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-950" data-testid="aviso-promocao-link">
+            Promoção: {context.promoLink.name}
+            {context.promoLink.expiresAt
+              ? ` · válida até ${new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(context.promoLink.expiresAt)}`
+              : ""}
+          </p>
+        )}
+        {store && !context.promoLink && notice === PROMO_ENDED_NOTICE && (
+          <p role="status" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-950" data-testid="aviso-promocao-terminou">
+            Esta promoção terminou. Veja abaixo as linhas com o preço B2B normal.
+          </p>
+        )}
         {showCompactStrip && (
           <DisplayStrip
             href={`/b2b/oferta/${encodeURIComponent(token)}/linha/adulto?kit=adulto-compacto`}

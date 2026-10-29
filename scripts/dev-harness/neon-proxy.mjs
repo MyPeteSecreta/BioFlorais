@@ -64,6 +64,22 @@ const [seller] = await q(
   [hashPassword("senha-de-teste")]
 );
 
+// Promoção de teste (como a B1 do SQL 29b): Compre 3 pague 2, abertura/reconquista, na linha Adulto, com a matriz de comissão
+// (base, preço normal e as elegibilidades 1x/2x/3x e 30 dias) que o Offer Builder e os links com promoção exigem.
+const [promo] = await q(
+  `INSERT INTO b2b_promotions (name, scope, type, commercial_purpose, eligibility_scope, buy_quantity, free_quantity, seller_selectable, active, promo_type)
+   VALUES ('Compre 3 pague 2 · Florais (teste)', 'b2b', 'buy_x_get_y_auto_same_sku', 'general', 'none', 2, 1, true, true, 'abertura_reconquista') RETURNING id`
+);
+await q(`INSERT INTO b2b_promotion_commercial_groups (promotion_id, commercial_group_id) SELECT $1::uuid, id FROM b2b_commercial_groups WHERE slug = 'adulto'`, [promo.id]);
+await q(`INSERT INTO b2b_commission_rules (scope, base_percent, active) VALUES ('responsible_base', 10, true)`);
+await q(`INSERT INTO b2b_commission_rules (scope, extra_percent, active) VALUES ('normal_price', 15, true)`);
+for (const [mode, uses, days, extra] of [["uses", 1, null, 10], ["uses", 2, null, 8], ["uses", 3, null, 6], ["days", null, 30, 10]]) {
+  await q(
+    `INSERT INTO b2b_commission_rules (scope, promotion_id, eligibility_mode, max_uses, duration_days, extra_percent, active) VALUES ('promotion_eligibility', $1::uuid, $2, $3, $4, $5, true)`,
+    [promo.id, mode, uses, days, extra]
+  );
+}
+
 async function makeOffer({ clientId, storefront }) {
   const [offer] = await q(
     `INSERT INTO b2b_offers (client_id, responsible_id, status, activated_at${storefront ? ", is_storefront" : ""}) VALUES ($1::uuid, $2::uuid, 'active', now()${storefront ? ", true" : ""}) RETURNING id`,

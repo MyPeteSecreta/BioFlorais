@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { buildKitCards, loadDisabledDisplays } from "@/lib/b2b/displays-server";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
@@ -65,6 +65,9 @@ export default async function B2BLinePage({
   const resolution = await loadPublicB2BOfferContext(token);
 
   if (!resolution.ok) {
+    // Promoção do link vencida: abre a loja normal com o aviso.
+    if (resolution.error === "promo_link_ended" && resolution.promoRedirect) redirect(resolution.promoRedirect);
+
     notFound();
   }
 

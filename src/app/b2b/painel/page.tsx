@@ -18,6 +18,9 @@ import QuickLinkPanel from "@/components/b2b/QuickLinkPanel";
 import { loadDemoState } from "@/lib/b2b/demo";
 import ReferralLinkPanel from "@/components/b2b/ReferralLinkPanel";
 import { ensureReferralCode, partnersPath } from "@/lib/b2b/partners";
+import { BIO_DISPLAYS } from "@/lib/b2b/displays";
+import { loadDisabledDisplays } from "@/lib/b2b/displays-server";
+import { listPromoLinks, loadPromoLinkOptions, promoLinkPath, promoLinkStatus } from "@/lib/b2b/promo-links";
 import { getSiteUrl } from "@/lib/seo/site-url";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +79,14 @@ export default async function B2BPanelPage() {
   const demo = await loadDemoState(getAppSqlRunner(), responsible.id);
   // Demonstração não tem link de captação (não recebe lojistas reais).
   const referralCode = demo.isDemo ? null : await ensureReferralCode(getAppSqlRunner(), responsible.id);
+  // Links com promoção (SQL 52b): só promoções ATIVAS do admin e kits display ligados.
+  const [promoOptions, promoLinkRows, disabledDisplays] = referralCode
+    ? await Promise.all([
+        loadPromoLinkOptions(getAppSqlRunner(), responsible.id).catch(() => []),
+        listPromoLinks(getAppSqlRunner(), responsible.id),
+        loadDisabledDisplays(getAppSqlRunner()).catch(() => new Set<string>()),
+      ])
+    : [[], [], new Set<string>()];
 
   return (
     <main className="mx-auto max-w-[1320px] px-5 py-10 lg:px-10">
@@ -110,7 +121,23 @@ export default async function B2BPanelPage() {
         <p className="mt-1 text-sm text-[#746471]">Todas as linhas, preço B2B cheio (sem promoção). Comissão normal para você.</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <QuickLinkPanel demo={demo.isDemo} clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />
-          {referralCode && <ReferralLinkPanel url={`${getSiteUrl()}${partnersPath(referralCode)}`} />}
+          {referralCode && (
+            <ReferralLinkPanel
+              url={`${getSiteUrl()}${partnersPath(referralCode)}`}
+              promoOptions={promoOptions}
+              displayOptions={BIO_DISPLAYS.filter((display) => !disabledDisplays.has(display.key)).map((display) => ({ key: display.key, name: display.name }))}
+              promoLinks={promoLinkRows.map((link) => ({
+                id: link.id,
+                name: link.name,
+                kind: link.kind,
+                promotionName: link.promotionName,
+                displayKey: link.displayKey,
+                expiresAt: link.expiresAt ? link.expiresAt.toISOString() : null,
+                status: promoLinkStatus(link),
+                url: `${getSiteUrl()}${promoLinkPath(referralCode, link.code)}`,
+              }))}
+            />
+          )}
         </div>
         <LinkChooser />
       </section>

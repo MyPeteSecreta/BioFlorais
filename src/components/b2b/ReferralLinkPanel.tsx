@@ -8,9 +8,20 @@
 
 import { useState } from "react";
 
+import PromoLinksPanel, { type DisplayOption, type PromoLinkView, type PromoOption } from "@/components/b2b/PromoLinksPanel";
 import QrCodeModal from "@/components/b2b/QrCodeModal";
 
-export default function ReferralLinkPanel({ url }: { url: string }) {
+export default function ReferralLinkPanel({
+  url,
+  promoOptions = [],
+  displayOptions = [],
+  promoLinks = [],
+}: {
+  url: string;
+  promoOptions?: PromoOption[];
+  displayOptions?: DisplayOption[];
+  promoLinks?: PromoLinkView[];
+}) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
@@ -45,6 +56,7 @@ export default function ReferralLinkPanel({ url }: { url: string }) {
           QR Code
         </button>
       </div>
+      <PromoLinksPanel promotions={promoOptions} displays={displayOptions} initialLinks={promoLinks} />
       {showQr && <QrCodeModal url={url} clientName={null} onClose={() => setShowQr(false)} />}
     </section>
   );
