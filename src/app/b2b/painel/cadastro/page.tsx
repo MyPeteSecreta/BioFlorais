@@ -1,6 +1,7 @@
 /** Cadastro completo do vendedor (acessível durante o teste; no teste vencido o layout já mostra só esta tela). */
 
 import CompleteProfileForm from "@/components/b2b/CompleteProfileForm";
+import ContactWhatsAppForm from "@/components/b2b/ContactWhatsAppForm";
 import { requireResponsiblePage } from "@/lib/b2b/current-responsible";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { loadProfileSources } from "@/lib/central/central-client";
@@ -13,8 +14,13 @@ export default async function CompleteProfilePage() {
   const run = getAppSqlRunner();
   const access = await loadVendorAccess(run, responsible.id);
   // V4: o e-mail vem do cadastro logado (nunca digitado), então ninguém consulta dados de outra pessoa.
-  const [owner] = await run(`SELECT email FROM b2b_responsibles WHERE id = $1`, [responsible.id]);
+  const [owner] = await run(`SELECT email, phone FROM b2b_responsibles WHERE id = $1`, [responsible.id]);
   const sources = owner ? await loadProfileSources(String(owner.email)) : [];
 
-  return <CompleteProfileForm requiresRcaTerms={responsible.type === "rca"} expired={access.state === "expired"} bannerText={bannerText(access)} sources={sources} />;
+  return (
+    <>
+      <ContactWhatsAppForm initialPhone={owner?.phone ? String(owner.phone) : null} />
+      <CompleteProfileForm requiresRcaTerms={responsible.type === "rca"} expired={access.state === "expired"} bannerText={bannerText(access)} sources={sources} />
+    </>
+  );
 }

@@ -17,6 +17,7 @@ import { isAdminRequest } from "@/lib/admin/session";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { defaultOmieVendorName, parseOmieVendorInput } from "@/lib/b2b/omie-vendor";
 import { ensureReferralCode, setHouseSeller, setReferralCode } from "@/lib/b2b/partners";
+import { changeContact, parseContactPatch } from "@/lib/b2b/vendor-contact";
 import { changeIdentity, describeIdentityConflict, parseIdentityInput, releaseIdentity } from "@/lib/b2b/vendor-identity";
 import {
   buildInviteMessage,
@@ -41,6 +42,7 @@ export async function POST(
     const body = (await request.json().catch(() => ({}))) as {
       action?: string;
       whatsapp?: string;
+      name?: string;
       omieVendor?: string;
       email?: string;
       login?: string;
@@ -144,6 +146,19 @@ export async function POST(
         }
 
         return NextResponse.json({ ok: true, email: parsed.value.email, login: parsed.value.login });
+      }
+
+      case "edit_contact": {
+        // Nome e WhatsApp do vendedor: validados e registrados (quem, quando, antigo e novo).
+        const parsed = parseContactPatch({ name: body.name, whatsapp: body.whatsapp });
+
+        if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+        const result = await changeContact(getAppSqlRunner(), id, parsed.value, { kind: "admin", label: "Admin" });
+
+        return result.ok
+          ? NextResponse.json({ ok: true, name: result.name, phone: result.phone, changed: result.changed })
+          : NextResponse.json({ error: result.error }, { status: result.status });
       }
 
       case "release_email": {

@@ -11,6 +11,7 @@ import { db } from "@/lib/db/client";
 import { notArchivedCondition } from "@/lib/b2b/archive";
 import { NOT_DEMO_SQL } from "@/lib/b2b/demo";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { loadLastContactChanges, type ContactChange } from "@/lib/b2b/vendor-contact";
 import { adminSituation } from "@/lib/b2b/vendor-profile";
 import {
   b2bClientRelationships,
@@ -52,6 +53,8 @@ export type AdminResponsibleRow = {
   referralCode?: string | null;
   /** Vendedor da casa da página /parceiros. */
   isHouse?: boolean;
+  /** Última troca de nome/WhatsApp (quem e quando; SQL 53b). */
+  contactChange?: ContactChange | null;
 };
 
 // Sem etapa de aprovação (decisão de 01/10): tudo que não está ativo é inativo,
@@ -145,6 +148,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Vendedor no Omie (SQL 30b). Sem a coluna: tudo "não cadastrado".
+    const contactChanges = await loadLastContactChanges(getAppSqlRunner());
     const omieBy = new Map<string, string>();
 
     try {
@@ -241,6 +245,7 @@ export async function GET(request: NextRequest) {
         emailOriginal: originalBy.get(row.id) ?? null,
         referralCode: codeBy.get(row.id) ?? null,
         isHouse: houseId === row.id,
+        contactChange: contactChanges.get(row.id) ?? null,
       })),
     ];
 

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import QrCodeModal from "@/components/b2b/QrCodeModal";
 import DemoLinksPanel from "./DemoLinksPanel";
 import ShareLink from "./ShareLink";
+import { formatWhatsApp } from "@/lib/b2b/sales-materials";
 import { accessText, accessWhatsAppUrl, isReleasedEmail, matchesSearch, sellerBadge, type SellerBadge } from "@/lib/b2b/seller-card";
 
 type Row = {
@@ -37,6 +38,7 @@ type Row = {
   emailOriginal?: string | null;
   referralCode?: string | null;
   isHouse?: boolean;
+  contactChange?: { field: string; oldValue: string | null; newValue: string | null; actor: string; actorLabel: string | null; changedAt: string } | null;
 };
 
 type SharedLink = {
@@ -77,6 +79,7 @@ export default function ResponsiblesTab() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [omieDraft, setOmieDraft] = useState<Record<string, string>>({});
   const [omieEditing, setOmieEditing] = useState<Record<string, boolean>>({});
+  const [contactEdit, setContactEdit] = useState<{ id: string; name: string; whatsapp: string } | null>(null);
   const [siteUrl, setSiteUrl] = useState("");
   const [qr, setQr] = useState<{ url: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
@@ -241,6 +244,26 @@ export default function ResponsiblesTab() {
 
       setMessage(ok ? `E-mail/login de ${row.name} atualizados.` : (data.error ?? "Erro ao editar."));
       if (ok) void load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function saveContact(row: Row) {
+    if (!contactEdit || contactEdit.id !== row.id) return;
+
+    setBusyId(row.id);
+    setMessage("");
+
+    try {
+      const { ok, data } = await post(`/api/admin/b2b/responsibles/${row.id}`, { action: "edit_contact", name: contactEdit.name, whatsapp: contactEdit.whatsapp });
+
+      setMessage(ok ? (data.changed?.length ? `Dados de ${row.name} atualizados.` : "Nada mudou.") : (data.error ?? "Erro ao editar."));
+
+      if (ok) {
+        setContactEdit(null);
+        void load();
+      }
     } finally {
       setBusyId(null);
     }
@@ -512,7 +535,7 @@ export default function ResponsiblesTab() {
                           row.email
                         )}
                         <span className="text-[#7b6a77]"> · {TYPE_LABELS[row.type] ?? row.type}</span>
-                        {row.phone && <span className="text-[#7b6a77]"> · WhatsApp {row.phone}</span>}
+                        {row.phone && <span className="text-[#7b6a77]"> · WhatsApp {formatWhatsApp(row.phone) ?? row.phone}</span>}
                       </p>
                       {!released && row.emailOriginal && <p className="text-[11px] text-[#8a5a12]">e-mail anterior: {row.emailOriginal}</p>}
                     </div>
@@ -530,6 +553,59 @@ export default function ResponsiblesTab() {
                       <>convite enviado em {formatDate(row.invitedAt)}</>
                     )}
                   </p>
+
+                  {row.kind === "responsible" && !released && (
+                    <div className="mt-3" data-testid="editar-contato">
+                      {contactEdit?.id === row.id ? (
+                        <div className="grid gap-2 rounded-xl border border-[#eadfd9] bg-[#fbf7f4] p-3 sm:max-w-[460px]">
+                          <label className="grid gap-1 text-xs font-bold text-[#594740]">
+                            Nome
+                            <input
+                              value={contactEdit.name}
+                              onChange={(e) => setContactEdit({ ...contactEdit, name: e.target.value })}
+                              className="rounded-lg border border-[#d9c9c1] bg-white p-2 text-sm font-normal"
+                              data-testid="contato-nome"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs font-bold text-[#594740]">
+                            WhatsApp (com DDD)
+                            <input
+                              value={contactEdit.whatsapp}
+                              onChange={(e) => setContactEdit({ ...contactEdit, whatsapp: e.target.value })}
+                              inputMode="tel"
+                              placeholder="(11) 99999-8888"
+                              className="rounded-lg border border-[#d9c9c1] bg-white p-2 text-sm font-normal"
+                              data-testid="contato-whatsapp"
+                            />
+                          </label>
+                          <div className="flex gap-2">
+                            <button type="button" disabled={busy} onClick={() => saveContact(row)} className={`${smallBase} border-[#55245f] bg-[#55245f] text-white`} data-testid="contato-salvar">
+                              Salvar
+                            </button>
+                            <button type="button" onClick={() => setContactEdit(null)} className={`${smallBase} border-[#342737] text-[#342737]`}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setContactEdit({ id: row.id, name: row.name, whatsapp: row.phone ?? "" })}
+                          className={`${smallBase} border-[#342737] text-[#342737]`}
+                          data-testid="editar-vendedor"
+                        >
+                          Editar nome e WhatsApp
+                        </button>
+                      )}
+                      {row.contactChange && (
+                        <p className="mt-1 text-[11px] text-[#7b6a77]" data-testid="contato-ultima-alteracao">
+                          Última alteração ({row.contactChange.field === "name" ? "nome" : "WhatsApp"}) por {row.contactChange.actor === "admin" ? "o admin" : "o próprio vendedor"} em {formatDate(row.contactChange.changedAt)}:{" "}
+                          {row.contactChange.oldValue ?? "—"} → {row.contactChange.newValue ?? "—"}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {main && <div className="mt-4 flex flex-wrap gap-2">{main}</div>}
                   {other && <div className="mt-3 flex flex-wrap gap-2 border-t border-[#f1e8e3] pt-3">{other}</div>}
