@@ -10,6 +10,7 @@ import Image from "next/image";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchaseActions from "@/components/product/ProductPurchaseActions";
+import { pixPrice, shortHowToUse, trustBadges } from "@/lib/product-conversion";
 import ViewContentEvent from "@/components/measurement/ViewContentEvent";
 import { getProductEditorialContent } from "@/lib/content/product-content";
 import Link from "next/link";
@@ -712,7 +713,9 @@ export default async function ProductPage({
       className="
         min-h-screen
         bg-[#fffdf9]
+        pb-[88px]
         text-[#2f2231]
+        lg:pb-0
       "
     >
       <ViewContentEvent slug={product.slug} name={product.name} priceCents={product.priceCents} />
@@ -737,8 +740,9 @@ export default async function ProductPage({
             items-center
             justify-between
             px-5
-            py-5
+            py-3
             lg:px-10
+            lg:py-5
           "
         >
           <Link
@@ -775,10 +779,12 @@ export default async function ProductPage({
           mx-auto
           grid
           max-w-[1280px]
-          gap-8
+          grid-cols-[minmax(0,1fr)]
+          gap-4
           px-5
-          py-8
+          py-4
           lg:grid-cols-2
+          lg:gap-8
           lg:px-10
           lg:py-10
         "
@@ -819,13 +825,15 @@ export default async function ProductPage({
 
           <h1
             className="
-              mt-4
+              mt-2
               font-serif
-              text-5xl
+              text-4xl
               font-semibold
-              leading-[1.02]
+              leading-[1.04]
               tracking-[-0.04em]
               text-[#422347]
+              sm:text-5xl
+              lg:mt-4
               lg:text-6xl
             "
           >
@@ -841,9 +849,11 @@ export default async function ProductPage({
                 (
                   <p
                     className="
-                      mt-4
-                      text-lg
+                      mt-1
+                      text-base
                       text-[#746471]
+                      lg:mt-4
+                      lg:text-lg
                     "
                   >
                     {
@@ -855,11 +865,13 @@ export default async function ProductPage({
 
               <p
                 className="
-                  mt-7
+                  mt-3
                   text-4xl
                   font-extrabold
                   text-[#55245f]
+                  lg:mt-7
                 "
+                data-testid="preco-produto"
               >
                 {
                   formatBRL(
@@ -867,6 +879,12 @@ export default async function ProductPage({
                   )
                 }
               </p>
+              {pixPrice(product.priceCents) && (
+                <p className="mt-1 text-base font-extrabold text-[#1f6b3a]" data-testid="preco-pix">
+                  {formatBRL(pixPrice(product.priceCents)!.priceCents)} no Pix
+                  <span className="ml-2 text-sm font-bold text-[#4d8a62]">({formatBRL(pixPrice(product.priceCents)!.savingCents)} a menos)</span>
+                </p>
+              )}
             </>
           )}
 
@@ -1620,6 +1638,9 @@ export default async function ProductPage({
             </div>
           ) : (
             <ProductPurchaseActions
+              priceCents={product.priceCents}
+              badges={trustBadges({ lineSlug: product.lineSlug, category: product.category })}
+              howToUse={shortHowToUse(editorial?.howToUse)}
               product={{
                 productSlug:
                   product.slug,
@@ -1758,7 +1779,9 @@ export default async function ProductPage({
                   "
                 >
                   <h3
+                    id="como-usar"
                     className="
+                      scroll-mt-24
                       text-lg
                       font-extrabold
                       text-[#422347]

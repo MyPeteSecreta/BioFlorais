@@ -48,7 +48,7 @@ export default function RootLayout({
             <GlobalCartButton />
           </HideOnB2B>
           <SiteFooter />
-          <HideOnB2B>
+          <HideOnB2B hideOnProductMobile>
             <UgcFloatingButton />
             <MobileLineBar />
           </HideOnB2B>

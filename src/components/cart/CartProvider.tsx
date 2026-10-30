@@ -54,7 +54,8 @@ interface CartContextValue {
   offers: CartOffer[];
   itemCount: number;
   addProduct: (
-    product: AddProductInput
+    product: AddProductInput,
+    quantity?: number
   ) => void;
   addCombo: (
     combo: AddComboInput
@@ -287,8 +288,10 @@ export function CartProvider({
     useCallback(
       (
         product:
-          AddProductInput
+          AddProductInput,
+        quantity: number = 1
       ) => {
+        // Um clique em "adicionar" = UM evento "sacola", mesmo levando várias unidades (mede a decisão, não a quantidade).
         void trackEvent("sacola");
         {
           // Meta AddToCart (só com o pixel carregado e o aceite de marketing)
@@ -299,11 +302,10 @@ export function CartProvider({
           (current) =>
             reconcileOffers({
               ...current,
-              items:
-                addOne(
-                  current.items,
-                  product
-                ),
+              items: Array.from({ length: Math.max(1, Math.floor(quantity)) }).reduce<typeof current.items>(
+                (items) => addOne(items, product),
+                current.items
+              ),
             })
         );
       },

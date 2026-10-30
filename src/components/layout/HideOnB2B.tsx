@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
  * de linhas) não aparecem na área B2B: lá eles cobriam ações como
  * "Salvar e revisar oferta" e misturavam o carrinho B2C com o B2B.
  */
-export default function HideOnB2B({ children }: { children: ReactNode }) {
+export default function HideOnB2B({ children, hideOnProductMobile = false }: { children: ReactNode; hideOnProductMobile?: boolean }) {
   const pathname = usePathname();
 
   // Só o B2C público mostra estes elementos: nem o B2B nem o admin.
@@ -20,6 +20,11 @@ export default function HideOnB2B({ children }: { children: ReactNode }) {
     pathname?.startsWith("/admin/")
   ) {
     return null;
+  }
+
+  // Página de produto no celular: a barra fixa "Adicionar à sacola" ocupa o rodapé; a barra de linhas e o botão de criadoras saem de lá.
+  if (hideOnProductMobile && pathname?.startsWith("/produto/")) {
+    return <div className="max-md:hidden">{children}</div>;
   }
 
   return <>{children}</>;

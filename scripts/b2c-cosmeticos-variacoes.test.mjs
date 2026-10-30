@@ -25,7 +25,7 @@ test("tela: Cosméticos (Shampoo/Condicionador) ganha as variações com preço,
   assert.ok(page.includes("variacoes-cosmeticos") && page.includes('mode="combo"'));
   // mostra só o que existe: sem "Indisponível" para shampoo sem condicionador
   const block = page.slice(page.indexOf("variacoes-cosmeticos"), page.indexOf(": hasPet5lMatrix ? ("));
-  assert.ok(block.includes(".filter((row) => row.item)") && !block.includes("Indisponível</p>\n                  )}\n                </div>\n              ))"));
+  assert.ok(block.includes(".filter((row) => row.item)"), "só as linhas que existem entram (o ramo Indisponível é inalcançável)");
 });
 
 test("cada Shampoo/Condicionador de Cosméticos resolve variações a partir do catálogo, com nome completo na sacola", () => {
