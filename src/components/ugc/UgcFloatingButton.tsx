@@ -424,7 +424,7 @@ export default function UgcFloatingButton() {
                       text-[#796a78]
                     "
                   >
-                    Condição vigente até 30/09. Pode ser combinada com promoções da loja.
+                    Condição vigente. Pode ser combinada com promoções da loja.
                   </p>
                 </div>
 
