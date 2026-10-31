@@ -17,6 +17,11 @@ export default function HideOnB2B({ children, hideOnProductMobile = false }: { c
     pathname?.startsWith("/b2b/") ||
     pathname === "/parceiros" ||
     pathname === "/admin" ||
+    // Checkout: nada flutuante por cima do formulário (cobria campos e o botão no celular).
+    pathname === "/checkout" ||
+    pathname?.startsWith("/checkout/") ||
+    // Retomar pagamento (link do e-mail): mesma tela limpa do checkout.
+    pathname?.startsWith("/pagar/") ||
     pathname?.startsWith("/admin/")
   ) {
     return null;

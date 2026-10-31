@@ -7,8 +7,12 @@
 
 import { readAttributionCookie } from "@/lib/attribution";
 
-export const ANALYTICS_EVENTS = ["chegada", "ver_produto", "sacola", "checkout"] as const;
+export const ANALYTICS_EVENTS = ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa"] as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
+
+/** Etapas do checkout B2C medidas pelo evento checkout_etapa (a primeira vez que a pessoa chega/mexe em cada uma). */
+export const CHECKOUT_STEPS = ["dados", "endereco", "frete", "pagamento"] as const;
+export type CheckoutStep = (typeof CHECKOUT_STEPS)[number];
 
 export type EventProps = { origem: string; campanha: string };
 
@@ -35,6 +39,23 @@ export function pageEventFor(pathname: string | null | undefined): AnalyticsEven
 }
 
 /** Envia o evento (client). Falha silenciosa: bloqueador de anúncios ou ambiente sem Analytics não quebram nada. */
+/** Propriedades do checkout_etapa: só a etapa, a origem e a campanha. Nenhum dado pessoal (nome, e-mail, CEP, valores). */
+export function checkoutStepProps(step: CheckoutStep, cookieString: string | null | undefined): EventProps & { etapa: CheckoutStep } {
+  return { ...eventProps(cookieString), etapa: step };
+}
+
+/** Envia o evento (client). Falha silenciosa: bloqueador de anúncios ou ambiente sem Analytics não quebram nada. */
+export async function trackCheckoutStep(step: CheckoutStep, cookieString?: string | null): Promise<void> {
+  try {
+    const { track } = await import("@vercel/analytics");
+    const cookie = cookieString ?? (typeof document !== "undefined" ? document.cookie : "");
+
+    track("checkout_etapa", checkoutStepProps(step, cookie));
+  } catch {
+    // sem Analytics: segue sem medir
+  }
+}
+
 export async function trackEvent(name: AnalyticsEventName, cookieString?: string | null): Promise<void> {
   try {
     const { track } = await import("@vercel/analytics");

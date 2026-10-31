@@ -10,6 +10,7 @@ import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment
 import Link from "next/link";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
+import { trackCheckoutStep, type CheckoutStep } from "@/lib/analytics-events";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
@@ -18,6 +19,7 @@ import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -1042,6 +1044,22 @@ export default function CheckoutPage() {
   // O campo é não controlado; este verificador pega os casos em que o navegador não dispara onChange (autofill, rascunho restaurado).
   const cepLookupRef = useRef("");
 
+  // Evento checkout_etapa: a primeira vez que a pessoa mexe em cada etapa (dados, endereço), recebe o frete e vai ao pagamento.
+  const stepsSent = useRef<Set<CheckoutStep>>(new Set());
+  const markStep = useCallback((step: CheckoutStep) => {
+    if (stepsSent.current.has(step)) return;
+
+    stepsSent.current.add(step);
+    void trackCheckoutStep(step);
+  }, []);
+  const markStepForField = useCallback(
+    (name: string) => {
+      if (["name", "email", "phone", "document", "secondaryDocument"].includes(name)) markStep("dados");
+      else if (["postalCode", "street", "number", "complement", "neighborhood", "city", "state", "orderNote"].includes(name)) markStep("endereco");
+    },
+    [markStep]
+  );
+
   useEffect(() => {
     if (!checkoutDraftRestored || items.length === 0) return;
 
@@ -1059,6 +1077,10 @@ export default function CheckoutPage() {
     // lookupCep é função do próprio componente (usa só setters estáveis e a sacola atual).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutDraftRestored, items.length]);
+
+  useEffect(() => {
+    if (selectedShipping) markStep("frete");
+  }, [selectedShipping, markStep]);
 
   if (items.length === 0 && pendingOrderStatus !== "paid") {
     return (
@@ -1272,7 +1294,12 @@ export default function CheckoutPage() {
 
   function handleCepChange(event: React.ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
-    const cep = input.value.replace(/\D/g, "");
+    const cep = input.value.replace(/\D/g, "").slice(0, 8);
+
+    // Máscara 00000-000 (o valor enviado continua só com os dígitos).
+    const masked = cep.length > 5 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep;
+
+    if (input.value !== masked) input.value = masked;
 
     if (cep.length !== 8) {
       // Apagou/editou: libera para calcular de novo quando completar 8 dígitos.
@@ -1619,11 +1646,34 @@ export default function CheckoutPage() {
     pixDiscountAppliedCents +
     customerShippingCents;
 
+  // Botão de continuar: o mesmo no resumo e na barra fixa do celular.
+  const submitDisabled =
+    loading || loadingShipping || creatingOrder || Boolean(pendingOrderId) || !quote || !selectedShipping || Boolean(error) || Boolean(shippingError);
+  const submitLabel = creatingOrder
+    ? "Criando pedido..."
+    : pendingOrderId
+      ? paymentMethod === "card" && pendingOrderStatus !== "paid" ? "Pagamento pendente" : "Pedido criado"
+      : paymentMethod === "pix"
+        ? "Continuar com Pix"
+        : "Continuar com cartão";
+  // Por que o botão está apagado (antes não dizia nada).
+  const submitHint = pendingOrderId
+    ? ""
+    : shippingError
+      ? shippingError
+      : error
+        ? String(error)
+        : loadingShipping
+          ? "Calculando o frete..."
+          : !selectedShipping
+            ? "Informe o CEP para ver o frete"
+            : "";
+
   const inputClass =
     "mt-2 w-full rounded-2xl border border-[#26352c]/15 bg-white px-4 py-3.5 text-sm outline-none transition placeholder:text-[#26352c]/35 focus:border-[#26352c]/40";
 
   return (
-    <main className="min-h-screen bg-[#f8f5ee] px-5 py-10 text-[#26352c] md:py-14">
+    <main className="min-h-screen bg-[#f8f5ee] px-5 py-10 pb-32 text-[#26352c] md:py-14 lg:pb-14">
       <div className="mx-auto max-w-6xl">
         <CheckoutTopStrip parts={checkoutTopStrip} className="mb-6" />
 
@@ -1654,12 +1704,15 @@ export default function CheckoutPage() {
           </Link>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
           <form
             id="bio-checkout-form"
             className="space-y-6"
             // BIO_CHECKOUT_DRAFT_FORM_AUTOSAVE_V3
-            onInput={() => {
+            onFocusCapture={(event) => markStepForField((event.target as unknown as HTMLInputElement).name)}
+            onInput={(event) => {
+              // autofill do navegador dispara input sem foco: também conta como mexer na etapa
+              markStepForField((event.target as unknown as HTMLInputElement).name);
               window.setTimeout(saveCheckoutDraft, 0);
             }}
             onChange={() => {
@@ -1943,7 +1996,7 @@ export default function CheckoutPage() {
               }
             }}
           >
-            <section className="rounded-[28px] border border-[#26352c]/10 bg-white p-6 shadow-sm md:p-8">
+            <section className="rounded-[28px] border border-[#26352c]/10 bg-white p-5 shadow-sm sm:p-6 md:p-8">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#26352c]/45">
@@ -1955,7 +2008,7 @@ export default function CheckoutPage() {
                   </h2>
                 </div>              </div>
 
-              <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-2">
                 <label className="text-sm font-medium md:col-span-2">
                   Nome completo
                   <input
@@ -2007,22 +2060,25 @@ export default function CheckoutPage() {
                         );
                     }}
                     className={inputClass}
-                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    placeholder="CPF ou CNPJ, só números"
                   />
                 </label>
 
-                <label className="text-sm font-medium">
-                  RG ou Inscrição Estadual
-                  <input
-                    name="secondaryDocument"
-                    className={inputClass}
-                    placeholder="RG ou Inscrição Estadual"
-                  />
-                </label>
+                <details className="text-sm md:col-span-2" data-testid="campo-opcional-rg">
+                  <summary className="cursor-pointer font-medium text-[#46644f]">Informar RG ou Inscrição Estadual (opcional)</summary>
+                  <label className="mt-3 block font-medium">
+                    RG ou Inscrição Estadual
+                    <input
+                      name="secondaryDocument"
+                      className={inputClass}
+                      placeholder="RG ou Inscrição Estadual"
+                    />
+                  </label>
+                </details>
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-[#26352c]/10 bg-white p-6 shadow-sm md:p-8">
+            <section className="rounded-[28px] border border-[#26352c]/10 bg-white p-5 shadow-sm sm:p-6 md:p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#26352c]/45">
                 Etapa 2
               </p>
@@ -2031,7 +2087,7 @@ export default function CheckoutPage() {
                 Endereço de entrega
               </h2>
 
-              <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-2">
                 <label className="text-sm font-medium">
                   CEP
                   <input
@@ -2054,6 +2110,16 @@ export default function CheckoutPage() {
                   {cepError ? (
                     <span className="mt-2 block text-xs text-red-700">
                       {cepError}
+                    </span>
+                  ) : null}
+
+                  {!cepError && loadingShipping ? (
+                    <span className="mt-2 block text-xs text-[#26352c]/50">Calculando o frete...</span>
+                  ) : null}
+
+                  {!cepError && !loadingShipping && selectedShipping ? (
+                    <span className="mt-2 block text-xs font-semibold text-[#46644f]" data-testid="frete-sob-cep">
+                      Frete: {customerShippingCents === 0 ? "grátis" : formatMoney(customerShippingCents)} · entrega em até {selectedShipping.etaDays} {selectedShipping.etaDays === 1 ? "dia útil" : "dias úteis"}
                     </span>
                   ) : null}
                 </label>
@@ -2136,8 +2202,10 @@ export default function CheckoutPage() {
                 </label>
               </div>
 
-              <label className="mt-4 block text-sm font-medium">
-                Observações do pedido (opcional)
+              <details className="mt-4 text-sm" data-testid="campo-opcional-observacoes">
+                <summary className="cursor-pointer font-medium text-[#46644f]">Adicionar observação ao pedido (opcional)</summary>
+              <label className="mt-3 block font-medium">
+                Observações do pedido
                 <textarea
                   name="orderNote"
                   maxLength={ORDER_NOTE_MAX}
@@ -2150,11 +2218,12 @@ export default function CheckoutPage() {
                   Até {ORDER_NOTE_MAX} caracteres.
                 </span>
               </label>
+              </details>
             </section>
 
             <section
               id="bio-delivery-section"
-              className="rounded-[28px] border border-[#26352c]/10 bg-white p-6 shadow-sm md:p-8"
+              className="rounded-[28px] border border-[#26352c]/10 bg-white p-5 shadow-sm sm:p-6 md:p-8"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#26352c]/45">
                 Etapa 3
@@ -2164,7 +2233,7 @@ export default function CheckoutPage() {
                 Entrega e benefícios
               </h2>
 
-              <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-2">
                 <div className="rounded-2xl border border-[#26352c]/10 bg-[#f8f5ee] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -2368,7 +2437,13 @@ export default function CheckoutPage() {
 
                 </div>
 
-                <div className="rounded-2xl border border-[#26352c]/10 bg-[#f8f5ee] p-5">
+                <details
+                  className="rounded-2xl border border-[#26352c]/10 bg-[#f8f5ee] p-5"
+                  open={Boolean(appliedCoupon || appliedPartnerCoupon || couponCode || partnerCouponCode)}
+                  data-testid="cupom-recolhido"
+                >
+                  <summary className="cursor-pointer text-sm font-medium text-[#46644f]">Tem cupom de desconto?</summary>
+                  <div className="mt-3">
                   <label className="text-sm font-medium">
                     Cupom de desconto
                   </label>
@@ -2523,6 +2598,7 @@ export default function CheckoutPage() {
                     Você pode usar 1 cupom comercial e 1 cupom de parceira/UGC no mesmo pedido.
                   </p>
                 </div>
+                </details>
               </div>
             </section>
 
@@ -2550,10 +2626,13 @@ export default function CheckoutPage() {
                 </span>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("pix")}
+                  onClick={() => {
+                    markStep("pagamento");
+                    setPaymentMethod("pix");
+                  }}
                   aria-pressed={paymentMethod === "pix"}
                   className={`relative min-h-36 rounded-2xl border p-5 text-left transition ${
                     paymentMethod === "pix"
@@ -2586,7 +2665,10 @@ export default function CheckoutPage() {
 
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("card")}
+                  onClick={() => {
+                    markStep("pagamento");
+                    setPaymentMethod("card");
+                  }}
                   aria-pressed={paymentMethod === "card"}
                   className={`relative min-h-36 rounded-2xl border p-5 text-left transition ${
                     paymentMethod === "card"
@@ -3006,26 +3088,18 @@ export default function CheckoutPage() {
             <button
               type="submit"
               form="bio-checkout-form"
-              disabled={
-                loading ||
-                loadingShipping ||
-                creatingOrder ||
-                Boolean(pendingOrderId) ||
-                !quote ||
-                !selectedShipping ||
-                Boolean(error) ||
-                Boolean(shippingError)
-              }
+              disabled={submitDisabled}
+              onClick={() => markStep("pagamento")}
               className="mt-3 w-full rounded-full bg-[#26352c] px-6 py-3.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {creatingOrder
-                ? "Criando pedido..."
-                : pendingOrderId
-                  ? paymentMethod === "card" && pendingOrderStatus !== "paid" ? "Pagamento pendente" : "Pedido criado"
-                  : paymentMethod === "pix"
-                    ? "Continuar com Pix"
-                    : "Continuar com cartão"}
+              {submitLabel}
             </button>
+
+            {submitHint ? (
+              <p className="mt-2 text-center text-xs font-semibold text-[#8a5a12]" data-testid="motivo-botao-apagado">
+                {submitHint}
+              </p>
+            ) : null}
 
             <p className="mt-3 text-center text-xs leading-5 text-[#26352c]/45">
               {pendingOrderId
@@ -3037,6 +3111,32 @@ export default function CheckoutPage() {
           </aside>
         </div>
       </div>
+
+      {/* Celular: total e botão de continuar sempre à vista (o botão do resumo fica no fim da página). */}
+      {!pendingOrderId ? (
+        <div
+          className="fixed inset-x-0 bottom-0 z-[65] border-t border-[#26352c]/10 bg-white/95 px-4 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-6px_24px_rgba(38,53,44,0.12)] backdrop-blur lg:hidden"
+          data-testid="barra-checkout-fixa"
+        >
+          <div className="mx-auto flex max-w-[560px] items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#26352c]/50">Total</p>
+              <p className="text-lg font-semibold leading-tight">{quote ? formatMoney(checkoutTotalCents) : loading ? "..." : "—"}</p>
+              {submitHint ? <p className="truncate text-[11px] font-semibold text-[#8a5a12]">{submitHint}</p> : null}
+            </div>
+            <button
+              type="submit"
+              form="bio-checkout-form"
+              disabled={submitDisabled}
+              onClick={() => markStep("pagamento")}
+              className="shrink-0 rounded-full bg-[#26352c] px-6 py-3.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              data-testid="continuar-fixo"
+            >
+              {submitLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* BIO_WIDE_CARD_PAYMENT_SECTION_V1 */}
       {pendingOrderId &&

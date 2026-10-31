@@ -49,7 +49,7 @@ test("eventos: origem = utm_source / utm_medium (ou referrer; 'direto' se vazio)
   for (const props of [ev.eventProps(""), ev.eventProps(cookie({ utm_source: "a", utm_medium: "b", utm_campaign: "c", referrer_domain: "d.com" }))]) {
     assert.deepEqual(Object.keys(props), ["origem", "campanha"]);
   }
-  assert.deepEqual([...ev.ANALYTICS_EVENTS], ["chegada", "ver_produto", "sacola", "checkout"]);
+  assert.deepEqual([...ev.ANALYTICS_EVENTS], ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa"]);
 });
 
 test("eventos: rotas e ligações (layout, carrinho), sem admin/vendedor e sem dado pessoal", () => {
