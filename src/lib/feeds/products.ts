@@ -7,6 +7,7 @@
  */
 
 import type { BioProduct } from "@/lib/catalog/bio-products";
+import { GTIN_BY_SLUG } from "@/lib/feeds/gtin-data";
 
 export const FEED_BRAND = "Bio Florais";
 
@@ -19,8 +20,8 @@ export const FEED_EXCLUDED_NAME_PATTERNS: readonly RegExp[] = [/rescue/i, /depre
 /** Categorias de arte de marketing (com frases): fora. */
 export const FEED_EXCLUDED_CATEGORIES: readonly string[] = ["Snack Floral"];
 
-/** GTIN por slug, quando a Bio tiver (nenhum hoje). */
-export const FEED_GTIN: Readonly<Record<string, string>> = {};
+/** GTIN (EAN-13) por slug: o que a Bio tem na planilha de EAN (ver gtin-data.ts). Quem não tem segue com identifier_exists = no. */
+export const FEED_GTIN: Readonly<Record<string, string>> = GTIN_BY_SLUG;
 
 const LINE_NAMES: Record<string, string> = {
   adulto: "Adulto",
@@ -133,7 +134,8 @@ export function renderGoogleFeedXml(items: FeedItem[], siteUrl: string): string 
           `      <g:condition>${item.condition}</g:condition>`,
           `      <g:price>${item.price}</g:price>`,
           `      <g:brand>${xmlEscape(item.brand)}</g:brand>`,
-          item.gtin ? `      <g:gtin>${xmlEscape(item.gtin)}</g:gtin>` : "      <g:identifier_exists>no</g:identifier_exists>",
+          item.gtin ? `      <g:gtin>${xmlEscape(item.gtin)}</g:gtin>
+      <g:identifier_exists>yes</g:identifier_exists>` : "      <g:identifier_exists>no</g:identifier_exists>",
           `      <g:product_type>${xmlEscape(item.productType)}</g:product_type>`,
           "    </item>",
         ].join("\n")
