@@ -87,10 +87,10 @@ test("SCHEMA-01: shippingDetails e hasMerchantReturnPolicy usam os textos das po
   const shipping = sd.shippingDetailsJsonLd(5000);
   assert.equal(shipping["@type"], "OfferShippingDetails");
   assert.equal(shipping.deliveryTime, undefined);
-  assert.equal(shipping.shippingRate, undefined, "abaixo de R$ 100 não afirma frete zero");
+  assert.equal(shipping.shippingRate, undefined, "abaixo de R$ 70 não afirma frete zero");
   assert.equal(sd.shippingDetailsJsonLd(12000).shippingRate.value, "0.00");
   const freight = read("src/app/frete-e-entrega/page.tsx");
-  assert.match(freight, /R\$ 100,00/);
+  assert.match(freight, /R\$ 70,00/);
   const returns = sd.merchantReturnPolicyJsonLd("https://www.bioflorais.com.br");
   assert.equal(returns.merchantReturnDays, 7);
   assert.equal(returns.merchantReturnLink, "https://www.bioflorais.com.br/trocas-e-devolucoes");

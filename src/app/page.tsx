@@ -160,7 +160,7 @@ export default function Home() {
                 🚚
               </span>
               <span>
-                Frete grátis a partir de R$ 100
+                Frete grátis a partir de R$ 70
               </span>
             </div>
 
@@ -413,7 +413,7 @@ export default function Home() {
                 </p>
 
                 <h2 className="mt-1.5 font-serif text-[26px] font-semibold leading-[1.02] tracking-[-0.035em] text-[#422347] sm:text-[30px]">
-                  Frete grátis a partir de R$ 100.
+                  Frete grátis a partir de R$ 70.
                 </h2>
               </div>
 
@@ -435,7 +435,7 @@ export default function Home() {
             <p className="mt-3 text-sm leading-6 text-[#6c5b69]">
               Para você, para quem você ama e para quem também faz parte da família.{" "}
               <span className="font-semibold text-[#8b6524]">
-                Frete grátis a partir de R$ 100.
+                Frete grátis a partir de R$ 70.
               </span>
             </p>
           </div>

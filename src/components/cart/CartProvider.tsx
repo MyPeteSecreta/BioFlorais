@@ -55,7 +55,9 @@ interface CartContextValue {
   itemCount: number;
   addProduct: (
     product: AddProductInput,
-    quantity?: number
+    quantity?: number,
+    /** "sugestao": veio do cartão de sugestões do carrinho (mede como sugestao_adicionada, não como sacola da página de produto). */
+    source?: "sugestao"
   ) => void;
   addCombo: (
     combo: AddComboInput
@@ -289,10 +291,12 @@ export function CartProvider({
       (
         product:
           AddProductInput,
-        quantity: number = 1
+        quantity: number = 1,
+        source?: "sugestao"
       ) => {
         // Um clique em "adicionar" = UM evento "sacola", mesmo levando várias unidades (mede a decisão, não a quantidade).
-        void trackEvent("sacola");
+        // Sugestão do carrinho conta como "sugestao_adicionada" (o funil ver_produto → sacola fica só com a página de produto).
+        void trackEvent(source === "sugestao" ? "sugestao_adicionada" : "sacola");
         {
           // Meta AddToCart (só com o pixel carregado e o aceite de marketing)
           const event = metaAddToCartEvent(product.productSlug);

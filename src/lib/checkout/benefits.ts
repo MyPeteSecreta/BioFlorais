@@ -6,9 +6,21 @@
 
 const formatBRL = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
-/** Configuração real do B2C: frete grátis (modalidade econômica) a partir de R$ 100; abaixo disso o frete tem subsídio de 25%. */
-export const B2C_FREE_SHIPPING_THRESHOLD_CENTS = 10_000;
-export const B2C_SHIPPING_SUBSIDY_PERCENT = 25;
+/**
+ * Configuração real do B2C (decisão do Luis): frete grátis (modalidade econômica) a partir de R$ 70 em produtos; abaixo disso o cliente
+ * paga 65% da cotação (subsídio de 35%), com TETO por estado igual ao publicado no Google Merchant: R$ 9,90 em 18 estados e R$ 15,90
+ * em 9 estados. A conta fica em shipping-b2c.ts (servidor e checkout usam a mesma).
+ */
+export const B2C_FREE_SHIPPING_THRESHOLD_CENTS = 7_000;
+export const B2C_SHIPPING_SUBSIDY_PERCENT = 35;
+export const B2C_SHIPPING_CAP_LOW_CENTS = 990;
+export const B2C_SHIPPING_CAP_HIGH_CENTS = 1_590;
+/**
+ * UFs do teto de R$ 15,90 (os 9 estados). EDITE AQUI quando o Luis mandar a lista (siglas em maiúsculas, ex.: "AC", "AM").
+ * Enquanto estiver vazia, TODO estado usa o teto de R$ 9,90: assim o site nunca cobra mais que o publicado no Merchant (mas pode
+ * cobrar menos que o devido nos 9 estados caros). Preencha antes do deploy.
+ */
+export const B2C_SHIPPING_HIGH_CAP_STATES: readonly string[] = [];
 
 export type CheckoutBenefitIcon = "frete" | "pix" | "cartao";
 
@@ -83,7 +95,7 @@ export function pixDiscountCents(baseCents: number, percent: number = B2C_PIX_DI
 
 /**
  * Faixa do TOPO do checkout (texto fixo, da configuração real; sem cupom específico).
- *  B2C: "Frete grátis a partir de R$ 100 (abaixo disso, frete subsidiado) · Desconto no Pix" (sem cartão)
+ *  B2C: "Frete grátis a partir de R$ 70 (abaixo disso, frete subsidiado) · Desconto no Pix" (sem cartão)
  *  B2B: "Frete especial a partir de R$ 450 · Desconto no Pix · Desconto no cartão" (nunca "frete grátis")
  */
 export function buildCheckoutTopStrip(input: {

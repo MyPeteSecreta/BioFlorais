@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import {
@@ -245,7 +246,7 @@ export default function CartPage() {
             </Link>
           </section>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
             <section className="space-y-4">
               {items.map(
                 (cartItem) => {
@@ -355,52 +356,8 @@ export default function CartPage() {
                 }
               )}
 
-              {quote ? (
-                <div className="rounded-[24px] border border-[#46644f]/15 bg-[#f3f6f1] p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-[#26352c]">
-                        {freeShippingRemainingCents >
-                        0 ? (
-                          <>
-                            Faltam{" "}
-                            <strong className="font-semibold text-[#46644f]">
-                              {formatMoney(
-                                freeShippingRemainingCents
-                              )}
-                            </strong>{" "}
-                            para você ganhar frete grátis
-                          </>
-                        ) : (
-                          <>
-                            Você ganhou frete grátis{" "}
-                            <span
-                              className="text-[#46644f]"
-                              aria-hidden="true"
-                            >
-                              ✓
-                            </span>
-                          </>
-                        )}
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-[#26352c]/55">
-                        Frete grátis a partir de R$ 100,00
-                        na modalidade econômica.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#46644f]/10">
-                    <div
-                      className="h-full rounded-full bg-[#46644f] transition-[width] duration-300 ease-out"
-                      style={{
-                        width: `${freeShippingProgress}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : null}
+              {/* Cartão entre os itens e o total: quanto falta para o frete grátis e 3 sugestões (ou "Você ganhou frete grátis"). */}
+              {quote ? <CartShippingSuggestions baseCents={freeShippingBaseCents} /> : null}
 
               <button
                 type="button"

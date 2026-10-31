@@ -62,7 +62,7 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
   return (
     <div className="mt-5 lg:mt-8">
       <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-testid="frete-gratis-linha">
-        <span className="font-semibold text-[#8b6524]">Frete grátis a partir de R$ 100</span>
+        <span className="font-semibold text-[#8b6524]">Frete grátis a partir de R$ 70</span>
         <span className="text-[#6c5b69]">· na modalidade econômica</span>
       </div>
 

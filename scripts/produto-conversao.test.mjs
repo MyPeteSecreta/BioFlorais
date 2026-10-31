@@ -17,12 +17,12 @@ test("Pix: o valor e a economia do desconto real do checkout (4%), nunca o perce
   assert.equal(pixPrice(0), null);
 });
 
-test("kit para frete grátis: menor quantidade que chega a R$ 100; some quando uma unidade já chega ou exige mais de 6", () => {
-  assert.deepEqual(freeShippingKit(3590), { qty: 3, totalCents: 10770, eachCents: 3590 });
-  assert.deepEqual(freeShippingKit(2990), { qty: 4, totalCents: 11960, eachCents: 2990 });
-  assert.equal(freeShippingKit(10000), null);
+test("kit para frete grátis: menor quantidade que chega a R$ 70; some quando uma unidade já chega ou exige mais de 6", () => {
+  assert.deepEqual(freeShippingKit(3590), { qty: 2, totalCents: 7180, eachCents: 3590 });
+  assert.deepEqual(freeShippingKit(2990), { qty: 3, totalCents: 8970, eachCents: 2990 });
+  assert.equal(freeShippingKit(7000), null);
   assert.equal(freeShippingKit(15000), null);
-  assert.equal(freeShippingKit(1200), null, "8 unidades: não vale sugerir");
+  assert.equal(freeShippingKit(1000), null, "7 unidades: não vale sugerir");
   assert.equal(freeShippingKit(null), null);
 });
 
@@ -55,7 +55,7 @@ test("telas: preço e Pix acima da dobra, barra fixa, kit, frete por CEP, zoom, 
 
   const cart = read("src/components/cart/CartProvider.tsx");
   assert.ok(cart.includes("quantity: number = 1") && cart.includes('void trackEvent("sacola")'));
-  assert.equal((cart.match(/void trackEvent\("sacola"\)/g) ?? []).length, 2, "um evento por clique (produto e combo)");
+  assert.ok(cart.includes('void trackEvent(source === "sugestao" ? "sugestao_adicionada" : "sacola")'), "um evento por clique no produto (sugestão do carrinho conta à parte)");
 
   assert.ok(read("src/components/product/ProductShippingEstimate.tsx").includes("/api/shipping/quote"));
   assert.ok(read("src/components/product/ProductGallery.tsx").includes("foto-zoom") && read("src/components/product/ProductGallery.tsx").includes("Toque para ampliar"));

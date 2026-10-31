@@ -21,7 +21,7 @@ test("trocas e devoluções traz os prazos do CDC; frete traz cálculo, prazo e 
   const trocas = read("src/app/trocas-e-devolucoes/page.tsx");
   assert.ok(trocas.includes("7 (sete) dias") && trocas.includes("art. 49") && trocas.includes("30 dias") && trocas.includes("90 dias") && trocas.includes("art. 26"));
   const frete = read("src/app/frete-e-entrega/page.tsx");
-  assert.ok(frete.includes("CEP") && frete.includes("Frete grátis") && frete.includes("Acompanhe seu pedido") && frete.includes("R$ 100"));
+  assert.ok(frete.includes("CEP") && frete.includes("Frete grátis") && frete.includes("Acompanhe seu pedido") && frete.includes("R$ 70"));
   const sobre = read("src/app/sobre/page.tsx");
   assert.ok(sobre.includes("1997") && sobre.includes("flores frescas brasileiras") && sobre.includes("sem álcool"));
   assert.ok(read("src/app/terapia-floral/page.tsx").includes("não substituem o acompanhamento"));

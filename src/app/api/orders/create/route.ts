@@ -20,6 +20,7 @@ import { attachOrderNote } from "@/lib/order-note-server";
 import { db } from "@/lib/db/client";
 
 import { validatePartnerCoupon } from "@/lib/partners/academia";
+import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
 
 import {
   melhorEnvioProvider,
@@ -874,64 +875,30 @@ export async function POST(
       );
 
     /*
-     * Regra comercial Bio aprovada:
+     * Regra comercial Bio (decisão do Luis; ver src/lib/checkout/shipping-b2c.ts, a mesma conta do checkout):
      *
-     * abaixo de R$ 100:
-     * beneficio = 25% do frete escolhido.
-     *
-     * R$ 100 ou mais:
+     * a partir de R$ 70 em produtos:
      * - modalidade mais barata = gratis;
      * - demais modalidades recebem beneficio
      *   de 50% do valor cheio da mais barata.
      *
+     * abaixo de R$ 70: o cliente paga 65% da cotacao (subsidio de 35%) e a
+     * modalidade mais barata NUNCA passa do teto do estado (R$ 9,90 ou R$ 15,90),
+     * o mesmo valor publicado no Google Merchant.
+     *
      * O limite usa o valor da mercadoria antes
      * dos cupons, preservando a regra atual.
      */
-    const qualifiesForFreeShipping =
-      subtotalCents >= 10000;
+    const b2cShipping = computeB2CShipping({
+      subtotalCents,
+      optionCostCents: shippingCostCents,
+      cheapestCostCents: cheapestShippingCents,
+      uf: ufFromCep(cep) ?? state,
+    });
 
-    let shippingSubsidyCents = 0;
-    let freeShippingDiscountCents = 0;
-    let shippingCents = 0;
-
-    if (!qualifiesForFreeShipping) {
-
-      shippingSubsidyCents =
-        Math.round(
-          shippingCostCents * 0.25
-        );
-
-      shippingCents =
-        Math.max(
-          0,
-          shippingCostCents -
-            shippingSubsidyCents
-        );
-
-    } else if (
-      shippingCostCents ===
-      cheapestShippingCents
-    ) {
-
-      freeShippingDiscountCents =
-        shippingCostCents;
-
-      shippingCents = 0;
-
-    } else {
-
-      shippingSubsidyCents =
-        Math.round(
-          cheapestShippingCents * 0.5
-        );
-
-      shippingCents =
-        Math.max(
-          0,
-          shippingCostCents -
-            shippingSubsidyCents
-        );
-    }
+    const freeShippingDiscountCents = b2cShipping.free ? b2cShipping.benefitCents : 0;
+    const shippingSubsidyCents = b2cShipping.free ? 0 : b2cShipping.benefitCents;
+    const shippingCents = b2cShipping.customerCents;
 
     const couponBaseCents =
       Math.max(

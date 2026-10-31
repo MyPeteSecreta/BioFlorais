@@ -12,9 +12,9 @@ import { bioLines } from "../src/lib/catalog/bio-products.ts";
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const labels = (list) => list.map((b) => b.label.replace(/ /g, " "));
 
-test("B2C: abaixo de R$ 100 = frete com desconto (25%) + quanto falta; a partir de R$ 100 = frete grátis; sem Pix/cartão (não existe no B2C)", () => {
-  assert.equal(B2C_FREE_SHIPPING_THRESHOLD_CENTS, 10000);
-  assert.equal(B2C_SHIPPING_SUBSIDY_PERCENT, 25);
+test("B2C: abaixo de R$ 70 = frete com desconto (35%) + quanto falta; a partir de R$ 70 = frete grátis; sem Pix/cartão (não existe no B2C)", () => {
+  assert.equal(B2C_FREE_SHIPPING_THRESHOLD_CENTS, 7000);
+  assert.equal(B2C_SHIPPING_SUBSIDY_PERCENT, 35);
 
   const below = buildCheckoutBenefits({ kind: "b2c", subtotalCents: 3590, freeShippingThresholdCents: 10000, shippingSubsidyPercent: 25 });
   assert.deepEqual(labels(below), ["Frete com desconto", "Faltam R$ 64,10 para o frete grátis"]);
@@ -60,7 +60,7 @@ test("fiação: faixa no topo do resumo e perto do botão de pagar, nos dois che
     assert.equal(src.split("<CheckoutBenefitsBar benefits={checkoutBenefits}").length - 1, 2, "topo do resumo + perto do botão");
   }
 
-  assert.ok(b2c.includes("B2C_FREE_SHIPPING_THRESHOLD_CENTS") && b2c.includes("B2C_SHIPPING_SUBSIDY_PERCENT / 100"));
+  assert.ok(b2c.includes("B2C_FREE_SHIPPING_THRESHOLD_CENTS") && b2c.includes("computeB2CShipping("));
   assert.ok(!/merchandiseTotalCents\s*>=\s*10000/.test(b2c), "limite do frete grátis vem da configuração, não de número solto");
   assert.ok(b2b.includes("B2B_FREIGHT_FLAT_THRESHOLD_CENTS") && b2b.includes("B2B_PAYMENT_METHOD_DISCOUNT_PERCENT"));
 

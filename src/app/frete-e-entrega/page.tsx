@@ -22,7 +22,10 @@ export default function Page() {
         },
         {
           heading: "2. Frete grátis",
-          paragraphs: ["Compras a partir de R$ 100,00 em produtos têm frete grátis na modalidade indicada no checkout (condição sujeita à região e à promoção vigente)."],
+          paragraphs: [
+            "Compras a partir de R$ 70,00 em produtos têm frete grátis na modalidade mais econômica indicada no checkout (condição sujeita à região e à promoção vigente).",
+            "Abaixo de R$ 70,00 o frete tem desconto de 35% e nunca passa de R$ 9,90 (ou de R$ 15,90 em alguns estados, conforme o CEP de entrega). Modalidades mais rápidas são opcionais e têm o próprio valor, calculado no checkout.",
+          ],
         },
         {
           heading: "3. Prazos",

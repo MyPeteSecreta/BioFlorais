@@ -49,7 +49,7 @@ test("eventos: origem = utm_source / utm_medium (ou referrer; 'direto' se vazio)
   for (const props of [ev.eventProps(""), ev.eventProps(cookie({ utm_source: "a", utm_medium: "b", utm_campaign: "c", referrer_domain: "d.com" }))]) {
     assert.deepEqual(Object.keys(props), ["origem", "campanha"]);
   }
-  assert.deepEqual([...ev.ANALYTICS_EVENTS], ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa"]);
+  assert.deepEqual([...ev.ANALYTICS_EVENTS], ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa", "sugestao_adicionada"]);
 });
 
 test("eventos: rotas e ligações (layout, carrinho), sem admin/vendedor e sem dado pessoal", () => {
@@ -65,7 +65,7 @@ test("eventos: rotas e ligações (layout, carrinho), sem admin/vendedor e sem d
   const component = read("src/components/analytics/AnalyticsEvents.tsx");
   assert.ok(component.includes("isPixelPath(pathname)") && component.includes("sessionStorage"));
   const cart = read("src/components/cart/CartProvider.tsx");
-  assert.equal((cart.match(/trackEvent\("sacola"\)/g) ?? []).length, 2, "sacola em addProduct e addCombo");
+  assert.ok(cart.includes('trackEvent(source === "sugestao" ? "sugestao_adicionada" : "sacola")') && cart.includes('trackEvent("sacola")'), "sacola em addProduct (sugestao_adicionada quando vem do cartão de sugestões) e em addCombo");
   const lib = read("src/lib/analytics-events.ts");
   assert.ok(!/email|phone|cpf|cnpj|customer/i.test(lib.replace(/\/\*[\s\S]*?\*\//g, "")), "sem dado pessoal");
 });

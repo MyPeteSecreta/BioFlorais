@@ -1638,3 +1638,27 @@ Outras decisões:
 
 ### 4) Registro
 O "PAC R$ 45" citado no relatório da página de produto era o frete simulado do ambiente de desenvolvimento. Frete real de 1 floral: de R$ 10,78 (SP) a R$ 28 (interior do Norte). A partir daqui, todo número vindo do ambiente de teste vai marcado **[TESTE]** nos relatórios.
+
+## Rodada 01/11: nova regra de frete B2C (R$ 70 e teto por estado), sugestões no carrinho e convite de criadoras sem prazo (sem push)
+**Aviso:** números medidos no ambiente de teste local (cotação simulada: PAC R$ 45,00 e SEDEX R$ 62,50; banco PGlite; sem Mercado Pago) vão marcados **[TESTE]**. As cotações reais de 1 floral vão de R$ 10,78 (SP) a R$ 28 (interior do Norte).
+
+### 1) Nova regra de frete B2C (decisão do Luis)
+- **Frete grátis a partir de R$ 70** em produtos (antes R$ 100) na modalidade mais barata; as demais modalidades abatem 50% do valor cheio da mais barata (regra que já existia). **Abaixo de R$ 70** o cliente paga **65% da cotação (subsídio de 35%, antes 25%)**, e a modalidade mais barata **nunca passa do teto do estado: R$ 9,90 em 18 estados e R$ 15,90 em 9 estados**.
+- **Onde está:** `src/lib/checkout/benefits.ts` (constantes `B2C_FREE_SHIPPING_THRESHOLD_CENTS = 7000`, `B2C_SHIPPING_SUBSIDY_PERCENT = 35`, tetos `990` e `1590` e a lista editável `B2C_SHIPPING_HIGH_CAP_STATES`) e `src/lib/checkout/shipping-b2c.ts` (a conta única `computeB2CShipping`, o teto por UF e a UF pelo CEP, faixas dos Correios). **O servidor (`/api/orders/create`, que cobra) e o checkout (que mostra) usam a MESMA conta**; o servidor deriva a UF do CEP do pedido, não do que o navegador manda.
+- **PENDENTE, ANTES DO DEPLOY: a lista dos 9 estados do teto de R$ 15,90.** Está vazia em `B2C_SHIPPING_HIGH_CAP_STATES` (siglas em maiúsculas, ex.: `["AC", "AM"]`). Enquanto estiver vazia, **todo estado usa R$ 9,90**: o site nunca cobra mais que o publicado no Merchant, mas pode cobrar menos que o devido nos 9 estados caros. Quando o Luis mandar a lista, é só preencher a constante.
+- **Decisões que tomei e o Luis pode inverter:** (a) o teto vale para a modalidade **mais barata** (a que o Merchant publica); modalidades **mais rápidas** (SEDEX etc.) são opcionais, pagam 65% da própria cotação, sem teto, e nunca custam menos que a mais barata (o teto também nelas faria o cliente pagar R$ 9,90 por um SEDEX de R$ 62,50); (b) a base dos R$ 70 continua a mesma de antes (produtos, antes dos cupons no servidor).
+- **Textos:** "frete grátis a partir de R$ 70" em home, página de produto (selo, linha do CEP), carrinho, checkout (faixa do topo e "faltam R$ X"), `/frete-e-entrega` (também explica o desconto de 35% e os tetos de R$ 9,90 e R$ 15,90), FAQ das páginas `/para/*` e dados estruturados do Google (`FREE_SHIPPING_MIN_CENTS`). O **kit sugerido na página de produto virou "Leve 2"** (2 × R$ 35,90 = R$ 71,80).
+- **Teste real [TESTE]:** pedido de R$ 35,90 em SP e em AM: frete cobrado R$ 9,90 (65% de R$ 45,00 = R$ 29,25, limitado ao teto); pedido de R$ 71,80: frete R$ 0,00; SEDEX abaixo de R$ 70: R$ 40,63 (65% de R$ 62,50). **Testes:** `scripts/frete-b2c.test.mjs` (6 casos: constantes, 27 UFs pelo CEP, faixas abaixo e acima de R$ 70 inclusive R$ 70,00 exato, varredura de R$ 1 a R$ 200 em 5 UFs sem passar do teto, lista editável, textos); testes antigos atualizados (R$ 70 e 35%).
+- **Não feito:** o frete dentro do feed do Google (fica para a decisão do Luis, como combinado).
+
+### 2) Sugestões no carrinho (sem pop-up)
+- **Cartão entre os itens e o total** em `/carrinho`: "Faltam R$ 34,10 para o frete grátis — que tal levar junto?", barra de progresso e **3 sugestões** com preço e "+ Adicionar". **Floral humano** na sacola → outro floral de gotas (ordem dos mais vendidos, sem repetir), um sabonete líquido (Relaxante) e o aromatizador It's Blossom (Harmonia). **Floral pet** → outro floral pet, um shampoo pet (500 ml) e o floral de ambiente pet (combinando o nome quando dá). O tipo vem do **último item** adicionado; nunca sugere o que já está na sacola nem Rescue/S.O.S./Tristeza/Depressão; sem promessa de saúde. **Ao bater R$ 70** o cartão vira "Você ganhou frete grátis ✓". **Versão compacta** (sem fotos) no resumo do checkout, acima do total.
+- **Não existe "drawer" de carrinho no site** (o botão do carrinho leva à página): o cartão está na página `/carrinho` e no resumo do checkout. Se o Luis quiser um drawer, é uma tela nova.
+- **Evento `sugestao_adicionada`** (só origem e campanha). Adicionar pela sugestão **não dispara `sacola`**, para não inflar o funil ver_produto → sacola; o `AddToCart` da Meta continua disparando. Testado no navegador [TESTE]: 1 clique = 1 evento `sugestao_adicionada` e 0 de `sacola`.
+- **Ajustes de passagem:** `/carrinho` ganhou o mesmo conserto de largura da página de produto e do checkout (a grade alargava a página no celular) e os botões flutuantes (criadoras, carrinho e barra de linhas) não aparecem na sacola. **Testes:** `scripts/sugestoes-carrinho.test.mjs` (7 casos). Prints a 375 px em `C:\Users\User\PROMPTS_B2B\prints_frete_sugestoes\`.
+
+### 3) Convite de criadoras
+`UgcFloatingButton.tsx`: "Condição vigente até 30/09. Pode ser combinada com promoções da loja." virou **"Condição vigente. Pode ser combinada com promoções da loja."** (a condição fica, o prazo sai). Coberto pelo teste acima.
+
+### Prefixo dos commits
+Daqui para frente os commits usam `bio/` (os três anteriores saíram como `secreta/` por engano e já foram para o remoto).

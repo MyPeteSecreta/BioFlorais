@@ -8,7 +8,7 @@
  * Para trocar a imagem do topo de uma página, edite `hero` (campo src/alt/posição). Para trocar produtos, edite `products`.
  */
 
-import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT } from "@/lib/checkout/benefits";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_SHIPPING_CAP_HIGH_CENTS, B2C_SHIPPING_CAP_LOW_CENTS, B2C_SHIPPING_SUBSIDY_PERCENT } from "@/lib/checkout/benefits";
 
 export const CAMPAIGN_GPT10 = {
   code: "GPT10",
@@ -96,7 +96,7 @@ const faqMedicine = (who: string): CampaignFaq => ({
 const brl = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
 const faqShipping: CampaignFaq = {
   question: "Como é o frete?",
-  answer: `Frete grátis a partir de ${brl(B2C_FREE_SHIPPING_THRESHOLD_CENTS)} em produtos; abaixo disso, a Bio Florais subsidia ${B2C_SHIPPING_SUBSIDY_PERCENT}% do frete.`,
+  answer: `Frete grátis a partir de ${brl(B2C_FREE_SHIPPING_THRESHOLD_CENTS)} em produtos; abaixo disso, a Bio Florais subsidia ${B2C_SHIPPING_SUBSIDY_PERCENT}% do frete, que nunca passa de ${brl(B2C_SHIPPING_CAP_LOW_CENTS)} (ou ${brl(B2C_SHIPPING_CAP_HIGH_CENTS)} em alguns estados).`,
 };
 const faqPayment: CampaignFaq = { question: "Como posso pagar?", answer: "Pix ou cartão de crédito." };
 

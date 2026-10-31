@@ -1,7 +1,7 @@
 /**
  * Página de produto (B2C): regras PURAS dos blocos que ajudam a decidir a compra, sem nenhuma promessa de saúde.
  *  - preço no Pix: o desconto real do checkout (B2C_PIX_DISCOUNT_PERCENT); só o valor aparece, nunca o percentual;
- *  - kit "leve N e ganhe frete grátis": a menor quantidade que chega ao mínimo de frete grátis do checkout (R$ 100);
+ *  - kit "leve N e ganhe frete grátis": a menor quantidade que chega ao mínimo de frete grátis do checkout (R$ 70);
  *  - selos de confiança: só afirmações que o site já sustenta (sem álcool e flores brasileiras só nos florais em gotas das linhas
  *    que já usam essa frase; pagamento seguro; troca e devolução);
  *  - "como usar" curto: a primeira frase do texto editorial.
@@ -24,7 +24,7 @@ export function pixPrice(priceCents: number | null | undefined): PixPrice | null
 
 export type FreeShippingKit = { qty: number; totalCents: number; eachCents: number };
 
-/** Menor quantidade que passa de R$ 100 (frete grátis). null se uma unidade já chega, se o preço é desconhecido ou se exige mais de 6. */
+/** Menor quantidade que chega a R$ 70 (frete grátis). null se uma unidade já chega, se o preço é desconhecido ou se exige mais de 6. */
 export function freeShippingKit(priceCents: number | null | undefined, thresholdCents: number = B2C_FREE_SHIPPING_THRESHOLD_CENTS): FreeShippingKit | null {
   if (!priceCents || priceCents <= 0 || priceCents >= thresholdCents) return null;
 

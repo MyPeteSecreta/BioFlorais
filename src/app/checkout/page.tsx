@@ -9,7 +9,9 @@ import MercadoPagoCardPayment from "@/components/payments/MercadoPagoCardPayment
 
 import Link from "next/link";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
+import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
+import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
 import { trackCheckoutStep, type CheckoutStep } from "@/lib/analytics-events";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
@@ -1591,37 +1593,20 @@ export default function CheckoutPage() {
     shippingCostCents ===
       cheapestShippingCents;
 
-  const shippingBenefitCents =
+  // A mesma conta do servidor (shipping-b2c.ts): grátis a partir de R$ 70; abaixo, 65% da cotação com teto por estado.
+  const shippingRule =
     selectedShipping
-      ? hasFreeShipping
-        ? isCheapestShipping
-          // Acima de R$100:
-          // menor modalidade 100% gratis.
-          ? shippingCostCents
+      ? computeB2CShipping({
+          subtotalCents: merchandiseTotalCents,
+          optionCostCents: shippingCostCents,
+          cheapestCostCents: cheapestShippingCents,
+          uf: ufFromCep(calculatedCep),
+        })
+      : null;
 
-          // Modalidades superiores:
-          // beneficio = 50% do menor frete.
-          : Math.round(
-              cheapestShippingCents *
-                0.5
-            )
+  const shippingBenefitCents = shippingRule?.benefitCents ?? 0;
 
-        // Abaixo de R$100:
-        // subsidio normal de 25%.
-        : Math.round(
-            shippingCostCents *
-              (B2C_SHIPPING_SUBSIDY_PERCENT / 100)
-          )
-      : 0;
-
-  const customerShippingCents =
-    selectedShipping
-      ? Math.max(
-          0,
-          shippingCostCents -
-            shippingBenefitCents
-        )
-      : 0;
+  const customerShippingCents = shippingRule?.customerCents ?? 0;
 
   const couponDiscountCents =
     appliedCoupon?.discountCents ?? 0;
@@ -2288,7 +2273,7 @@ export default function CheckoutPage() {
                       </p>
 
                       <p className="mt-1 text-[11px] leading-5 text-[#26352c]/55">
-                        Enquanto isso, a Bio Florais subsidia 25% do seu frete.
+                        Enquanto isso, a Bio Florais subsidia {B2C_SHIPPING_SUBSIDY_PERCENT}% do seu frete.
                       </p>
 
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#46644f]/10">
@@ -2894,7 +2879,13 @@ export default function CheckoutPage() {
                 </span>
               </div>
             </div>
-<div className="flex items-end justify-between gap-5">
+{!pendingOrderId && quote ? (
+              <div className="mb-5" data-testid="sugestoes-resumo-checkout">
+                <CartShippingSuggestions baseCents={merchandiseTotalCents} variant="compact" />
+              </div>
+            ) : null}
+
+            <div className="flex items-end justify-between gap-5">
               <span className="font-medium">
                   Total
                 </span>

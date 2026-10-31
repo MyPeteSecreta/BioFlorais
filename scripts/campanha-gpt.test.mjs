@@ -125,7 +125,7 @@ test("estrutura da página: título, faixa GPT10, produtos com preço e Comprar,
   assert.ok(page.includes("products.length < 4") && page.includes("campanha-card-linha") && page.includes("Conheça a linha"), "sempre 4 cards: o 4º pode ser o card da linha");
   assert.equal(data.getCampaignPage("bebe-soninho").products.length, 3);
   const faqTexts = data.campaignPages.map((p) => p.faq.map((f) => f.answer).join(" ")).join(" ");
-  assert.ok(faqTexts.includes("Frete grátis a partir de R$ 100,00") && faqTexts.includes("subsidia 25% do frete") && faqTexts.includes("Pix ou cartão"));
+  assert.ok(faqTexts.includes("Frete grátis a partir de R$ 70,00") && faqTexts.includes("subsidia 35% do frete") && faqTexts.includes("nunca passa de R$ 9,90") && faqTexts.includes("Pix ou cartão"));
   assert.ok(page.includes("`/linha/${page.lineSlug}`"));
   const banner = read("src/components/campaign/Gpt10Banner.tsx");
   assert.ok(banner.includes("CAMPAIGN_GPT10.bannerText") && data.CAMPAIGN_GPT10.bannerText === "GPT10 aplicado: 10% na sua 1ª compra");

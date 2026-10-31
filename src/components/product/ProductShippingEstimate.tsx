@@ -89,7 +89,7 @@ export default function ProductShippingEstimate({ productSlug }: { productSlug: 
               <strong>{brl(fastest.priceCents)}</strong> · {fastest.serviceName}, mais rápido: até {days(fastest.etaDays)}
             </li>
           )}
-          <li className="text-xs text-[#746471]">Frete grátis nas compras a partir de R$ 100 (modalidade econômica). O prazo conta depois da confirmação do pagamento.</li>
+          <li className="text-xs text-[#746471]">Frete grátis nas compras a partir de R$ 70 (modalidade econômica). O prazo conta depois da confirmação do pagamento.</li>
         </ul>
       )}
     </div>

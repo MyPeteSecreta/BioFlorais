@@ -4,7 +4,7 @@
  * (/frete-e-entrega e /trocas-e-devolucoes): nenhum prazo em dias de entrega é inventado.
  */
 
-export const FREE_SHIPPING_MIN_CENTS = 10_000; // "Compras a partir de R$ 100,00 em produtos têm frete grátis"
+export const FREE_SHIPPING_MIN_CENTS = 7_000; // "Compras a partir de R$ 70,00 em produtos têm frete grátis"
 export const RETURN_WINDOW_DAYS = 7; // "desistir da compra em até 7 (sete) dias corridos" (art. 49 do CDC)
 
 /** JSON seguro para <script type="application/ld+json">: "<" escapado (nunca fecha a tag). */
@@ -43,17 +43,17 @@ export function breadcrumbJsonLd(siteUrl: string, trail: ReadonlyArray<{ name: s
 
 /**
  * Frete: entrega em todo o Brasil, valor e prazo calculados pelo CEP no carrinho/checkout, frete grátis a partir de
- * R$ 100,00 em produtos. SEM deliveryTime (a política não publica prazo em dias).
+ * R$ 70,00 em produtos. SEM deliveryTime (a política não publica prazo em dias).
  */
 export function shippingDetailsJsonLd(priceCents: number | null | undefined) {
   const description =
-    "Entrega em todo o Brasil. O valor e o prazo do frete são calculados pelo CEP no carrinho e no checkout. Compras a partir de R$ 100,00 em produtos têm frete grátis na modalidade indicada no checkout.";
+    "Entrega em todo o Brasil. O valor e o prazo do frete são calculados pelo CEP no carrinho e no checkout. Compras a partir de R$ 70,00 em produtos têm frete grátis na modalidade indicada no checkout.";
 
   return {
     "@type": "OfferShippingDetails",
     description,
     shippingDestination: { "@type": "DefinedRegion", addressCountry: "BR" },
-    // Só afirma frete zero quando ESTE produto já passa de R$ 100,00 (o pedido do cliente é que define o resto).
+    // Só afirma frete zero quando ESTE produto já passa de R$ 70,00 (o pedido do cliente é que define o resto).
     ...(priceCents && priceCents >= FREE_SHIPPING_MIN_CENTS
       ? { shippingRate: { "@type": "MonetaryAmount", value: "0.00", currency: "BRL" } }
       : {}),
