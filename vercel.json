@@ -5,6 +5,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/remind-unpaid-orders",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/cleanup-b2b-demo",
       "schedule": "30 6 * * *"
     }
