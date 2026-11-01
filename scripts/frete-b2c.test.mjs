@@ -40,9 +40,11 @@ test("CEP -> UF pelas faixas dos Correios (27 estados), inválido = null", () =>
 test("faixas abaixo de R$ 70: 65% da cotação mais barata, limitado ao teto; nunca cobra mais que o teto", () => {
   // cotação real de 1 floral em SP: R$ 10,78 -> 65% = R$ 7,01 (abaixo do teto)
   assert.deepEqual(computeB2CShipping({ subtotalCents: 3590, optionCostCents: 1078, cheapestCostCents: 1078, uf: "SP" }), { customerCents: 701, benefitCents: 377, free: false, capped: false });
-  // cotação de R$ 28 no interior do Norte: 65% = R$ 18,20 -> teto de R$ 9,90
+  // cotação de R$ 28: 65% = R$ 18,20 -> teto de R$ 9,90 num estado fora da lista (PA, ainda não confirmado) e R$ 15,90 no AM (na lista)
+  const low = computeB2CShipping({ subtotalCents: 3590, optionCostCents: 2800, cheapestCostCents: 2800, uf: "PA" });
+  assert.deepEqual([low.customerCents, low.benefitCents, low.capped], [990, 1810, true]);
   const north = computeB2CShipping({ subtotalCents: 3590, optionCostCents: 2800, cheapestCostCents: 2800, uf: "AM" });
-  assert.deepEqual([north.customerCents, north.benefitCents, north.capped], [990, 1810, true]);
+  assert.deepEqual([north.customerCents, north.benefitCents, north.capped], [1590, 1210, true]);
   // exatamente no teto: 65% de R$ 15,23 = R$ 9,90 não conta como "limitado"
   assert.equal(cheapestCustomerCents(1523, "SP").cents, 990);
   assert.equal(cheapestCustomerCents(1523, "SP").capped, false);
@@ -73,13 +75,16 @@ test("modalidade mais rápida abaixo de R$ 70: 65% da própria cotação, sem o 
   assert.ok(fast.customerCents >= computeB2CShipping({ subtotalCents: 3590, optionCostCents: 2000, cheapestCostCents: 2000, uf: "SP" }).customerCents);
 });
 
-test("teto por estado: lista editável; vazia = R$ 9,90 em todo estado; com a UF na lista = R$ 15,90", () => {
-  assert.equal(b2cShippingCapCents("RR"), 990, "lista vazia: o menor teto (nunca cobra mais que o publicado)");
+test("teto por estado: lista editável; fora da lista = R$ 9,90; com a UF na lista = R$ 15,90", () => {
+  assert.deepEqual([...B2C_SHIPPING_HIGH_CAP_STATES].sort(), ["AC", "AM", "AP", "CE", "MA", "RO", "RR", "TO"], "lista confirmada pelo Luis em 01/11/2026 (8 dos 9 do Merchant)");
+  assert.equal(b2cShippingCapCents("PA"), 990, "fora da lista: o menor teto (nunca cobra mais que o publicado)");
+  assert.equal(b2cShippingCapCents(null), 990, "UF desconhecida: o menor teto");
+  assert.equal(b2cShippingCapCents("rr"), 1590);
 
-  B2C_SHIPPING_HIGH_CAP_STATES.push("RR");
+  B2C_SHIPPING_HIGH_CAP_STATES.push("PA");
   try {
-    assert.equal(b2cShippingCapCents("rr"), 1590);
-    assert.equal(computeB2CShipping({ subtotalCents: 3590, optionCostCents: 5000, cheapestCostCents: 5000, uf: "RR" }).customerCents, 1590);
+    assert.equal(b2cShippingCapCents("pa"), 1590);
+    assert.equal(computeB2CShipping({ subtotalCents: 3590, optionCostCents: 5000, cheapestCostCents: 5000, uf: "PA" }).customerCents, 1590);
     assert.equal(computeB2CShipping({ subtotalCents: 3590, optionCostCents: 5000, cheapestCostCents: 5000, uf: "SP" }).customerCents, 990);
   } finally {
     B2C_SHIPPING_HIGH_CAP_STATES.pop();

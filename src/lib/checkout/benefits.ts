@@ -16,11 +16,12 @@ export const B2C_SHIPPING_SUBSIDY_PERCENT = 35;
 export const B2C_SHIPPING_CAP_LOW_CENTS = 990;
 export const B2C_SHIPPING_CAP_HIGH_CENTS = 1_590;
 /**
- * UFs do teto de R$ 15,90 (os 9 estados). EDITE AQUI quando o Luis mandar a lista (siglas em maiúsculas, ex.: "AC", "AM").
+ * UFs do teto de R$ 15,90. Em 01/11/2026 o Luis confirmou 8 dos 9 do Merchant (AC, AM, AP, CE, MA, RO, RR, TO); o 9º ainda falta conferir.
+ * Só entra aqui estado que está no grupo de R$ 15,90 do Merchant (senão o site cobraria mais que o anunciado). EDITE AQUI quando o Luis mandar a lista (siglas em maiúsculas, ex.: "AC", "AM").
  * Enquanto estiver vazia, TODO estado usa o teto de R$ 9,90: assim o site nunca cobra mais que o publicado no Merchant (mas pode
  * cobrar menos que o devido nos 9 estados caros). Preencha antes do deploy.
  */
-export const B2C_SHIPPING_HIGH_CAP_STATES: readonly string[] = [];
+export const B2C_SHIPPING_HIGH_CAP_STATES: readonly string[] = ["AC", "AM", "AP", "CE", "MA", "RO", "RR", "TO"];
 
 export type CheckoutBenefitIcon = "frete" | "pix" | "cartao";
 
