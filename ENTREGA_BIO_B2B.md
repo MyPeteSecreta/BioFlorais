@@ -1688,3 +1688,18 @@ Estado de partida: produção em `1060d22`, pixel Meta e Google tag no ar, 8 est
 - Nenhuma arte foi trocada.
 
 **Testes:** `tsc` sem erros; `npm test` 482/482; `next build` OK; feeds gerados com 11 `excluir_anuncios` e 193 `liberado`; `git diff --check` limpo.
+
+## Rodada 02/11 (decisões do Luis de 01/11): alimentares fora das campanhas, fotos de Cosméticos Pet no feed e troca de artes (sem push)
+
+### 3) Alimentares como excluir_anuncios (`3492f52`)
+Kids Momento Reequilíbrio Alimentar, Teen Controle Alimentar e Pet Reequilíbrio Alimentar agora levam `custom_label_0 = excluir_anuncios`. São 14 marcados e 190 liberados. Site sem mudança.
+
+### 4) Fotos de Cosméticos Pet no feed (`7677a3a`)
+A busca de imagem do site achava primeiro a pasta do condicionador: shampoo, perfume e floral de ambiente apareciam com foto de condicionador (ou o perfume de Ansiedade com a do floral de ambiente). O feed agora usa a pasta do próprio tipo, e os **21 itens** foram corrigidos e conferidos a olho e por OCR (só rótulo, sem frase de efeito). **O site não muda:** as páginas de produto seguem com a mesma busca, então a troca de foto lá também precisa de aprovação visual.
+
+### 1) e 2) Troca de imagens e texto: preparados, SEM COMMIT, aguardando aprovação visual do Luis
+- **Item 1:** texto "Sobre" do Pânico reescrito sem promessa. As fotos da página de Sensação de Ansiedade ("Acalme a mente") e do Sono ("sua mente se acalma") trocadas pelo recorte limpo do frasco, o mesmo do feed. O `og:image` acompanha, porque usa a primeira foto da galeria.
+- **Item 2:** os 16 cards graves da página de linha usam um card limpo no mesmo tamanho da arte original: foto do frasco, nome, tipo e linha, "Bio Florais · desde 1997", sem frase de efeito. Arquivos em `public/cardprodutos/limpos/`; mapa `CLEAN_PRODUCT_CARDS` em `src/app/linha/[slug]/page.tsx`; as artes antigas ficam no repositório. Nenhuma foto limpa faltou.
+- **Antes e depois a 375 px** (emulação de celular): `C:\Users\User\PROMPTS_B2B\prints_artes_rodada15\`, com `RESUMO_antes_x_depois.jpg` e páginas inteiras `*_antes_x_depois.png`.
+
+**Testes:** tsc sem erros; npm test 475 passando na suíte completa, e as 2 suítes de banco (b2b-email-preso e b2b-ofertas-padrao) travaram por falha nativa do PGlite e passaram isoladas (6/6 e 5/5); feeds com 14 excluir_anuncios e 190 liberado; git diff --check limpo; next build no fim desta entrega.
