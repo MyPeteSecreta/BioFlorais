@@ -11,6 +11,7 @@
  */
 
 import { sanitizeAnalyticsUrl } from "@/lib/analytics-url";
+import { feedItemId } from "@/lib/feeds/feed-id";
 import type { ConsentChoice } from "@/lib/consent";
 
 export const CURRENCY = "BRL";
@@ -99,7 +100,7 @@ export function googlePurchaseEvent(order: PurchasePayload) {
       transaction_id: order.orderId,
       value: toValue(order.valueCents),
       currency: CURRENCY,
-      items: order.items.map((item) => ({ item_id: item.id, quantity: item.quantity, price: toValue(item.priceCents) })),
+      items: order.items.map((item) => ({ item_id: feedItemId(item.id), quantity: item.quantity, price: toValue(item.priceCents) })),
     },
   };
 }
@@ -125,8 +126,8 @@ export function metaPurchaseEvent(order: PurchasePayload) {
       value: toValue(order.valueCents),
       currency: CURRENCY,
       content_type: "product",
-      content_ids: order.items.map((item) => item.id),
-      contents: order.items.map((item) => ({ id: item.id, quantity: item.quantity, item_price: toValue(item.priceCents) })),
+      content_ids: order.items.map((item) => feedItemId(item.id)),
+      contents: order.items.map((item) => ({ id: feedItemId(item.id), quantity: item.quantity, item_price: toValue(item.priceCents) })),
       num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
     },
     eventId: order.orderId,
@@ -138,7 +139,7 @@ export function metaViewContentEvent(product: { slug: string; name: string; pric
     name: "ViewContent" as const,
     params: {
       content_type: "product",
-      content_ids: [product.slug],
+      content_ids: [feedItemId(product.slug)],
       content_name: product.name,
       ...(product.priceCents ? { value: toValue(product.priceCents), currency: CURRENCY } : {}),
     },
@@ -146,7 +147,7 @@ export function metaViewContentEvent(product: { slug: string; name: string; pric
 }
 
 export function metaAddToCartEvent(productSlug: string) {
-  return { name: "AddToCart" as const, params: { content_type: "product", content_ids: [productSlug], currency: CURRENCY } };
+  return { name: "AddToCart" as const, params: { content_type: "product", content_ids: [feedItemId(productSlug)], currency: CURRENCY } };
 }
 
 export function metaInitiateCheckoutEvent(cart: { valueCents: number; items: Array<{ slug: string; qty: number }> }) {
@@ -156,7 +157,7 @@ export function metaInitiateCheckoutEvent(cart: { valueCents: number; items: Arr
       value: toValue(cart.valueCents),
       currency: CURRENCY,
       content_type: "product",
-      content_ids: cart.items.map((item) => item.slug),
+      content_ids: cart.items.map((item) => feedItemId(item.slug)),
       num_items: cart.items.reduce((sum, item) => sum + item.qty, 0),
     },
   };

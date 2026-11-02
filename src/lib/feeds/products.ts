@@ -7,6 +7,7 @@
  */
 
 import type { BioProduct } from "@/lib/catalog/bio-products";
+import { feedItemId } from "@/lib/feeds/feed-id";
 import { GTIN_BY_SLUG } from "@/lib/feeds/gtin-data";
 
 export const FEED_BRAND = "Bio Florais";
@@ -114,7 +115,7 @@ export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (p
   const base = siteUrl.replace(/\/+$/, "");
 
   return {
-    id: product.slug,
+    id: feedItemId(product.slug),
     title: feedTitle(product),
     description: feedDescription(product),
     link: `${base}/produto/${product.slug}`,

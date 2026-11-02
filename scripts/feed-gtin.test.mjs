@@ -42,7 +42,8 @@ test("feed do Google: g:gtin + identifier_exists=yes em quem tem GTIN; identifie
 
   assert.ok(withGtin.length > 80, `muitos itens do feed têm GTIN (${withGtin.length} de ${items.length})`);
   assert.ok(without.length > 0);
-  assert.ok(withGtin.every((item) => GTIN_BY_SLUG[item.id] === item.gtin));
+  // o GTIN é por slug (o id do feed pode ser a versão curta do slug)
+  assert.ok(withGtin.every((item) => GTIN_BY_SLUG[item.link.split("/produto/")[1]] === item.gtin));
 
   const xml = renderGoogleFeedXml(items, "https://www.bioflorais.com.br");
   assert.equal((xml.match(/<g:gtin>/g) ?? []).length, withGtin.length);

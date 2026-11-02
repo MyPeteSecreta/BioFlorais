@@ -24,6 +24,7 @@ import {
   safePageLocation,
 } from "../src/lib/measurement.ts";
 import { FEED_AD_LABEL_ALLOWED, FEED_AD_LABEL_EXCLUDED, META_CSV_COLUMNS, buildFeedItem, feedDescription, isFeedEligible, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
+import { FEED_ID_MAX_LENGTH, FEED_SHORT_IDS, feedItemId } from "../src/lib/feeds/feed-id.ts";
 import { PET_COSMETIC_FOLDERS, loadFeedItems } from "../src/lib/feeds/items.server.ts";
 import { bioProducts } from "../src/lib/catalog/bio-products.ts";
 
@@ -145,7 +146,7 @@ test("feeds: itens do catálogo, sem Rescue e sem Depressão, sem promessa de sa
     assert.match(item.price, /^\d+\.\d{2} BRL$/);
     assert.equal(item.brand, "Bio Florais");
     assert.equal(item.availability, "in stock");
-    assert.ok(item.link.endsWith(`/produto/${item.id}`), item.link);
+    assert.ok(item.link.endsWith(`/produto/${Object.keys(FEED_SHORT_IDS).find((slug) => FEED_SHORT_IDS[slug] === item.id) ?? item.id}`), item.link);
     assert.ok(item.title.length > 8 && item.title.length <= 150, item.title);
     assert.ok(!/\b(trata|tratamento|cura|curar|elimina|acaba com|alivia|combate|previne|melhora|rem[eé]dio|medicamento)\b/i.test(item.description), `promessa de saúde: ${item.description}`);
 
@@ -202,7 +203,7 @@ test("feeds: etiqueta custom_label_0 marca as categorias sensíveis nos dois fee
     "cosmeticos-pet-shampoo-lambedura",
     "cosmeticos-pet-shampoo-lambedura-5l",
     "dose-unica-floral-dose-unica-perda-de-peso",
-    "kids-floral-em-gotas-momento-reequilibrio-alimentar",
+    "kids-floral-momento-reequilibrio-alimentar",
     "pet-floral-em-gotas-lambedura-e-automutilacao",
     "pet-floral-em-gotas-reequilibrio-alimentar",
     "teen-floral-em-gotas-controle-alimentar",
@@ -226,20 +227,50 @@ test("feeds: cada item de Cosméticos Pet usa a foto do próprio tipo (shampoo, 
   let checked = 0;
 
   for (const item of items) {
-    const product = byId.get(item.id);
+    const product = byId.get(Object.keys(FEED_SHORT_IDS).find((slug) => FEED_SHORT_IDS[slug] === item.id) ?? item.id);
     const folder = PET_COSMETIC_FOLDERS[product.category];
     if (product.lineSlug !== "cosmeticos-pet" || !folder) continue;
 
     checked += 1;
     const file = decodeURI(new URL(item.imageLink).pathname);
-    const name = item.id.replace(`cosmeticos-pet-${folder}-`, "").replace(/-(5l|500ml)$/, "");
-    assert.ok(file.startsWith(`/products/cosmeticos-pet/${folder}/${name}/`), `${item.id}: ${file}`);
+    const name = product.slug.replace(`cosmeticos-pet-${folder}-`, "").replace(/-(5l|500ml)$/, "");
+    assert.ok(file.startsWith(`/products/cosmeticos-pet/${folder}/${name}/`), `${product.slug}: ${file}`);
   }
 
   assert.ok(checked >= 30, `itens conferidos: ${checked}`);
   // o caso que estava trocado: shampoo com foto de condicionador
   const shampoo = items.find((item) => item.id === "cosmeticos-pet-shampoo-agressividade");
   assert.ok(decodeURI(shampoo.imageLink).includes("/cosmeticos-pet/shampoo/agressividade/"), shampoo.imageLink);
+});
+
+test("feeds: id com até 50 caracteres (limite do Google); só os 10 longos mudam, de forma fixa; eventos usam o mesmo id", () => {
+  const items = loadFeedItems();
+  const ids = items.map((item) => item.id);
+
+  assert.ok(ids.every((id) => id.length <= FEED_ID_MAX_LENGTH), ids.filter((id) => id.length > FEED_ID_MAX_LENGTH).join(", "));
+  assert.equal(new Set(ids).size, ids.length, "ids únicos");
+  assert.equal(Object.keys(FEED_SHORT_IDS).length, 10);
+
+  // quem já passava fica igual; o id curto não pode colidir com outro slug
+  const slugs = new Set(bioProducts.map((product) => product.slug));
+  for (const [slug, short] of Object.entries(FEED_SHORT_IDS)) {
+    assert.ok(slug.length > FEED_ID_MAX_LENGTH && short.length <= FEED_ID_MAX_LENGTH, slug);
+    assert.ok(!slugs.has(short), `colide: ${short}`);
+  }
+  for (const product of bioProducts) if (product.slug.length <= FEED_ID_MAX_LENGTH) assert.equal(feedItemId(product.slug), product.slug);
+
+  // o link do produto continua pelo slug
+  const short = items.find((item) => item.id === "cosmeticos-pet-cond-ansiedade-pelos-escuros-5l");
+  assert.ok(short.link.endsWith("/produto/cosmeticos-pet-condicionador-ansiedade-pelos-escuros-5l"), short.link);
+
+  // eventos de anúncio usam o mesmo id do feed (catálogo e remarketing)
+  const long = "cosmeticos-pet-condicionador-ansiedade-pelos-escuros-5l";
+  const order = { orderId: "x", valueCents: 1000, items: [{ id: long, quantity: 1, priceCents: 1000 }] };
+  assert.equal(googlePurchaseEvent(order).params.items[0].item_id, FEED_SHORT_IDS[long]);
+  assert.deepEqual(metaPurchaseEvent(order).params.content_ids, [FEED_SHORT_IDS[long]]);
+  assert.deepEqual(metaAddToCartEvent(long).params.content_ids, [FEED_SHORT_IDS[long]]);
+  assert.deepEqual(metaViewContentEvent({ slug: long, name: "X", priceCents: null }).params.content_ids, [FEED_SHORT_IDS[long]]);
+  assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 1000, items: [{ slug: long, qty: 1 }] }).params.content_ids, [FEED_SHORT_IDS[long]]);
 });
 
 test("políticas de cookies e de privacidade citam Google e Meta, o consentimento e o que é enviado", () => {
