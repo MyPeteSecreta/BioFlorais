@@ -1662,3 +1662,29 @@ O "PAC R$ 45" citado no relatório da página de produto era o frete simulado do
 
 ### Prefixo dos commits
 Daqui para frente os commits usam `bio/` (os três anteriores saíram como `secreta/` por engano e já foram para o remoto).
+
+## Rodada 01/11 (ordem da mestre): conversão do Google, etiqueta nos feeds e cruzamento das artes (sem push)
+Estado de partida: produção em `1060d22`, pixel Meta e Google tag no ar, 8 estados no teto de R$ 15,90.
+
+### 1) Conversão do Google Ads (`fb57090`)
+- **Diagnóstico:** o `purchase` sai sem `send_to` e o site só tem o `AW-` (sem `G-`; conferido no JavaScript de produção e no contêiner público da tag). O formato documentado pelo Google para uma ação de conversão é `gtag('event', 'conversion', { send_to: 'AW-…/rótulo', … })`. Sem o rótulo, nada liga o evento à ação "Compra": a expectativa é que ela **não esteja contando**. Não tenho acesso à conta do Google Ads; o Luis confirma pelo status da ação.
+- **O que mudou:** com a variável pública `NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL`, o evento `conversion` sai junto do `purchase`, uma vez por pedido, com `send_to`, valor, BRL e `transaction_id`. Sem a variável, nada muda. Aceita o rótulo sozinho ou o `AW-…/rótulo` colado inteiro.
+- **Consentimento e dado pessoal:** passa pelo gtag, com o Consent Mode decidindo (mesma regra do `purchase`); sem nome, e-mail, telefone ou documento. Os eventos de compra do Google agora levam `page_location` sem token, porque a compra pode acontecer em `/acompanhe/<token>`.
+- **Teste:** unitários em `scripts/medicao-google-meta.test.mjs`; build com ID e rótulo fictícios confirmou o rótulo no JavaScript do cliente. **Não testado:** disparo real no navegador e recebimento no Google Ads (fica para o Tag Assistant, depois do deploy).
+
+### 2) Etiqueta de exclusão nos feeds (`972c206`)
+- `custom_label_0` nos dois feeds (a Meta aceita o mesmo nome de coluna): `excluir_anuncios` em 11 itens e `liberado` nos outros 193. O valor em todos os itens faz o filtro funcionar igual nas duas plataformas. Site, títulos e preços não mudam.
+- **Marcados:** `adulto-floral-em-gotas-reducao-de-peso`, `adulto-floral-em-gotas-vicios-e-dependencias`, `adulto-floral-em-gotas-parar-de-fumar`, `adulto-floral-em-gotas-panico`, `adulto-floral-em-gotas-panico-social`, `dose-unica-floral-dose-unica-perda-de-peso`, `pet-floral-em-gotas-lambedura-e-automutilacao`, `cosmeticos-pet-shampoo-lambedura`, `cosmeticos-pet-shampoo-lambedura-5l`, `cosmeticos-pet-condicionador-lambedura`, `cosmeticos-pet-condicionador-lambedura-5l`.
+- **Tristeza ou Depressão:** nenhum item no feed. Fora do feed por regra (10 no catálogo): Adulto Tristeza — Estado Depressivo; Pet Tristeza e Depressão; Dose Única Depressão; e 7 de Cosméticos Pet (shampoo e condicionador 500 ml e 5 L, perfume spray 2 tamanhos, floral de ambiente).
+- **Não marcados (não estavam na ordem):** Kids Momento Reequilíbrio Alimentar, Teen Controle Alimentar, Pet Reequilíbrio Alimentar.
+- O feed tem 204 itens (a entrega do GTIN citou 205).
+
+### 3) Artes com promessa x feeds (sem mudança de código)
+- **Imagem do feed:** nenhuma das 27 artes graves está nos feeds: 0 caminhos `/cardprodutos/`, 0 arquivos idênticos, OCR das 177 imagens sem frase de promessa e 26 sem texto no OCR conferidas a olho (só frasco e rótulo).
+- **Onde as graves aparecem:** no card das páginas `/linha/*`. Não aparecem em `/produto/*` nem no `og:image` das 5 páginas amostradas.
+- **19 artes de itens do feed:** 16 seguem liberados e 3 já saem pela etiqueta (Pânico, Redução de Peso, Lambedura). **8 de itens fora do feed:** 3 Snack, 3 de Tristeza e Depressão, Floral de Ambiente S.O.S. e o sabonete de ansiedade do Home Care (fora das páginas de linha).
+- **Fora do arquivo da Rodada 15:** a página do Adulto usa cenas com frases. `sensacao-de-ansiedade/01-ansiedade.png`, foto principal e `og:image`, traz "Acalme a mente"; `sono/sono.png` traz "sua mente se acalma". A página do Pânico tem no texto "alivia as angústias e a sensação de morte iminente".
+- **Achados paralelos:** 21 itens de Cosméticos Pet usam a foto de outro tipo de produto (ex.: shampoo com foto de condicionador; 2 deles entre os marcados). O contêiner da tag no Google está com a coleta automática de e-mail, telefone e endereço ligada, o que conflita com a frase da política "Não enviamos nome, e-mail, telefone nem documentos"; não medi se chega a enviar.
+- Nenhuma arte foi trocada.
+
+**Testes:** `tsc` sem erros; `npm test` 482/482; `next build` OK; feeds gerados com 11 `excluir_anuncios` e 193 `liberado`; `git diff --check` limpo.
