@@ -24,7 +24,7 @@ import {
   safePageLocation,
 } from "../src/lib/measurement.ts";
 import { FEED_AD_LABEL_ALLOWED, FEED_AD_LABEL_EXCLUDED, META_CSV_COLUMNS, buildFeedItem, feedDescription, isFeedEligible, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
-import { loadFeedItems } from "../src/lib/feeds/items.server.ts";
+import { PET_COSMETIC_FOLDERS, loadFeedItems } from "../src/lib/feeds/items.server.ts";
 import { bioProducts } from "../src/lib/catalog/bio-products.ts";
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
@@ -218,6 +218,28 @@ test("feeds: etiqueta custom_label_0 marca as categorias sensíveis nos dois fee
   assert.ok(header.endsWith(",custom_label_0"));
   assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_EXCLUDED}`)).length, excluded.length);
   assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_ALLOWED}`)).length, items.length - excluded.length);
+});
+
+test("feeds: cada item de Cosméticos Pet usa a foto do próprio tipo (shampoo, condicionador, perfume, floral de ambiente)", () => {
+  const items = loadFeedItems();
+  const byId = new Map(bioProducts.map((product) => [product.slug, product]));
+  let checked = 0;
+
+  for (const item of items) {
+    const product = byId.get(item.id);
+    const folder = PET_COSMETIC_FOLDERS[product.category];
+    if (product.lineSlug !== "cosmeticos-pet" || !folder) continue;
+
+    checked += 1;
+    const file = decodeURI(new URL(item.imageLink).pathname);
+    const name = item.id.replace(`cosmeticos-pet-${folder}-`, "").replace(/-(5l|500ml)$/, "");
+    assert.ok(file.startsWith(`/products/cosmeticos-pet/${folder}/${name}/`), `${item.id}: ${file}`);
+  }
+
+  assert.ok(checked >= 30, `itens conferidos: ${checked}`);
+  // o caso que estava trocado: shampoo com foto de condicionador
+  const shampoo = items.find((item) => item.id === "cosmeticos-pet-shampoo-agressividade");
+  assert.ok(decodeURI(shampoo.imageLink).includes("/cosmeticos-pet/shampoo/agressividade/"), shampoo.imageLink);
 });
 
 test("políticas de cookies e de privacidade citam Google e Meta, o consentimento e o que é enviado", () => {
