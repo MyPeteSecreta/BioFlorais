@@ -9,6 +9,9 @@ import { existsSync, readFileSync } from "node:fs";
 
 import {
   GOOGLE_CONSENT_DEFAULT,
+  googleAdsConversionEvent,
+  googleAdsConversionTarget,
+  googleAdsPurchaseLabel,
   googleConsentFromChoice,
   googlePurchaseEvent,
   googleTagIds,
@@ -76,6 +79,32 @@ test("eventos: purchase (Google) e Purchase (Meta) com valor em BRL e id do pedi
   assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 7180, items: [{ slug: "a", qty: 2 }] }).params, { value: 71.8, currency: "BRL", content_type: "product", content_ids: ["a"], num_items: 2 });
   assert.equal(purchaseSentKey("meta", "abc"), "bio_purchase_meta_abc");
   assert.equal(safePageLocation("https://www.bioflorais.com.br/acompanhe/TOKEN123?b2b=segredo&x=1"), "https://www.bioflorais.com.br/acompanhe/[token]?x=1");
+});
+
+test("conversão do Google Ads: só com AW- e rótulo; send_to = AW-…/rótulo; valor, BRL e transaction_id; sem dado pessoal", () => {
+  assert.equal(googleAdsPurchaseLabel(undefined), null);
+  assert.equal(googleAdsPurchaseLabel(""), null);
+  assert.equal(googleAdsPurchaseLabel("tem espaco"), null);
+  assert.equal(googleAdsPurchaseLabel(" AbC-D_efG1 "), "AbC-D_efG1");
+  assert.equal(googleAdsPurchaseLabel("AW-123456789/AbC-D_efG1"), "AbC-D_efG1", "aceita o send_to colado inteiro");
+
+  assert.equal(googleAdsConversionTarget(["AW-123456789"], null), null, "sem rótulo, desligada");
+  assert.equal(googleAdsConversionTarget(["G-ABC123"], "AbC-D_efG1"), null, "sem AW-, desligada");
+  assert.equal(googleAdsConversionTarget(["G-ABC123", "AW-123456789"], "AbC-D_efG1"), "AW-123456789/AbC-D_efG1");
+
+  const order = { orderId: "50b98660-9802-4541-9612-964c885ac3ca", valueCents: 6477, items: [{ id: "adulto-floral-em-gotas-sono", quantity: 2, priceCents: 3590 }] };
+  const conversion = googleAdsConversionEvent(order, "AW-123456789/AbC-D_efG1");
+
+  assert.equal(conversion.name, "conversion");
+  assert.deepEqual(conversion.params, { send_to: "AW-123456789/AbC-D_efG1", value: 64.77, currency: "BRL", transaction_id: order.orderId });
+  assert.ok(!/@|cpf|cnpj|email|phone|telefone|nome/i.test(JSON.stringify(conversion)), "sem dado pessoal");
+
+  // fiação: pelo gtag (Consent Mode decide), no máximo uma vez por pedido (junto do purchase) e com o endereço sem token
+  const purchase = read("src/components/measurement/PurchaseMeasurement.tsx");
+  assert.ok(purchase.includes("googleAdsConversionTarget()") && purchase.includes("trackGoogle(conversion.name"));
+  assert.ok(purchase.indexOf('wasSent(purchaseSentKey("google"') < purchase.indexOf("googleAdsConversionTarget()"), "dentro do envio único");
+  assert.ok(purchase.includes("safePageLocation(window.location.href)"));
+  assert.ok(read("src/lib/measurement.ts").includes("process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL"));
 });
 
 test("fiação: Google tag define o padrão negado ANTES de carregar; pixel da Meta só com aceite; compra nos 3 lugares; AddToCart/ViewContent/InitiateCheckout", () => {

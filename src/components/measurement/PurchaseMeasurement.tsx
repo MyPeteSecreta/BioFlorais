@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Evento de compra para Google (purchase) e Meta (Purchase) na confirmação do pedido PAGO.
+ * Evento de compra para Google (purchase, mais a conversão do Google Ads quando há rótulo) e Meta (Purchase) na confirmação do pedido PAGO.
  * Busca o valor e o id do pedido no servidor (nunca confia no navegador), dispara UMA vez por pedido e por serviço
  * (marca no navegador) e usa o id do pedido como transaction_id/event_id (deduplicação). O Google vale mesmo com o consentimento
  * negado (o Consent Mode decide o que é guardado); a Meta só com o aceite de marketing, inclusive se ele vier depois.
@@ -11,7 +11,7 @@ import { useEffect } from "react";
 
 import { isPixelPath } from "@/lib/ads-tag";
 import { CONSENT_EVENT } from "@/lib/consent";
-import { googlePurchaseEvent, googleTagIds, metaPixelId, metaPurchaseEvent, purchaseSentKey, type PurchasePayload } from "@/lib/measurement";
+import { googleAdsConversionEvent, googleAdsConversionTarget, googlePurchaseEvent, googleTagIds, metaPixelId, metaPurchaseEvent, purchaseSentKey, safePageLocation, type PurchasePayload } from "@/lib/measurement";
 import { trackGoogle, trackMeta } from "@/lib/measurement-client";
 
 function wasSent(key: string) {
@@ -47,8 +47,20 @@ export default function PurchaseMeasurement({ orderId, active = true }: { orderI
       if (!order) return;
 
       if (wantGoogle && !wasSent(purchaseSentKey("google", orderId))) {
+        // o pedido pode estar em /acompanhe/<token>: o endereço vai sem o token
+        const page_location = safePageLocation(window.location.href);
         const event = googlePurchaseEvent(order);
-        if (trackGoogle(event.name, event.params)) markSent(purchaseSentKey("google", orderId));
+
+        if (trackGoogle(event.name, { ...event.params, page_location })) {
+          const target = googleAdsConversionTarget();
+
+          if (target) {
+            const conversion = googleAdsConversionEvent(order, target);
+            trackGoogle(conversion.name, { ...conversion.params, page_location });
+          }
+
+          markSent(purchaseSentKey("google", orderId));
+        }
       }
 
       if (wantMeta && !wasSent(purchaseSentKey("meta", orderId))) {

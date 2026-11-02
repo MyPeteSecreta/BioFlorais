@@ -2,7 +2,8 @@
  * Medição para Google e Meta (só código; os IDs vêm de variáveis de ambiente, nada de chave no repositório).
  *
  *  - Google tag (gtag) com Consent Mode v2: tudo começa NEGADO e só passa a "concedido" depois do aceite do banner. Eventos:
- *    page_view e purchase (valor em BRL e id do pedido, sem dado pessoal).
+ *    page_view e purchase (valor em BRL e id do pedido, sem dado pessoal). A ação "Compra" do Google Ads só conta com o evento
+ *    "conversion" com send_to = AW-…/rótulo: o rótulo vem de NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL (sem ele, esse evento não sai).
  *  - Pixel da Meta: só carrega depois do aceite de marketing. Eventos: PageView, ViewContent, AddToCart, InitiateCheckout e
  *    Purchase (event_id = id do pedido, para deduplicar com a API de Conversões no futuro).
  *  - Nada roda no /admin, na área do vendedor nem em /api (mesma regra do banner: `isPixelPath`).
@@ -25,6 +26,20 @@ export function googleTagIds(raw: string | null | undefined = process.env.NEXT_P
 export function metaPixelId(raw: string | null | undefined = process.env.NEXT_PUBLIC_META_PIXEL_ID): string | null {
   const value = String(raw ?? "").trim();
   return /^\d{8,20}$/.test(value) ? value : null;
+}
+
+/** Rótulo público da ação "Compra" do Google Ads. Aceita o rótulo sozinho ou o send_to inteiro (AW-…/rótulo) colado do Google Ads. */
+export function googleAdsPurchaseLabel(raw: string | null | undefined = process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL): string | null {
+  const value = String(raw ?? "").trim().split("/").pop() ?? "";
+
+  return /^[A-Za-z0-9_-]{6,64}$/.test(value) ? value : null;
+}
+
+/** Destino da conversão (AW-…/rótulo): precisa do AW- na tag e do rótulo; faltando um dos dois, a conversão fica desligada. */
+export function googleAdsConversionTarget(ids: string[] = googleTagIds(), label: string | null = googleAdsPurchaseLabel()): string | null {
+  const adsId = ids.find((id) => /^AW-/i.test(id));
+
+  return adsId && label ? `${adsId}/${label}` : null;
 }
 
 export type GoogleConsentState = {
@@ -85,6 +100,19 @@ export function googlePurchaseEvent(order: PurchasePayload) {
       value: toValue(order.valueCents),
       currency: CURRENCY,
       items: order.items.map((item) => ({ item_id: item.id, quantity: item.quantity, price: toValue(item.priceCents) })),
+    },
+  };
+}
+
+/** Conversão da ação "Compra" do Google Ads: o transaction_id evita contar o mesmo pedido duas vezes. Sem dado pessoal. */
+export function googleAdsConversionEvent(order: PurchasePayload, target: string) {
+  return {
+    name: "conversion" as const,
+    params: {
+      send_to: target,
+      value: toValue(order.valueCents),
+      currency: CURRENCY,
+      transaction_id: order.orderId,
     },
   };
 }
