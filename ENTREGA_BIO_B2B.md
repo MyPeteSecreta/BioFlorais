@@ -1703,3 +1703,17 @@ A busca de imagem do site achava primeiro a pasta do condicionador: shampoo, per
 - **Antes e depois a 375 px** (emulação de celular): `C:\Users\User\PROMPTS_B2B\prints_artes_rodada15\`, com `RESUMO_antes_x_depois.jpg` e páginas inteiras `*_antes_x_depois.png`.
 
 **Testes:** tsc sem erros; npm test 475 passando na suíte completa, e as 2 suítes de banco (b2b-email-preso e b2b-ofertas-padrao) travaram por falha nativa do PGlite e passaram isoladas (6/6 e 5/5); feeds com 14 excluir_anuncios e 190 liberado; git diff --check limpo; next build no fim desta entrega.
+
+## Ordem da mestre 02/11: ids no Merchant, política de conversões e resumo do Google Ads (sem push)
+
+### 1) Ids com mais de 50 caracteres (`b58fb8e`)
+O Merchant recusou 10 itens por "Valor muito longo no atributo: id" (o limite é 50). Esses 10 ganharam um id curto **fixo** em `src/lib/feeds/feed-id.ts` (ex.: `cosmeticos-pet-condicionador-ansiedade-pelos-escuros-5l`, com 55, virou `cosmeticos-pet-cond-ansiedade-pelos-escuros-5l`, com 46). **Os outros 194 ids não mudam**, e o link do produto continua pelo slug. Os eventos de anúncio (`purchase`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase`) usam o mesmo id do feed, para o catálogo e o remarketing casarem. Teste: nenhum id passa de 50, ids únicos, sem colisão com outro slug, os curtos fixos e os eventos com o id do feed.
+Os "Limitado" do Merchant ("Avaliação inicial pendente" e "Imagem não processada") não pedem ação.
+
+### 2) Política de privacidade com e-mail e telefone em hash: RASCUNHO, aguardando o Luis
+Texto em `C:\Users\User\PROMPTS_B2B\MODELO_POLITICA_CONVERSOES.md` (modelo para as três marcas e versão pronta da Bio). Traz o que é enviado e só com aceite de marketing, o hash SHA-256, a finalidade, a base legal (consentimento, art. 7º, I), o compartilhamento e a transferência internacional (art. 33), o prazo, como recusar ou revogar no banner e os direitos do art. 18. **As páginas `/privacidade` e `/cookies` não foram alteradas**; isso entra no commit, depois do OK do Luis. **O envio de dados não foi ligado no código** (fase 2).
+
+### 4) Google Ads (registro)
+Uma conta só, 911-260-2111 (`AW-18548030046`), com uma ação "Compra" por site. O rótulo vai em `NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL` no projeto Vercel de cada site. A conta 280-709-1933 está cancelada. Conversões otimizadas ficam desligadas até a fase 2.
+
+**Testes:** feeds e medição 26/26 (`medicao-google-meta`, `feed-gtin`, `produto-conversao`, `sugestoes-carrinho`); `tsc` sem erros; `git diff --check` limpo.
