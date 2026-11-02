@@ -202,10 +202,13 @@ test("feeds: etiqueta custom_label_0 marca as categorias sensíveis nos dois fee
     "cosmeticos-pet-shampoo-lambedura",
     "cosmeticos-pet-shampoo-lambedura-5l",
     "dose-unica-floral-dose-unica-perda-de-peso",
+    "kids-floral-em-gotas-momento-reequilibrio-alimentar",
     "pet-floral-em-gotas-lambedura-e-automutilacao",
+    "pet-floral-em-gotas-reequilibrio-alimentar",
+    "teen-floral-em-gotas-controle-alimentar",
   ]);
   assert.ok(items.every((item) => item.adLabel === FEED_AD_LABEL_EXCLUDED || item.adLabel === FEED_AD_LABEL_ALLOWED));
-  assert.ok(!items.some((item) => item.adLabel === FEED_AD_LABEL_ALLOWED && /peso|lambedura|automutila|p[aâ]nico|fumar|v[ií]cio/i.test(`${item.id} ${item.title}`)), "nenhum termo escapou");
+  assert.ok(!items.some((item) => item.adLabel === FEED_AD_LABEL_ALLOWED && /peso|alimentar|lambedura|automutila|p[aâ]nico|fumar|v[ií]cio/i.test(`${item.id} ${item.title}`)), "nenhum termo escapou");
 
   const xml = renderGoogleFeedXml(items, "https://www.bioflorais.com.br");
   assert.equal((xml.match(/<g:custom_label_0>/g) ?? []).length, items.length);
