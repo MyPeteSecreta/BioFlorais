@@ -23,6 +23,18 @@ export const FEED_EXCLUDED_CATEGORIES: readonly string[] = ["Snack Floral"];
 /** GTIN (EAN-13) por slug: o que a Bio tem na planilha de EAN (ver gtin-data.ts). Quem não tem segue com identifier_exists = no. */
 export const FEED_GTIN: Readonly<Record<string, string>> = GTIN_BY_SLUG;
 
+/**
+ * Etiqueta de anúncios (custom_label_0 no Google e na Meta): os itens de categoria sensível continuam no site e no feed, mas saem das
+ * campanhas por esta etiqueta. Todo item leva um valor, para o filtro funcionar igual nas duas plataformas.
+ */
+export const FEED_AD_LABEL_EXCLUDED = "excluir_anuncios";
+export const FEED_AD_LABEL_ALLOWED = "liberado";
+
+/** Comparado com o slug (sem acento): peso, lambedura/automutilação, pânico, parar de fumar e vícios. */
+export const FEED_AD_EXCLUDED_SLUGS: readonly RegExp[] = [/reducao-de-peso/, /perda-de-peso/, /lambedura/, /automutilacao/, /panico/, /parar-de-fumar/, /vicios/];
+
+export const feedAdLabel = (slug: string) => (FEED_AD_EXCLUDED_SLUGS.some((pattern) => pattern.test(slug)) ? FEED_AD_LABEL_EXCLUDED : FEED_AD_LABEL_ALLOWED);
+
 const LINE_NAMES: Record<string, string> = {
   adulto: "Adulto",
   pet: "Pet",
@@ -54,6 +66,7 @@ export type FeedItem = {
   brand: string;
   gtin: string | null;
   productType: string;
+  adLabel: string;
 };
 
 export function isFeedEligible(product: Pick<BioProduct, "name" | "slug" | "category" | "lineSlug" | "priceCents">): boolean {
@@ -112,6 +125,7 @@ export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (p
     brand: FEED_BRAND,
     gtin: FEED_GTIN[product.slug] ?? null,
     productType: `${FEED_BRAND} > ${LINE_NAMES[product.lineSlug] ?? product.lineSlug}`,
+    adLabel: feedAdLabel(product.slug),
   };
 }
 
@@ -137,6 +151,7 @@ export function renderGoogleFeedXml(items: FeedItem[], siteUrl: string): string 
           item.gtin ? `      <g:gtin>${xmlEscape(item.gtin)}</g:gtin>
       <g:identifier_exists>yes</g:identifier_exists>` : "      <g:identifier_exists>no</g:identifier_exists>",
           `      <g:product_type>${xmlEscape(item.productType)}</g:product_type>`,
+          `      <g:custom_label_0>${xmlEscape(item.adLabel)}</g:custom_label_0>`,
           "    </item>",
         ].join("\n")
     )
@@ -147,11 +162,11 @@ export function renderGoogleFeedXml(items: FeedItem[], siteUrl: string): string 
 
 const csvCell = (value: string) => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
-export const META_CSV_COLUMNS = ["id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand", "gtin", "product_type"] as const;
+export const META_CSV_COLUMNS = ["id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand", "gtin", "product_type", "custom_label_0"] as const;
 
 export function renderMetaFeedCsv(items: FeedItem[]): string {
   const rows = items.map((item) =>
-    [item.id, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType].map(csvCell).join(",")
+    [item.id, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType, item.adLabel].map(csvCell).join(",")
   );
 
   return `${META_CSV_COLUMNS.join(",")}\n${rows.join("\n")}\n`;

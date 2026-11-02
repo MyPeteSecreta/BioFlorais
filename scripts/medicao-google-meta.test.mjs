@@ -23,7 +23,7 @@ import {
   purchaseSentKey,
   safePageLocation,
 } from "../src/lib/measurement.ts";
-import { META_CSV_COLUMNS, buildFeedItem, feedDescription, isFeedEligible, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
+import { FEED_AD_LABEL_ALLOWED, FEED_AD_LABEL_EXCLUDED, META_CSV_COLUMNS, buildFeedItem, feedDescription, isFeedEligible, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
 import { loadFeedItems } from "../src/lib/feeds/items.server.ts";
 import { bioProducts } from "../src/lib/catalog/bio-products.ts";
 
@@ -185,6 +185,36 @@ test("feeds: XML do Google e CSV da Meta bem formados, com escape e as colunas n
   assert.equal(isFeedEligible({ ...bioProducts[0], name: "Rescue S.O.S." }), false);
   assert.equal(isFeedEligible({ ...bioProducts[0], name: "Tristeza e Depressão" }), false);
   assert.ok(feedDescription({ name: "Sono", category: "Floral em gotas", lineSlug: "adulto", content: "31 ml" }).includes("sem álcool"));
+});
+
+test("feeds: etiqueta custom_label_0 marca as categorias sensíveis nos dois feeds; os itens continuam no feed", () => {
+  const items = loadFeedItems();
+  const excluded = items.filter((item) => item.adLabel === FEED_AD_LABEL_EXCLUDED).map((item) => item.id).sort();
+
+  assert.deepEqual(excluded, [
+    "adulto-floral-em-gotas-panico",
+    "adulto-floral-em-gotas-panico-social",
+    "adulto-floral-em-gotas-parar-de-fumar",
+    "adulto-floral-em-gotas-reducao-de-peso",
+    "adulto-floral-em-gotas-vicios-e-dependencias",
+    "cosmeticos-pet-condicionador-lambedura",
+    "cosmeticos-pet-condicionador-lambedura-5l",
+    "cosmeticos-pet-shampoo-lambedura",
+    "cosmeticos-pet-shampoo-lambedura-5l",
+    "dose-unica-floral-dose-unica-perda-de-peso",
+    "pet-floral-em-gotas-lambedura-e-automutilacao",
+  ]);
+  assert.ok(items.every((item) => item.adLabel === FEED_AD_LABEL_EXCLUDED || item.adLabel === FEED_AD_LABEL_ALLOWED));
+  assert.ok(!items.some((item) => item.adLabel === FEED_AD_LABEL_ALLOWED && /peso|lambedura|automutila|p[aâ]nico|fumar|v[ií]cio/i.test(`${item.id} ${item.title}`)), "nenhum termo escapou");
+
+  const xml = renderGoogleFeedXml(items, "https://www.bioflorais.com.br");
+  assert.equal((xml.match(/<g:custom_label_0>/g) ?? []).length, items.length);
+  assert.equal((xml.match(new RegExp(`<g:custom_label_0>${FEED_AD_LABEL_EXCLUDED}</g:custom_label_0>`, "g")) ?? []).length, excluded.length);
+
+  const [header, ...rows] = renderMetaFeedCsv(items).trim().split("\n");
+  assert.ok(header.endsWith(",custom_label_0"));
+  assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_EXCLUDED}`)).length, excluded.length);
+  assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_ALLOWED}`)).length, items.length - excluded.length);
 });
 
 test("políticas de cookies e de privacidade citam Google e Meta, o consentimento e o que é enviado", () => {
