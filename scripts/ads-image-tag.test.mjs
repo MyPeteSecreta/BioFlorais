@@ -247,7 +247,7 @@ test("3.2/4) fiação: <img> 1x1 oculto só com consentimento; onde carrega; ban
       "medimos se os nossos anúncios no ChatGPT (Plataforma de Anúncios da OpenAI) geram compras",
       "guardamos por até 30 dias, no cookie <code>bio_oppref</code>, um código de atribuição fornecido pelo anúncio",
       "informamos à plataforma apenas que houve uma compra, com o valor e um identificador aleatório",
-      "Não enviamos nome, e-mail, telefone, documentos nem o número do seu pedido",
+      "À OpenAI não enviamos nome, e-mail, telefone, documentos nem o número do seu pedido",
       "retirar o consentimento a qualquer momento em &quot;Configurar cookies&quot;",
     ]) {
       assert.ok(page.includes(part), `${file}: ${part}`);

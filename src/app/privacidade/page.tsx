@@ -21,7 +21,7 @@ export default function Page() {
 
         <div className="mt-8 space-y-8 text-base leading-8 text-[#665765]">
           <p>
-            Última atualização: 25 de outubro de 2026.
+            Última atualização: 3 de novembro de 2026.
           </p>
 
           <section>
@@ -164,7 +164,7 @@ export default function Page() {
               Com o seu consentimento para cookies de marketing, medimos se os nossos anúncios no ChatGPT (Plataforma de Anúncios da
               OpenAI) geram compras. Para isso, guardamos por até 30 dias, no cookie <code>bio_oppref</code>, um código de atribuição
               fornecido pelo anúncio, e informamos à plataforma apenas que houve uma compra, com o valor e um identificador aleatório.
-              Não enviamos nome, e-mail, telefone, documentos nem o número do seu pedido. Você pode retirar o consentimento a qualquer
+              À OpenAI não enviamos nome, e-mail, telefone, documentos nem o número do seu pedido. Você pode retirar o consentimento a qualquer
               momento em &quot;Configurar cookies&quot;.
             </p>
             <p className="mt-3">
@@ -204,11 +204,49 @@ export default function Page() {
               segue com os consentimentos negados.
             </p>
             <p className="mt-3">
-              Enviamos apenas o tipo de ação, o valor em reais e um código interno do pedido (para não contar a mesma compra duas vezes).
-              Não enviamos nome, e-mail, telefone nem documentos, e os endereços das páginas vão sem códigos pessoais. Para a Meta, o
-              mesmo código do pedido poderá ser usado, no futuro, na API de Conversões, também para evitar duplicidade. Você pode
-              mudar a escolha a qualquer momento em &quot;Configurar cookies&quot;.
+              <strong>O que enviamos, e só se você aceitar os cookies de marketing.</strong> Quando você aceita os cookies de marketing e faz
+              uma compra, podemos enviar ao Google e à Meta, junto com o aviso da compra (tipo de ação, valor em reais, produtos e um código
+              interno do pedido), o <strong>e-mail e o telefone informados no pedido</strong>. Antes de serem enviados, esses dados passam por
+              uma criptografia de mão única (<strong>hash SHA-256</strong>): o Google e a Meta recebem um código, e não o seu e-mail ou telefone
+              em texto. Eles usam esse código apenas para verificar se a compra veio de alguém que viu ou clicou em um anúncio. Para nós,
+              devolvem somente números agregados, sem identificar ninguém. Mesmo em forma de código, a informação continua sendo um dado pessoal
+              protegido pela LGPD. <strong>Não enviamos</strong> nome, CPF ou CNPJ, endereço nem dados de pagamento, e os endereços das páginas
+              vão sem códigos pessoais.
             </p>
+            <p className="mt-3">
+              <strong>Se você não aceitar ou retirar o consentimento</strong>, nada disso é enviado: a Meta não recebe nenhum evento, e o Google
+              recebe apenas o aviso de compra sem e-mail, telefone ou cookies de anúncios, conforme o Consent Mode.
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-6">
+              <li>
+                <strong>Finalidade:</strong> medir e melhorar o desempenho dos nossos anúncios (saber quais anúncios geraram compras), sem usar
+                esses dados para outra finalidade.
+              </li>
+              <li>
+                <strong>Base legal:</strong> o seu <strong>consentimento</strong> (art. 7º, I, da LGPD), dado no aviso de cookies ao escolher
+                &quot;Aceitar&quot; ou ao ligar &quot;Marketing&quot; em &quot;Configurar cookies&quot;.
+              </li>
+              <li>
+                <strong>Com quem compartilhamos:</strong> Google LLC e Meta Platforms, Inc. (e suas afiliadas), que atuam conforme os termos de
+                dados dos seus serviços de anúncios. Essas empresas podem tratar os dados fora do Brasil; a transferência internacional segue o
+                art. 33 da LGPD, com as garantias previstas nesses termos.
+              </li>
+              <li>
+                <strong>Por quanto tempo:</strong> pelo prazo necessário à medição, conforme as políticas do Google e da Meta. Do nosso lado, o
+                e-mail e o telefone ficam apenas no seu pedido, pelo prazo exigido pela lei fiscal e de consumo.
+              </li>
+              <li>
+                <strong>Como recusar ou revogar:</strong> escolha &quot;Recusar&quot; no aviso de cookies ou, a qualquer momento, abra
+                &quot;Configurar cookies&quot; (no rodapé do site) e desligue &quot;Marketing&quot;. A revogação vale para as compras seguintes.
+                Para pedir providências sobre dados já enviados, escreva para <strong>sac@angelblanc.com</strong>.
+              </li>
+              <li>
+                <strong>Seus direitos (art. 18 da LGPD):</strong> confirmação de que tratamos seus dados, acesso, correção, anonimização,
+                bloqueio ou eliminação de dados desnecessários, portabilidade, informação sobre com quem compartilhamos, informação sobre a
+                possibilidade de não consentir e as consequências, e revogação do consentimento. Para exercer, escreva para{" "}
+                <strong>sac@angelblanc.com</strong>. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).
+              </li>
+            </ul>
           </section>
 
           <section>

@@ -277,6 +277,6 @@ test("políticas de cookies e de privacidade citam Google e Meta, o consentiment
   for (const file of ["src/app/cookies/page.tsx", "src/app/privacidade/page.tsx"]) {
     const page = read(file);
     assert.ok(page.includes('data-testid="google-meta-politica"'), file);
-    for (const part of ["Google tag", "Consent Mode v2", "Pixel da Meta", "negados", "nem é carregado", "Não enviamos nome, e-mail, telefone nem documentos", "Configurar cookies", "25 de outubro de 2026"]) assert.ok(page.includes(part), `${file}: ${part}`);
+    for (const part of ["Google tag", "Consent Mode v2", "Pixel da Meta", "negados", "nem é carregado", "e-mail e o telefone informados no pedido", "hash SHA-256", "art. 7º, I, da LGPD", "art. 33 da LGPD", "art. 18 da LGPD", "Se você não aceitar ou retirar o consentimento", "Configurar cookies", "3 de novembro de 2026"]) assert.ok(page.includes(part), `${file}: ${part}`);
   }
 });
