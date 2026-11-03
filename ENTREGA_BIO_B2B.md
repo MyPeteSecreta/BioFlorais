@@ -1717,3 +1717,9 @@ Texto em `C:\Users\User\PROMPTS_B2B\MODELO_POLITICA_CONVERSOES.md` (modelo para 
 Uma conta só, 911-260-2111 (`AW-18548030046`), com uma ação "Compra" por site. O rótulo vai em `NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL` no projeto Vercel de cada site. A conta 280-709-1933 está cancelada. Conversões otimizadas ficam desligadas até a fase 2.
 
 **Testes:** feeds e medição 26/26 (`medicao-google-meta`, `feed-gtin`, `produto-conversao`, `sugestoes-carrinho`); `tsc` sem erros; `git diff --check` limpo.
+
+## 02/11: itens 1 e 2 reprovados pelo Luis e descartados; rótulo da Compra
+- **Reprovados e descartados sem commit:** texto do Pânico, troca das fotos de Sensação de Ansiedade e Sono e os 16 cards limpos. A árvore voltou ao estado de `aa54b66` (`git status` limpo): as cenas originais foram restauradas e `public/cardprodutos/limpos/` e os dois jpg novos foram apagados.
+- **Regra nova, até o Luis mudar:** nenhuma troca de imagem ou texto do site por causa de "promessa".
+- **Continuam valendo:** os commits de feed até `aa54b66` (não mexem no site) e o rascunho da política (aguarda o Luis).
+- **Rótulo da ação "Compra no site Bio":** `2rC3CNXqjbAdEN70sYxF` (valor público, aparece no JavaScript do site). O Luis põe em `NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL` na Vercel e faz Redeploy. Depois: compra real com o Tag Assistant.
