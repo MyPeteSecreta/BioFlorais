@@ -17,6 +17,7 @@ import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
 import { couponBeatsCampaign } from "@/lib/campaign/esquenta-black";
+import { documentError } from "@/lib/checkout/document";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
@@ -949,6 +950,9 @@ export default function CheckoutPage() {
   // Os hooks ficam ANTES do retorno da sacola vazia: hook depois de um return condicional quebra o checkout (React #310).
   const gpt10Tried = useRef(false);
 
+  // CPF/CNPJ com dígito verificador: aviso ao sair do campo e antes de enviar (o servidor confere de novo).
+  const [documentFieldError, setDocumentFieldError] = useState("");
+
   useEffect(() => {
     if (gpt10Tried.current || items.length === 0 || !checkoutDraftRestored || !quote || appliedCoupon) return;
 
@@ -1760,6 +1764,15 @@ export default function CheckoutPage() {
                 return;
               }
 
+              const documentProblem = documentError(readField("document"));
+
+              if (documentProblem) {
+                setDocumentFieldError(documentProblem);
+                setOrderError(documentProblem);
+                (form.elements.namedItem("document") as HTMLInputElement | null)?.focus();
+                return;
+              }
+
               if (cep.length !== 8) {
                 setCepError(
                   "Informe um CEP valido antes de continuar."
@@ -2061,10 +2074,21 @@ export default function CheckoutPage() {
                         formatDocument(
                           event.currentTarget.value
                         );
+                      if (documentFieldError && !documentError(event.currentTarget.value)) setDocumentFieldError("");
                     }}
+                    onBlur={(event) => {
+                      const value = event.currentTarget.value;
+                      setDocumentFieldError(value.replace(/\D/g, "").length > 0 ? documentError(value) ?? "" : "");
+                    }}
+                    aria-invalid={documentFieldError ? true : undefined}
                     className={inputClass}
                     placeholder="CPF ou CNPJ, só números"
                   />
+                  {documentFieldError ? (
+                    <span className="mt-2 block text-xs text-red-700" data-testid="erro-documento">
+                      {documentFieldError}
+                    </span>
+                  ) : null}
                 </label>
 
                 <details className="text-sm md:col-span-2" data-testid="campo-opcional-rg">

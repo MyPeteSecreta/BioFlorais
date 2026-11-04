@@ -1,5 +1,6 @@
 import { activeCampaign, campaignUnitPriceCents, decideCampaign } from "@/lib/campaign/esquenta-black";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
+import { isValidCnpj, isValidCpf } from "@/lib/checkout/document";
 import {
   NextRequest,
   NextResponse,
@@ -389,7 +390,7 @@ export async function POST(
 
     if (
       personType === "pf" &&
-      cpf.length !== 11
+      !isValidCpf(cpf)
     ) {
       return NextResponse.json(
         {
@@ -402,7 +403,7 @@ export async function POST(
 
     if (
       personType === "pj" &&
-      cnpj.length !== 14
+      !isValidCnpj(cnpj)
     ) {
       return NextResponse.json(
         {
