@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-import { getProduct, formatBRL } from "@/lib/catalog/bio-products";
+import { CampaignPriceInline } from "@/components/campaign/CampaignPrice";
+import { getProduct } from "@/lib/catalog/bio-products";
 
 import {
   createBioQuizState,
@@ -74,7 +75,7 @@ function ProductCard({
           </h2>
 
           <p className="mt-2 text-lg font-semibold text-[#63326d]">
-            {formatBRL(product.priceCents)}
+            <CampaignPriceInline priceCents={product.priceCents} />
           </p>
 
           <Link

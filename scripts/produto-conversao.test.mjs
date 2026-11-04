@@ -46,7 +46,9 @@ test("'como usar' curto: primeira frase, até ~120 caracteres", () => {
 
 test("telas: preço e Pix acima da dobra, barra fixa, kit, frete por CEP, zoom, eventos e rodapé sem barras concorrentes", () => {
   const page = read("src/app/produto/[slug]/page.tsx");
-  assert.ok(page.includes('data-testid="preco-pix"') && page.includes("a menos") && page.includes("grid-cols-[minmax(0,1fr)]"));
+  // preço e Pix vêm do CampaignPrice (Esquenta/Black), com o mesmo data-testid e o "a menos"
+  const campaignPrice = read("src/components/campaign/CampaignPrice.tsx");
+  assert.ok(page.includes("<CampaignPrice") && page.includes("withPix") && campaignPrice.includes('data-testid="preco-pix"') && campaignPrice.includes("a menos") && page.includes("grid-cols-[minmax(0,1fr)]"));
   assert.ok(page.includes("trustBadges(") && page.includes("shortHowToUse(") && page.includes('id="como-usar"'));
 
   const actions = read("src/components/product/ProductPurchaseActions.tsx");

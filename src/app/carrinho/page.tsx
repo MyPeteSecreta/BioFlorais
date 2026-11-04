@@ -21,6 +21,8 @@ interface QuoteItem {
   name: string;
   qty: number;
   unitPriceCents: number;
+  /** Preço do site (riscado quando há Esquenta/Black). */
+  sitePriceCents?: number;
   image?: string | null;
 }
 
@@ -41,6 +43,7 @@ interface Quote {
   shippingSubsidyCents: number;
   freeShippingDiscountCents: number;
   totalCents: number;
+  campaign?: { key: string; percent: number; priceLabel: string } | null;
   offerBreakdown: OfferBreakdown[];
 }
 
@@ -289,6 +292,9 @@ export default function CartPage() {
                           </h2>
 
                           <p className="mt-2 text-sm text-[#26352c]/65">
+                            {serverItem && serverItem.sitePriceCents && serverItem.sitePriceCents > serverItem.unitPriceCents ? (
+                              <s className="mr-1.5">{formatMoney(serverItem.sitePriceCents)}</s>
+                            ) : null}
                             {serverItem
                               ? formatMoney(
                                   serverItem.unitPriceCents
@@ -441,6 +447,13 @@ export default function CartPage() {
                         quote.offerDiscountCents
                       )}
                     </strong>
+                  </div>
+                ) : null}
+
+                {quote && quote.promotionDiscountCents > 0 ? (
+                  <div className="flex justify-between gap-5 text-[#46644f]" data-testid="desconto-campanha">
+                    <span>{quote.campaign?.priceLabel ?? "Desconto"}</span>
+                    <strong className="font-medium">− {formatMoney(quote.promotionDiscountCents)}</strong>
                   </div>
                 ) : null}
 

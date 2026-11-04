@@ -118,7 +118,7 @@ test("sem cloaking: página estática, igual para todos (nada lê cabeçalho, co
 
 test("estrutura da página: título, faixa GPT10, produtos com preço e Comprar, confiança, 3 perguntas, ver a linha completa", () => {
   const page = read("src/app/para/[slug]/page.tsx");
-  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "formatBRL(product.priceCents)", "<CampaignBuyButton", "<LineMiniCards />", 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
+  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "<CampaignPriceInline priceCents={product.priceCents} />", "<CampaignBuyButton", "<LineMiniCards />", 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
   assert.ok(order.every((index) => index > 0) && [...order].sort((a, b) => a - b).join() === order.join(), "ordem das seções");
   assert.ok(!page.includes("campanha-confianca") && !page.includes("Compre com tranquilidade"), "o bloco de confiança saiu: minicards das linhas no lugar");
   assert.equal(page.split('aria-label="Perguntas frequentes"').length - 1, 1, "um bloco só de perguntas");
@@ -171,7 +171,7 @@ test("GPT10: marca a passagem por /para/*, aplica sozinho (uma vez, com sacola, 
 test("checkout e sacola: aplica o GPT10 pelo servidor, remover não reaplica, erro limpa o flag; a sacola avisa", () => {
   const checkout = read("src/app/checkout/page.tsx");
   assert.ok(checkout.includes("shouldAutoApplyGpt10({ state, hasCommercialCoupon: false, cartHasItems: items.length > 0 })"));
-  assert.ok(checkout.includes('validateCommercialCoupon("GPT10", quote.totalCents)'), "valida no servidor (/api/coupons/validate)");
+  assert.ok(checkout.includes('validateCommercialCoupon("GPT10", couponBaseOf(quote))'), "valida no servidor (/api/coupons/validate), sobre o preço do site");
   assert.ok(checkout.includes('appliedCoupon?.code === "GPT10"') && checkout.includes("removeGpt10(window.localStorage)"));
   assert.ok(checkout.includes("clearGpt10(window.localStorage)") && checkout.includes("gpt10Tried"));
   const cart = read("src/app/carrinho/page.tsx");

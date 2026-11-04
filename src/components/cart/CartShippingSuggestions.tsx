@@ -8,6 +8,7 @@
 
 import { useMemo } from "react";
 
+import { CampaignPriceInline } from "@/components/campaign/CampaignPrice";
 import { useCart } from "@/components/cart/CartProvider";
 import { buildCartSuggestions, shippingGap } from "@/lib/cart-suggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
@@ -64,7 +65,7 @@ export default function CartShippingSuggestions({ baseCents, variant = "full" }:
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#26352c]/45">{suggestion.kind}</p>
               <p className={`${compact ? "truncate text-xs" : "text-sm leading-tight"} font-medium text-[#26352c]`}>{suggestion.name}</p>
-              <p className="text-xs font-semibold text-[#55245f]">{brl(suggestion.priceCents)}</p>
+              <p className="text-xs font-semibold text-[#55245f]"><CampaignPriceInline priceCents={suggestion.priceCents} /></p>
             </div>
             <button
               type="button"

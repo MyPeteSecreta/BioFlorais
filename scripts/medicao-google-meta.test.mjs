@@ -216,9 +216,9 @@ test("feeds: etiqueta custom_label_0 marca as categorias sensíveis nos dois fee
   assert.equal((xml.match(new RegExp(`<g:custom_label_0>${FEED_AD_LABEL_EXCLUDED}</g:custom_label_0>`, "g")) ?? []).length, excluded.length);
 
   const [header, ...rows] = renderMetaFeedCsv(items).trim().split("\n");
-  assert.ok(header.endsWith(",custom_label_0"));
-  assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_EXCLUDED}`)).length, excluded.length);
-  assert.equal(rows.filter((row) => row.endsWith(`,${FEED_AD_LABEL_ALLOWED}`)).length, items.length - excluded.length);
+  assert.ok(header.includes(",custom_label_0,"));
+  assert.equal(rows.filter((row) => row.includes(`,${FEED_AD_LABEL_EXCLUDED},`)).length, excluded.length);
+  assert.equal(rows.filter((row) => row.includes(`,${FEED_AD_LABEL_ALLOWED},`)).length, items.length - excluded.length);
 });
 
 test("feeds: cada item de Cosméticos Pet usa a foto do próprio tipo (shampoo, condicionador, perfume, floral de ambiente)", () => {

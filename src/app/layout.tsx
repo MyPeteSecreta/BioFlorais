@@ -6,6 +6,7 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import MobileLineBar from "@/components/layout/MobileLineBar";
 import UgcFloatingButton from "@/components/ugc/UgcFloatingButton";
 import HideOnB2B from "@/components/layout/HideOnB2B";
+import CampaignStrip from "@/components/campaign/CampaignStrip";
 import WebAnalytics from "@/components/analytics/WebAnalytics";
 import { OG_IMAGES, OG_IMAGE_SIZE } from "@/lib/seo/metadata";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -43,6 +44,8 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(organizationJsonLd(getSiteUrl())) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(websiteJsonLd(getSiteUrl())) }} />
         <CartProvider>
+          {/* Esquenta Black / Black Friday: só no B2C e só dentro das datas (src/lib/campaign/esquenta-black.ts). */}
+          <CampaignStrip />
           {children}
           <HideOnB2B>
             <GlobalCartButton />

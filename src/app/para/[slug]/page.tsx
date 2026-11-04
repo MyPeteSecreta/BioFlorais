@@ -15,7 +15,8 @@ import CampaignCartIcon from "@/components/campaign/CampaignCartIcon";
 import CampaignMarker from "@/components/campaign/CampaignMarker";
 import LineMiniCards, { LINE_PHOTOS } from "@/components/campaign/LineMiniCards";
 import Gpt10Banner from "@/components/campaign/Gpt10Banner";
-import { formatBRL, getProduct } from "@/lib/catalog/bio-products";
+import { CampaignPriceInline } from "@/components/campaign/CampaignPrice";
+import { getProduct } from "@/lib/catalog/bio-products";
 import { getProductMainImage } from "@/lib/catalog/product-images.server";
 import { CAMPAIGN_SLUGS, getCampaignPage } from "@/lib/campaign/gpt-pages";
 
@@ -112,7 +113,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
                   <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a0742b]">{page.lineLabel}</p>
                   <h2 className="mt-0.5 text-[15px] font-extrabold leading-tight text-[#422347]">{name}</h2>
                   <p className="mt-1 text-[11px] text-[#8a7886]">Floral em gotas · 31 ml</p>
-                  <p className="mt-2 text-[17px] font-extrabold text-[#2f2231]">{formatBRL(product.priceCents)}</p>
+                  <p className="mt-2 text-[17px] font-extrabold text-[#2f2231]"><CampaignPriceInline priceCents={product.priceCents} /></p>
                   <div className="mt-auto">
                     <CampaignBuyButton productSlug={product.slug} name={name} image={image} />
                   </div>

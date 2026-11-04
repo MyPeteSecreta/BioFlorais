@@ -16,6 +16,7 @@ import { trackCheckoutStep, type CheckoutStep } from "@/lib/analytics-events";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
+import { couponBeatsCampaign } from "@/lib/campaign/esquenta-black";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement, validateOrderNote } from "@/lib/order-note";
@@ -37,6 +38,8 @@ interface QuoteItem {
   name: string;
   qty: number;
   unitPriceCents: number;
+  /** Preço do site; difere do unitPriceCents só no Esquenta/Black. */
+  sitePriceCents?: number;
 }
 
 interface OfferBreakdown {
@@ -71,8 +74,14 @@ interface Quote {
   shippingSubsidyCents: number;
   freeShippingDiscountCents: number;
   totalCents: number;
+  /** Total dos produtos SEM a campanha (base dos cupons e do frete grátis, como no servidor). */
+  siteTotalCents?: number;
+  campaign?: { key: string; percent: number; priceLabel: string } | null;
   offerBreakdown: OfferBreakdown[];
 }
+
+/** Base dos cupons: o preço do site (cupom e Esquenta/Black não somam; vale o maior). */
+const couponBaseOf = (quote: Quote) => quote.siteTotalCents ?? quote.totalCents;
 
 function formatDocument(value: string) {
   const digits =
@@ -957,14 +966,14 @@ export default function CheckoutPage() {
 
     void (async () => {
       try {
-        const validation = await validateCommercialCoupon("GPT10", quote.totalCents);
+        const validation = await validateCommercialCoupon("GPT10", couponBaseOf(quote));
 
         resetPendingCardAttempt();
         setAppliedCoupon(validation);
 
         // Cupom de parceira/UGC já aplicado: recalcula sobre o valor depois do comercial (mesma regra de aplicar um cupom comercial).
         if (appliedPartnerCoupon) {
-          const partnerBaseCents = Math.max(0, quote.totalCents - validation.discountCents);
+          const partnerBaseCents = Math.max(0, couponBaseOf(quote) - validation.discountCents);
 
           setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
         }
@@ -999,9 +1008,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!checkoutDraftRestored || !quote) return;
-    if (couponBaseChecked.current === quote.totalCents) return;
+    if (couponBaseChecked.current === couponBaseOf(quote)) return;
 
-    couponBaseChecked.current = quote.totalCents;
+    couponBaseChecked.current = couponBaseOf(quote);
 
     if (!appliedCoupon && !appliedPartnerCoupon) return;
 
@@ -1010,7 +1019,7 @@ export default function CheckoutPage() {
 
       try {
         if (appliedCoupon) {
-          commercial = await validateCommercialCoupon(appliedCoupon.code, quote.totalCents);
+          commercial = await validateCommercialCoupon(appliedCoupon.code, couponBaseOf(quote));
           setAppliedCoupon(commercial);
         }
       } catch (err) {
@@ -1029,7 +1038,7 @@ export default function CheckoutPage() {
 
       try {
         if (appliedPartnerCoupon) {
-          const partnerBaseCents = Math.max(0, quote.totalCents - (commercial?.discountCents ?? 0));
+          const partnerBaseCents = Math.max(0, couponBaseOf(quote) - (commercial?.discountCents ?? 0));
 
           setAppliedPartnerCoupon(await validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents));
         }
@@ -1431,7 +1440,7 @@ export default function CheckoutPage() {
       const validation =
         await validateCommercialCoupon(
           code,
-          quote.totalCents
+          couponBaseOf(quote)
         );
 
       resetPendingCardAttempt();
@@ -1441,7 +1450,7 @@ export default function CheckoutPage() {
         const partnerBaseCents =
           Math.max(
             0,
-            quote.totalCents -
+            couponBaseOf(quote) -
               validation.discountCents
           );
 
@@ -1488,7 +1497,7 @@ export default function CheckoutPage() {
       const partnerBaseCents =
         Math.max(
           0,
-          quote.totalCents -
+          couponBaseOf(quote) -
             (appliedCoupon?.discountCents ?? 0)
         );
 
@@ -1534,8 +1543,9 @@ export default function CheckoutPage() {
     setPartnerCouponError("");
   }
 
+  // Base do frete grátis e das faixas: o preço do site (o servidor usa o mesmo, com ou sem Esquenta/Black).
   const merchandiseTotalCents =
-    quote?.totalCents ?? 0;
+    quote ? couponBaseOf(quote) : 0;
 
   const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
 
@@ -1608,19 +1618,27 @@ export default function CheckoutPage() {
 
   const customerShippingCents = shippingRule?.customerCents ?? 0;
 
-  const couponDiscountCents =
-    appliedCoupon?.discountCents ?? 0;
+  const typedCouponCents = appliedCoupon?.discountCents ?? 0;
+  const typedPartnerCouponCents = appliedPartnerCoupon?.discountCents ?? 0;
 
-  const partnerCouponDiscountCents =
-    appliedPartnerCoupon?.discountCents ?? 0;
+  // Esquenta/Black x cupom: não somam, vale o MAIOR desconto (empate: campanha). A mesma regra do servidor.
+  const campaignSavingsCents = quote?.campaign ? Math.max(0, merchandiseTotalCents - quote.totalCents) : 0;
+  const campaignWins = Boolean(quote?.campaign) && !couponBeatsCampaign(campaignSavingsCents, typedCouponCents + typedPartnerCouponCents);
+  const couponOverridden = campaignWins && typedCouponCents + typedPartnerCouponCents > 0;
+
+  const couponDiscountCents = campaignWins ? 0 : typedCouponCents;
+
+  const partnerCouponDiscountCents = campaignWins ? 0 : typedPartnerCouponCents;
 
   const merchandiseAfterCouponsCents =
-    Math.max(
-      0,
-      merchandiseTotalCents -
-        couponDiscountCents -
-        partnerCouponDiscountCents
-    );
+    campaignWins && quote
+      ? quote.totalCents
+      : Math.max(
+          0,
+          merchandiseTotalCents -
+            couponDiscountCents -
+            partnerCouponDiscountCents
+        );
 
   // Pix com desconto (B2C): sobre os produtos depois dos cupons, nunca sobre o frete. O percentual não aparece, só o valor.
   const pixSavingsCents = pixDiscountCents(merchandiseAfterCouponsCents);
@@ -2728,8 +2746,11 @@ export default function CheckoutPage() {
                     </span>
 
                     <strong className="shrink-0 font-medium">
+                      {campaignWins && item.sitePriceCents && item.sitePriceCents > item.unitPriceCents ? (
+                        <s className="mr-1.5 text-xs text-[#26352c]/50">{formatMoney(item.sitePriceCents * item.qty)}</s>
+                      ) : null}
                       {formatMoney(
-                        item.unitPriceCents *
+                        (campaignWins ? item.unitPriceCents : item.sitePriceCents ?? item.unitPriceCents) *
                           item.qty
                       )}
                     </strong>
@@ -2830,6 +2851,19 @@ export default function CheckoutPage() {
                 </span>
               </div>
             </div>
+
+            {campaignWins && quote?.campaign ? (
+              <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]" data-testid="desconto-campanha">
+                <span>{quote.campaign.priceLabel}</span>
+                <strong className="font-medium">− {formatMoney(campaignSavingsCents)}</strong>
+              </div>
+            ) : null}
+
+            {couponOverridden ? (
+              <p className="mb-3 rounded-xl bg-[#f6efe6] px-3 py-2 text-xs text-[#422347]" data-testid="cupom-nao-soma">
+                O cupom não soma com o {quote?.campaign?.key === "black" ? "Black Friday" : "Esquenta Black"}: aplicamos o maior desconto.
+              </p>
+            ) : null}
 
             {couponDiscountCents > 0 ? (
               <div className="mb-3 flex justify-between gap-5 text-sm text-[#46644f]">

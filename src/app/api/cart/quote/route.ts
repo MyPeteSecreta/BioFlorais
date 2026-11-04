@@ -7,6 +7,7 @@ import {
 import {
   calculateSelectedOffers,
 } from "@/lib/commerce/offers";
+import { activeCampaign, campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
 
 interface RequestItem {
   productSlug: string;
@@ -62,9 +63,14 @@ export async function POST(
         shippingSubsidyCents: 0,
         freeShippingDiscountCents: 0,
         totalCents: 0,
+        siteTotalCents: 0,
+        campaign: null,
         offerBreakdown: [],
       });
     }
+
+    // Esquenta/Black (src/lib/campaign/esquenta-black.ts): a hora do servidor decide.
+    const campaign = activeCampaign(Date.now());
 
     const catalogBySlug =
       new Map(
@@ -118,8 +124,10 @@ export async function POST(
               product.category ?? "",
             qty:
               requested.qty,
-            unitPriceCents:
+            sitePriceCents:
               product.priceCents,
+            unitPriceCents:
+              campaignUnitPriceCents(product.priceCents, campaign),
             image:
               product.image ?? null,
           };
@@ -127,6 +135,15 @@ export async function POST(
       );
 
     const grossSubtotalCents =
+      resolvedItems.reduce(
+        (sum, item) =>
+          sum +
+          item.sitePriceCents *
+            item.qty,
+        0
+      );
+
+    const campaignSubtotalCents =
       resolvedItems.reduce(
         (sum, item) =>
           sum +
@@ -168,7 +185,27 @@ export async function POST(
      * nesta etapa.
      */
 
-    const promotionDiscountCents = 0;
+    const promotionDiscountCents =
+      grossSubtotalCents -
+      campaignSubtotalCents;
+
+    // Sem campanha (para comparar com cupom: vale o maior desconto): ofertas sobre o preço do site.
+    const siteOfferDiscountCents = campaign
+      ? money(
+          calculateSelectedOffers(
+            resolvedItems.map((item) => ({
+              productSlug: item.productSlug,
+              name: item.name,
+              category: item.category,
+              qty: item.qty,
+              unitPriceCents: item.sitePriceCents,
+            })),
+            requestedOffers
+          ).offerDiscountCents
+        )
+      : offerDiscountCents;
+    const siteTotalCents = money(grossSubtotalCents - siteOfferDiscountCents);
+
     const couponDiscountCents = 0;
     const creditUsedCents = 0;
 
@@ -200,6 +237,10 @@ export async function POST(
       shippingSubsidyCents,
       freeShippingDiscountCents,
       totalCents,
+      siteTotalCents,
+      campaign: campaign
+        ? { key: campaign.key, percent: campaign.percent, priceLabel: campaign.priceLabel }
+        : null,
       offerBreakdown:
         offerResult.breakdown ?? [],
     });

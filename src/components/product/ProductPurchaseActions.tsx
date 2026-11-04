@@ -8,8 +8,10 @@
 
 import { useState } from "react";
 
+import { useCampaign } from "@/components/campaign/useCampaign";
 import { useCart } from "@/components/cart/CartProvider";
 import ProductShippingEstimate from "@/components/product/ProductShippingEstimate";
+import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
 import { freeShippingKit, pixPrice, type TrustBadge } from "@/lib/product-conversion";
 
 interface Props {
@@ -30,8 +32,12 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState<"single" | "kit" | null>(null);
 
-  const kit = freeShippingKit(priceCents);
-  const pix = pixPrice(priceCents);
+  // Esquenta/Black: preço com desconto na tela; a quantidade do kit segue o preço do site (o frete grátis usa o preço do site).
+  const phase = useCampaign();
+  const salePriceCents = priceCents ? campaignUnitPriceCents(priceCents, phase) : null;
+  const siteKit = freeShippingKit(priceCents);
+  const kit = siteKit && salePriceCents ? { ...siteKit, totalCents: siteKit.qty * salePriceCents, eachCents: salePriceCents } : siteKit;
+  const pix = pixPrice(salePriceCents);
 
   function addMany(count: number) {
     addProduct(product, count);
@@ -136,7 +142,12 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
       >
         <div className="mx-auto flex max-w-[560px] items-center gap-3">
           <div className="min-w-0 flex-1">
-            {priceCents ? <p className="text-lg font-extrabold leading-tight text-[#55245f]">{brl(priceCents)}</p> : null}
+            {priceCents && salePriceCents ? (
+              <p className="text-lg font-extrabold leading-tight text-[#55245f]">
+                {phase && <s className="mr-1.5 text-xs font-bold text-[#8d7789]">{brl(priceCents)}</s>}
+                {brl(salePriceCents)}
+              </p>
+            ) : null}
             {pix && <p className="truncate text-xs font-bold text-[#1f6b3a]">{brl(pix.priceCents)} no Pix</p>}
           </div>
           <button type="button" onClick={handleAdd} className="shrink-0 rounded-full bg-[#63326d] px-6 py-3.5 text-sm font-extrabold text-white active:scale-[0.98]" data-testid="adicionar-sacola-fixo">

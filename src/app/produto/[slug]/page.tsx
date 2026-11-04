@@ -10,7 +10,8 @@ import Image from "next/image";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchaseActions from "@/components/product/ProductPurchaseActions";
-import { pixPrice, shortHowToUse, trustBadges } from "@/lib/product-conversion";
+import CampaignPrice, { CampaignPriceInline } from "@/components/campaign/CampaignPrice";
+import { shortHowToUse, trustBadges } from "@/lib/product-conversion";
 import ViewContentEvent from "@/components/measurement/ViewContentEvent";
 import { getProductEditorialContent } from "@/lib/content/product-content";
 import Link from "next/link";
@@ -18,7 +19,6 @@ import { notFound, redirect } from "next/navigation";
 
 import {
   bioProducts,
-  formatBRL,
   getProduct,
   type BioProduct,
 } from "@/lib/catalog/bio-products";
@@ -863,28 +863,12 @@ export default async function ProductPage({
                 )
               }
 
-              <p
-                className="
-                  mt-3
-                  text-4xl
-                  font-extrabold
-                  text-[#55245f]
-                  lg:mt-7
-                "
-                data-testid="preco-produto"
-              >
-                {
-                  formatBRL(
-                    product.priceCents
-                  )
-                }
-              </p>
-              {pixPrice(product.priceCents) && (
-                <p className="mt-1 text-base font-extrabold text-[#1f6b3a]" data-testid="preco-pix">
-                  {formatBRL(pixPrice(product.priceCents)!.priceCents)} no Pix
-                  <span className="ml-2 text-sm font-bold text-[#4d8a62]">({formatBRL(pixPrice(product.priceCents)!.savingCents)} a menos)</span>
-                </p>
-              )}
+              <CampaignPrice
+                priceCents={product.priceCents}
+                withPix
+                testId="preco-produto"
+                className="mt-3 text-4xl font-extrabold text-[#55245f] lg:mt-7"
+              />
             </>
           )}
 
@@ -910,7 +894,7 @@ export default async function ProductPage({
 
                   {row.item ? (
                     <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                      <p className="text-xl font-extrabold text-[#55245f]">{formatBRL(row.item.priceCents)}</p>
+                      <p className="text-xl font-extrabold text-[#55245f]"><CampaignPriceInline priceCents={row.item.priceCents} /></p>
 
                       <AddToCartButton
                         mode="product"
@@ -940,7 +924,7 @@ export default async function ProductPage({
 
                 {(
                   <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                    <p className="text-xl font-extrabold text-[#55245f]">{formatBRL(kitPrice500)}</p>
+                    <p className="text-xl font-extrabold text-[#55245f]"><CampaignPriceInline priceCents={kitPrice500} /></p>
 
                     <AddToCartButton
                       mode="combo"
@@ -1080,9 +1064,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            shampoo500.priceCents
-                          )}
+                          <CampaignPriceInline priceCents={shampoo500.priceCents} />
                         </p>
 
                         <AddToCartButton
@@ -1138,9 +1120,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            shampoo5l.priceCents
-                          )}
+                          <CampaignPriceInline priceCents={shampoo5l.priceCents} />
                         </p>
 
                         <AddToCartButton
@@ -1222,9 +1202,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            conditioner500.priceCents
-                          )}
+                          <CampaignPriceInline priceCents={conditioner500.priceCents} />
                         </p>
 
                         <AddToCartButton
@@ -1280,9 +1258,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            conditioner5l.priceCents
-                          )}
+                          <CampaignPriceInline priceCents={conditioner5l.priceCents} />
                         </p>
 
                         <AddToCartButton
@@ -1389,9 +1365,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            kitPrice500
-                          )}
+                          <CampaignPriceInline priceCents={kitPrice500} />
                         </p>
 
                         <AddToCartButton
@@ -1456,9 +1430,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          {formatBRL(
-                            kitPrice5l
-                          )}
+                          <CampaignPriceInline priceCents={kitPrice5l} />
                         </p>
 
                         <AddToCartButton
@@ -1542,9 +1514,7 @@ export default async function ProductPage({
                     text-[#55245f]
                   "
                 >
-                  {formatBRL(
-                    product.priceCents
-                  )}
+                  <CampaignPriceInline priceCents={product.priceCents} />
                 </p>
 
                 <AddToCartButton
@@ -1604,9 +1574,7 @@ export default async function ProductPage({
                     text-[#55245f]
                   "
                 >
-                  {formatBRL(
-                    perfume500.priceCents
-                  )}
+                  <CampaignPriceInline priceCents={perfume500.priceCents} />
                 </p>
 
                 <AddToCartButton
@@ -2038,11 +2006,7 @@ export default async function ProductPage({
                             text-[#63326d]
                           "
                         >
-                          {
-                            formatBRL(
-                              item.priceCents
-                            )
-                          }
+                          <CampaignPriceInline priceCents={item.priceCents} />
                         </p>
                       </div>
                     </Link>

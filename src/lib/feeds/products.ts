@@ -7,6 +7,7 @@
  */
 
 import type { BioProduct } from "@/lib/catalog/bio-products";
+import { campaignUnitPriceCents, feedCampaignPhase, saleEffectiveDate } from "@/lib/campaign/esquenta-black";
 import { feedItemId } from "@/lib/feeds/feed-id";
 import { GTIN_BY_SLUG } from "@/lib/feeds/gtin-data";
 
@@ -68,6 +69,9 @@ export type FeedItem = {
   gtin: string | null;
   productType: string;
   adLabel: string;
+  /** Esquenta/Black: preço da campanha e vigência (o Merchant e a Meta usam só dentro da data). */
+  salePrice: string | null;
+  salePriceEffectiveDate: string | null;
 };
 
 export function isFeedEligible(product: Pick<BioProduct, "name" | "slug" | "category" | "lineSlug" | "priceCents">): boolean {
@@ -106,13 +110,14 @@ export function feedDescription(product: Pick<BioProduct, "name" | "category" | 
 export const feedPrice = (priceCents: number) => `${(priceCents / 100).toFixed(2)} BRL`;
 
 /** Monta o item; devolve null se o produto não pode ir ao feed (regras acima ou sem imagem limpa). */
-export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (product: BioProduct) => string | null): FeedItem | null {
+export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (product: BioProduct) => string | null, nowMs: number = Date.now()): FeedItem | null {
   if (!isFeedEligible(product)) return null;
 
   const image = imageFor(product);
   if (!image) return null;
 
   const base = siteUrl.replace(/\/+$/, "");
+  const phase = feedCampaignPhase(nowMs);
 
   return {
     id: feedItemId(product.slug),
@@ -127,6 +132,8 @@ export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (p
     gtin: FEED_GTIN[product.slug] ?? null,
     productType: `${FEED_BRAND} > ${LINE_NAMES[product.lineSlug] ?? product.lineSlug}`,
     adLabel: feedAdLabel(product.slug),
+    salePrice: phase ? feedPrice(campaignUnitPriceCents(product.priceCents as number, phase)) : null,
+    salePriceEffectiveDate: phase ? saleEffectiveDate(phase) : null,
   };
 }
 
@@ -148,6 +155,9 @@ export function renderGoogleFeedXml(items: FeedItem[], siteUrl: string): string 
           `      <g:availability>${item.availability}</g:availability>`,
           `      <g:condition>${item.condition}</g:condition>`,
           `      <g:price>${item.price}</g:price>`,
+          ...(item.salePrice && item.salePriceEffectiveDate
+            ? [`      <g:sale_price>${item.salePrice}</g:sale_price>`, `      <g:sale_price_effective_date>${item.salePriceEffectiveDate}</g:sale_price_effective_date>`]
+            : []),
           `      <g:brand>${xmlEscape(item.brand)}</g:brand>`,
           item.gtin ? `      <g:gtin>${xmlEscape(item.gtin)}</g:gtin>
       <g:identifier_exists>yes</g:identifier_exists>` : "      <g:identifier_exists>no</g:identifier_exists>",
@@ -163,11 +173,11 @@ export function renderGoogleFeedXml(items: FeedItem[], siteUrl: string): string 
 
 const csvCell = (value: string) => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
-export const META_CSV_COLUMNS = ["id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand", "gtin", "product_type", "custom_label_0"] as const;
+export const META_CSV_COLUMNS = ["id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand", "gtin", "product_type", "custom_label_0", "sale_price", "sale_price_effective_date"] as const;
 
 export function renderMetaFeedCsv(items: FeedItem[]): string {
   const rows = items.map((item) =>
-    [item.id, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType, item.adLabel].map(csvCell).join(",")
+    [item.id, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType, item.adLabel, item.salePrice ?? "", item.salePriceEffectiveDate ?? ""].map(csvCell).join(",")
   );
 
   return `${META_CSV_COLUMNS.join(",")}\n${rows.join("\n")}\n`;

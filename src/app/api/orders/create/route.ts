@@ -1,3 +1,4 @@
+import { activeCampaign, campaignUnitPriceCents, decideCampaign } from "@/lib/campaign/esquenta-black";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
 import {
   NextRequest,
@@ -615,28 +616,26 @@ export async function POST(
         ? body.offers
         : [];
 
+    // Esquenta/Black (src/lib/campaign/esquenta-black.ts): a hora do servidor decide.
+    const campaign = activeCampaign(Date.now());
+
+    const offerLines = (withCampaign: boolean) =>
+      finalItems.map(({ product, qty }) => ({
+        productSlug: product.slug,
+        name: product.name,
+        category: product.category,
+        qty,
+        unitPriceCents: withCampaign ? campaignUnitPriceCents(product.priceCents, campaign) : product.priceCents,
+      }));
+
     const offerResult =
       calculateSelectedOffers(
-        finalItems.map(
-          ({ product, qty }) => ({
-            productSlug:
-              product.slug,
-
-            name:
-              product.name,
-
-            category:
-              product.category,
-
-            qty,
-
-            unitPriceCents:
-              product.priceCents,
-          })
-        ),
+        offerLines(false),
 
         selectedOffers
       );
+
+    const campaignOfferResult = campaign ? calculateSelectedOffers(offerLines(true), selectedOffers) : null;
 
     /*
      * SUBTOTAL Ã‰ SEMPRE BRUTO.
@@ -645,7 +644,7 @@ export async function POST(
       offerResult
         .grossSubtotalCents;
 
-    const offerDiscountCents =
+    let offerDiscountCents =
       offerResult
         .offerDiscountCents;
 
@@ -653,7 +652,7 @@ export async function POST(
      * Camadas preparadas.
      * Ainda sem regra ativa nesta etapa.
      */
-    const promotionDiscountCents = 0;
+    let promotionDiscountCents = 0;
     const creditCents = 0;
 
     /*
@@ -911,14 +910,14 @@ export async function POST(
     /*
      * Cupom comercial primeiro.
      */
-    const commercialCoupon =
+    let commercialCoupon =
       await resolveCoupon(
         body.couponCode,
         couponBaseCents,
         email
       );
 
-    const couponDiscountCents =
+    let couponDiscountCents =
       commercialCoupon?.discountCents ?? 0;
 
     /*
@@ -931,14 +930,40 @@ export async function POST(
           couponDiscountCents
       );
 
-    const partnerCoupon =
+    let partnerCoupon =
       await resolvePartnerCoupon(
         body.partnerCouponCode,
         partnerCouponBaseCents
       );
 
-    const partnerCouponDiscountCents =
+    let partnerCouponDiscountCents =
       partnerCoupon?.discountCents ?? 0;
+
+    /*
+     * Esquenta/Black x cupom: NÃO somam, vale o MAIOR desconto (empate: campanha, e o cupom não é gasto).
+     * Campanha: itens com o percentual sobre o preço do site (camada de promoção) e ofertas sobre esse preço.
+     */
+    let campaignApplied = false;
+
+    if (campaign && campaignOfferResult) {
+      const decision = decideCampaign({
+        siteSubtotalCents: subtotalCents,
+        siteOfferDiscountCents: offerResult.offerDiscountCents,
+        campaignSubtotalCents: campaignOfferResult.grossSubtotalCents,
+        campaignOfferDiscountCents: campaignOfferResult.offerDiscountCents,
+        couponsCents: couponDiscountCents + partnerCouponDiscountCents,
+      });
+
+      if (decision.campaignApplied) {
+        campaignApplied = true;
+        promotionDiscountCents = decision.promotionDiscountCents;
+        offerDiscountCents = decision.offerDiscountCents;
+        commercialCoupon = null;
+        couponDiscountCents = 0;
+        partnerCoupon = null;
+        partnerCouponDiscountCents = 0;
+      }
+    }
 
     const partnerCommissionPercent =
       partnerCoupon
@@ -991,9 +1016,11 @@ const commercialAdjustmentsJson =
         storeKey: "bio",
 
         offers:
-          offerResult.breakdown,
+          (campaignApplied && campaignOfferResult ? campaignOfferResult : offerResult).breakdown,
 
         promotionDiscountCents,
+
+        campaign: campaignApplied && campaign ? { key: campaign.key, percent: campaign.percent } : null,
 
         couponCode:
           commercialCoupon?.code ?? null,
@@ -1391,6 +1418,8 @@ const orderRows =
         offerDiscountCents,
         promotionDiscountCents,
 
+        campaign: campaignApplied && campaign ? { key: campaign.key, percent: campaign.percent } : null,
+
         couponCode:
           commercialCoupon?.code ?? null,
         couponDiscountCents,
@@ -1413,7 +1442,7 @@ const orderRows =
         discountCents,
 
         offerBreakdown:
-          offerResult.breakdown,
+          (campaignApplied && campaignOfferResult ? campaignOfferResult : offerResult).breakdown,
 
         shippingSubsidyCents,
         freeShippingDiscountCents,
