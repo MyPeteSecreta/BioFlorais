@@ -1723,3 +1723,29 @@ Uma conta só, 911-260-2111 (`AW-18548030046`), com uma ação "Compra" por site
 - **Regra nova, até o Luis mudar:** nenhuma troca de imagem ou texto do site por causa de "promessa".
 - **Continuam valendo:** os commits de feed até `aa54b66` (não mexem no site) e o rascunho da política (aguarda o Luis).
 - **Rótulo da ação "Compra no site Bio":** `2rC3CNXqjbAdEN70sYxF` (valor público, aparece no JavaScript do site). O Luis põe em `NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL` na Vercel e faz Redeploy. Depois: compra real com o Tag Assistant.
+
+## 03-04/11: política de conversões, Esquenta Black e Black Friday, CPF no checkout (sem push)
+
+### Política aprovada (`fb43488`)
+`/privacidade` (9.3) e `/cookies` (9.1) com o texto aprovado: só com aceite de marketing podemos enviar e-mail e telefone em hash SHA-256 ao Google e à Meta; finalidade, base legal (art. 7º, I), transferência internacional (art. 33), prazo, como recusar ou revogar e direitos (art. 18). Na parte do ChatGPT, "À OpenAI não enviamos…". Data: 3 de novembro de 2026. **O envio de dados segue desligado** (fase 2). Prints: `C:\Users\User\PROMPTS_B2B\prints_politica_conversoes\`.
+
+### Esquenta Black e Black Friday (`581a5bf`)
+- **Datas (São Paulo):** Esquenta 10% de 04/11 00:00 a 26/11 23:59; Black 25% de 27/11 00:00 a 30/11 23:59. Fixas em `src/lib/campaign/esquenta-black.ts`; entram e saem sozinhas, sem variável nem Redeploy.
+- **Tela:** preço do site riscado + "Preço Esquenta Black" / "Preço Black" na página do produto (preço principal, variações, kit, barra fixa), na sacola (item e linha de desconto), nas sugestões do carrinho, em `/para/*` e no quiz. Faixa no topo: "Esquenta Black: 10% em tudo até 26/11" (na Black: "Black Friday: 25% em tudo até 30/11"). Fora do B2B, do admin e de `/parceiros`. As páginas são estáticas: o navegador decide pela hora.
+- **Mesmo valor na sacola, no servidor e no checkout:** a cotação (`/api/cart/quote`) e o pedido (`/api/orders/create`) usam a hora do servidor e a mesma conta (`decideCampaign`). O desconto entra na camada de promoção que o pedido já tinha (antes zerada) e fica registrado em `commercial_adjustments_json.campaign`. Teste real a 375 px, com a hora de hoje: 2 florais Sono saem por R$ 71,80 − R$ 7,18 = R$ 64,62; no Pix, R$ 62,04.
+- **Cupom (GPT10, parceira e outros):** não soma, vale o MAIOR desconto. No empate fica a campanha, e o cupom não é gasto. Aviso no checkout: "O cupom não soma com o Esquenta Black: aplicamos o maior desconto." **Efeito:** quando a campanha vence, o cupom da parceira não entra no pedido, e por isso não gera comissão.
+- **Pix:** 4% sobre o valor já com desconto. **Frete:** regra normal, com base no preço do site, para que o "Leve 2 e ganhe frete grátis" e o limite de R$ 70 continuem iguais. **Combo shampoo + condicionador:** os 10% do combo são calculados sobre o preço da campanha.
+- **Feeds:** `sale_price` + `sale_price_effective_date` (Google) e as mesmas colunas no CSV da Meta, da fase vigente ou da próxima. Com o feed atual, o Google e a Meta trocam o preço sozinhos às 00:00 de 04/11 e de 27/11.
+- **Não mudou:** os dados estruturados (JSON-LD) seguem com o preço do site. **Omie:** a Central da Bio não manda preço por item (só quantidades e o desconto do Pix ou do cartão), então o Omie usa a tabela dele. O desconto da campanha não chega ao Omie, assim como hoje o cupom também não. Fechar o valor no Omie exige mudar o contrato da Central (pendência da mestre).
+- **B2B intocado:** teste garante que nada em `src/lib/b2b`, `src/app/b2b`, `src/app/api/b2b` e `src/app/parceiros` importa a campanha.
+- Prints a 375 px: `C:\Users\User\PROMPTS_B2B\prints_esquenta_bio\` (produto, sacola, checkout, home).
+
+### CPF e CNPJ no checkout (`269c93b`)
+Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de enviar) e no servidor (recusa com 400). A mesma conta do B2B, que ficou intocado.
+
+### Respostas ao Luis
+- **Três alimentares fora dos anúncios:** são florais com nome de controle alimentar, e Google e Meta restringem anúncios sobre peso e alimentação. Os Snack Flowers são da My Pet e não entram nisso. Voltar atrás é uma linha em `FEED_AD_EXCLUDED_SLUGS`.
+- **Fotos dos 21 Cosméticos Pet:** lado a lado em `C:\Users\User\PROMPTS_B2B\prints_cosmeticos_pet_feed\site_x_feed_21_itens.jpg`. O site mostra foto de condicionador na página do shampoo (e de outro tipo no perfume e no floral de ambiente); usar a foto do site no feed repetiria esse erro no Google. A escolha é do Luis.
+- **Pedido pago que a cliente não vê:** a cliente vê o pedido na tela de confirmação ao pagar e em "Acompanhe seu pedido" (`/acompanhe-seu-pedido`), com e-mail + CPF/CNPJ ou número do pedido + e-mail ou CPF/CNPJ, o que abre `/acompanhe/<token>`. **O site NÃO manda e-mail de confirmação de pedido pago:** esse e-mail não existe no código. Os únicos e-mails são o lembrete de pedido não pago e o acesso do B2B, e os dois dependem de `RESEND_API_KEY` e `MAIL_FROM`, que não estão na Vercel.
+
+**Testes:** `tsc` sem erros; 59/59 nas suítes da campanha, do CPF, do checkout, do produto, de medição e feeds, das sugestões e do frete; undefined. A suíte completa rodou em 03/11 com o computador sem memória: as falhas foram as suítes de banco (PGlite "could not allocate memory") e três testes de leitura de código, já ajustados.
