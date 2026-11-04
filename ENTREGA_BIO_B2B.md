@@ -1736,7 +1736,7 @@ Uma conta só, 911-260-2111 (`AW-18548030046`), com uma ação "Compra" por site
 - **Cupom (GPT10, parceira e outros):** não soma, vale o MAIOR desconto. No empate fica a campanha, e o cupom não é gasto. Aviso no checkout: "O cupom não soma com o Esquenta Black: aplicamos o maior desconto." **Efeito:** quando a campanha vence, o cupom da parceira não entra no pedido, e por isso não gera comissão.
 - **Pix:** 4% sobre o valor já com desconto. **Frete:** regra normal, com base no preço do site, para que o "Leve 2 e ganhe frete grátis" e o limite de R$ 70 continuem iguais. **Combo shampoo + condicionador:** os 10% do combo são calculados sobre o preço da campanha.
 - **Feeds:** `sale_price` + `sale_price_effective_date` (Google) e as mesmas colunas no CSV da Meta, da fase vigente ou da próxima. Com o feed atual, o Google e a Meta trocam o preço sozinhos às 00:00 de 04/11 e de 27/11.
-- **Não mudou:** os dados estruturados (JSON-LD) seguem com o preço do site. **Omie:** a Central da Bio não manda preço por item (só quantidades e o desconto do Pix ou do cartão), então o Omie usa a tabela dele. O desconto da campanha não chega ao Omie, assim como hoje o cupom também não. Fechar o valor no Omie exige mudar o contrato da Central (pendência da mestre).
+- **Não mudou:** os dados estruturados (JSON-LD) seguem com o preço do site. **Omie (corrigido em 04/11):** o desconto da campanha CHEGA ao Omie. A Central (repositório da My Pet, `src/lib/db/omie-order-source.ts`) lê o banco da Bio e calcula o desconto por subtotal + frete − total; o pedido da Bio grava o subtotal pelo preço do site e todos os descontos em `discount_cents`. Ver a rodada de 04/11 abaixo.
 - **B2B intocado:** teste garante que nada em `src/lib/b2b`, `src/app/b2b`, `src/app/api/b2b` e `src/app/parceiros` importa a campanha.
 - Prints a 375 px: `C:\Users\User\PROMPTS_B2B\prints_esquenta_bio\` (produto, sacola, checkout, home).
 
@@ -1749,3 +1749,15 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - **Pedido pago que a cliente não vê:** a cliente vê o pedido na tela de confirmação ao pagar e em "Acompanhe seu pedido" (`/acompanhe-seu-pedido`), com e-mail + CPF/CNPJ ou número do pedido + e-mail ou CPF/CNPJ, o que abre `/acompanhe/<token>`. **O site NÃO manda e-mail de confirmação de pedido pago:** esse e-mail não existe no código. Os únicos e-mails são o lembrete de pedido não pago e o acesso do B2B, e os dois dependem de `RESEND_API_KEY` e `MAIL_FROM`, que não estão na Vercel.
 
 **Testes:** `tsc` sem erros; 59/59 nas suítes da campanha, do CPF, do checkout, do produto, de medição e feeds, das sugestões e do frete; next build OK. A suíte completa rodou em 03/11 com o computador sem memória: as falhas foram as suítes de banco (PGlite "could not allocate memory") e três testes de leitura de código, já ajustados.
+
+## 04/11 (2º envio da mestre): Omie com o desconto do Esquenta, cupons e comissão da criadora (sem push)
+- **Omie (`0f60cac`, só teste):** a Central calcula o desconto do Omie pela identidade **subtotal + frete − total** (não soma colunas). O pedido B2C da Bio já grava `subtotal_cents` pelo **preço do site** e o desconto da campanha dentro de `discount_cents` (oferta + campanha + cupons + Pix), num insert único para Pix e cartão. **O desconto do Esquenta chega ao Omie sem mudar a Central nem a rota.** Teste: 2 florais no Esquenta = subtotal 7180, total 6462, identidade 718; no Pix, 718 + o Pix (bate com `discount_cents`). Frete cobrado (R$ 9,90) não entra no desconto.
+- **Cupons:** já chegam pela mesma identidade (GPT10 sem campanha = 718; cupom de 15% que vence o Esquenta = 1077). Eu tinha dito antes que não chegavam: estava errado. Eu olhei só a lista de itens da Central (sem preço), e o valor vem da identidade sobre o banco.
+- **Proposta para o Luis (NÃO feita) — comissão da criadora quando o Esquenta vence o cupom dela:** guardar a parceira no pedido mesmo sem aplicar o desconto dela. Fica gravado:
+  - `partner_id` e o código do cupom;
+  - o percentual de comissão;
+  - `partner_coupon_discount_cents = 0`;
+  - a comissão sobre os produtos já com o Esquenta, antes do Pix e sem frete (exemplo com comissão de 10%: 2 florais a R$ 64,62 dão R$ 6,46).
+
+  No checkout aparece "Cupom da parceira registrado: a criadora recebe a comissão; o desconto que vale é o do Esquenta Black". O evento da parceira manda desconto 0 e a comissão. O total pago e o Omie não mudam. Só com o OK do Luis.
+- **JSON-LD com o preço do site:** fica para depois (mestre).
