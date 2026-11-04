@@ -156,3 +156,51 @@ test("B2B intocado: nada do B2B importa a campanha", () => {
   assert.ok(b2b.length > 20);
   for (const file of b2b) assert.ok(!readFileSync(file, "utf8").includes("campaign/esquenta-black"), file);
 });
+
+test("Omie: a Central calcula o desconto por subtotal + frete − total; o pedido grava subtotal pelo preço do site e todos os descontos em discount_cents", async () => {
+  const { calculateSelectedOffers } = await import("../src/lib/commerce/offers.ts");
+  const omieDiscount = (order) => order.subtotalCents + order.shippingCents - order.totalCents; // omie-order-source.ts (Central)
+
+  // a mesma conta de /api/orders/create (offerLines, decideCampaign, Pix sobre os produtos, frete à parte)
+  const orderMoney = ({ qty, phase, couponsCents = 0, pix = false, shippingCents = 0 }) => {
+    const site = 3590;
+    const line = (unit) => [{ productSlug: "adulto-floral-em-gotas-sono", name: "Sono", category: "Floral em gotas", qty, unitPriceCents: unit }];
+    const siteOffers = calculateSelectedOffers(line(site), []);
+    const campaignOffers = phase ? calculateSelectedOffers(line(campaignUnitPriceCents(site, phase)), []) : null;
+    let promotion = 0;
+    let offers = siteOffers.offerDiscountCents;
+    let coupons = couponsCents;
+    if (phase && campaignOffers) {
+      const d = decideCampaign({ siteSubtotalCents: siteOffers.grossSubtotalCents, siteOfferDiscountCents: siteOffers.offerDiscountCents, campaignSubtotalCents: campaignOffers.grossSubtotalCents, campaignOfferDiscountCents: campaignOffers.offerDiscountCents, couponsCents });
+      if (d.campaignApplied) { promotion = d.promotionDiscountCents; offers = d.offerDiscountCents; coupons = 0; }
+    }
+    const subtotalCents = siteOffers.grossSubtotalCents;
+    const merchandise = subtotalCents - offers - promotion - coupons;
+    const pixCents = pix ? pixDiscountCents(merchandise) : 0;
+    return { subtotalCents, shippingCents, discountCents: offers + promotion + coupons + pixCents, totalCents: merchandise - pixCents + shippingCents, pixCents };
+  };
+
+  const card = orderMoney({ qty: 2, phase: esquenta });
+  assert.deepEqual([card.subtotalCents, card.totalCents, omieDiscount(card)], [7180, 6462, 718]);
+
+  const pix = orderMoney({ qty: 2, phase: esquenta, pix: true });
+  assert.equal(pix.pixCents, pixDiscountCents(6462));
+  assert.equal(omieDiscount(pix), 718 + pix.pixCents, "Esquenta + Pix");
+  assert.equal(omieDiscount(pix), pix.discountCents, "a identidade bate com discount_cents");
+
+  // cupom: chega ao Omie pela mesma identidade (GPT10 sem campanha; cupom de 15% que vence o Esquenta)
+  assert.equal(omieDiscount(orderMoney({ qty: 2, phase: null, couponsCents: 718 })), 718);
+  assert.equal(omieDiscount(orderMoney({ qty: 2, phase: esquenta, couponsCents: 1077 })), 1077);
+  // frete cobrado não entra no desconto
+  const withShipping = orderMoney({ qty: 1, phase: esquenta, shippingCents: 990 });
+  assert.equal(omieDiscount(withShipping), 359);
+
+  // a rota grava exatamente esses campos (um insert só para Pix e cartão)
+  const route = read("src/app/api/orders/create/route.ts");
+  assert.ok(route.includes("const offerResult =\n      calculateSelectedOffers(\n        offerLines(false),"), "subtotal pelo preço do site");
+  assert.ok(/const subtotalCents =\s*offerResult\s*\.grossSubtotalCents;/.test(route));
+  assert.ok(/const discountCents =\s*offerDiscountCents \+\s*promotionDiscountCents \+\s*couponDiscountCents \+\s*partnerCouponDiscountCents \+\s*creditCents \+\s*paymentMethodDiscountCents;/.test(route));
+  assert.ok(route.includes("const totalCents = Math.max(0, merchandiseAfterDiscountsCents - paymentMethodDiscountCents + shippingCents);"));
+  assert.equal((route.match(/\.insert\(orders\)/g) ?? []).length, 1);
+  assert.ok(/\.insert\(orders\)[\s\S]*?subtotalCents,\s*discountCents,/.test(route));
+});
