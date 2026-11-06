@@ -1818,3 +1818,11 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 4. **Medição:** o `checkout` (47) conta também quem abriu a página com a sacola vazia (por exemplo, pelo link "Finalizar" com a sacola vazia ou voltando depois de pagar). A conta 47 → 18 mistura esses casos; com o `checkout_visto` dá para separar.
 
 **Testes:** tsc sem erros; `npm test` **503/503**; `next build` OK; `git diff --check` limpo.
+
+## 06/11 (mestre, aprovado pelo Luis): link curto para posts do Facebook (`4edf3d3`, sem push)
+- `bioflorais.com.br/v/<codigo>` → **302** para o destino com a UTM, sem cache. Tabela em **`src/lib/links-curtos.ts`**: uma linha por código (`facebookOrganico("codigo", "/caminho")` = utm_source=facebook, utm_medium=organic, utm_campaign=org_<codigo>).
+- Cadastrados: `fogos` (Medo de Fogos Pet), `sono` (Sono Adulto), `ansiedade` (Sensação de Ansiedade), `baby` (Sono Baby), `pet`, `adulto`, `infantil` (linhas) e `esquenta` (home).
+- Código que não existe (ou estranho) → home com `utm_campaign=link_desconhecido`. Nunca sai do site: o destino precisa ser caminho interno (teste com `//`, `https://`, barra invertida, `javascript:`).
+- **Atribuição:** igual a um link normal. A página de destino lê a UTM e grava o `bio_origem` (first-touch, 30 dias), que vai para o pedido. O `fbclid` e outros parâmetros seguem junto, mas os `utm_*` da tabela vencem.
+- Para acrescentar um link: uma linha nova na tabela, rodar `scripts/links-curtos.test.mjs` (confere que o produto ou a linha existem) e fazer o deploy.
+- **Testes:** tsc sem erros; `npm test` **507/507**; build OK (rota `ƒ /v/[codigo]`).
