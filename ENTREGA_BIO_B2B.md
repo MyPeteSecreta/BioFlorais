@@ -1802,3 +1802,19 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - Etapas de pagamento no evento `checkout_etapa`: Pix gerado/expirado/pago, erro, cartão aprovado/recusado.
 
 **Testes:** tsc sem erros; `npm test` **502/502** (com `DATABASE_URL` fictício no ambiente: sem ele, 4 arquivos de banco falham antes de rodar); `next build` OK; `git diff --check` limpo.
+
+## 06/11 (mestre, urgente de conversão): "Sua sacola está vazia" piscando no checkout (sem push)
+
+### Correção (`909f7e7`)
+- **Causa:** a sacola fica no navegador (localStorage), e o /checkout e o /carrinho chegavam do servidor já com "Sua sacola está vazia". A tela só trocava quando o JavaScript terminava de carregar e ler a sacola, o que leva cerca de 1 s no celular. Conferido no site em produção: o HTML do `/checkout` e do `/carrinho` traz "Sua sacola está vazia".
+- **Agora:** o `CartProvider` informa `hydrated`. Até ler a sacola, as duas páginas mostram um esqueleto (`CartLoadingSkeleton`: formulário e resumo em cinza, com "Carregando sua sacola..." para leitor de tela). "Sacola vazia" só aparece depois de ler a sacola, quando ela está vazia de verdade.
+- **Evento novo `checkout_visto`** (Vercel Analytics): sai uma vez, quando o checkout aparece com itens. O evento `checkout` conta toda abertura da página, inclusive com a sacola vazia; a comparação certa passa a ser `checkout_visto` → `checkout_etapa`.
+- Prints a 375 px: `C:\Users\User\PROMPTS_B2B\prints_checkout_carregando\` (checkout e sacola carregando, checkout com item, sacola vazia de verdade).
+
+### Outros motivos de saída (só levantados, NADA mudado: aguardando a mestre e o Luis)
+1. **Banner de cookies cobre a barra fixa do "Continuar" no celular.** A 375 px, o banner (z-index 200, de 692 a 804 px) fica por cima da barra fixa do total e do "Continuar com Pix" (z-index 65, de 736 a 812 px) e do campo CPF. Até a pessoa escolher Aceitar/Recusar, o botão de seguir não aparece.
+2. **Campos cedo:** a etapa 1 pede nome, e-mail, telefone e CPF/CNPJ antes do endereço; o CPF é exigido para o pagamento. Nada errado, mas é o campo que mais costuma travar. Não mexi.
+3. **Erro no console:** nenhum (checkout em produção, com e sem item).
+4. **Medição:** o `checkout` (47) conta também quem abriu a página com a sacola vazia (por exemplo, pelo link "Finalizar" com a sacola vazia ou voltando depois de pagar). A conta 47 → 18 mistura esses casos; com o `checkout_visto` dá para separar.
+
+**Testes:** tsc sem erros; `npm test` **503/503**; `next build` OK; `git diff --check` limpo.
