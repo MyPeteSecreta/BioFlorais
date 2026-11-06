@@ -189,7 +189,7 @@ export async function POST(
       grossSubtotalCents -
       campaignSubtotalCents;
 
-    // Sem campanha (para comparar com cupom: vale o maior desconto): ofertas sobre o preço do site.
+    // Sem campanha (para comparar com o cupom da criadora: vale o maior desconto; o comercial soma): ofertas sobre o preço do site.
     const siteOfferDiscountCents = campaign
       ? money(
           calculateSelectedOffers(

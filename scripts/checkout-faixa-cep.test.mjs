@@ -86,8 +86,9 @@ test("CEP: frete calculado sempre que o campo tem 8 dígitos (digitação, colag
 test("cupom aplicado vale sobre o total ATUAL: quando a sacola muda, o desconto é recalculado pelo servidor (GPT10 ao comprar outros produtos)", () => {
   const src = read("src/app/checkout/page.tsx");
 
-  assert.ok(src.includes("couponBaseChecked.current === couponBaseOf(quote)"));
-  assert.ok(src.includes("validateCommercialCoupon(appliedCoupon.code, couponBaseOf(quote))"));
+  // a revalidação dispara quando muda a base do site OU a da campanha; o comercial vale sobre o valor com a campanha (soma)
+  assert.ok(src.includes("const couponBaseKey = `${couponBaseOf(quote)}/${commercialBaseOf(quote)}`;") && src.includes("couponBaseChecked.current === couponBaseKey"));
+  assert.ok(src.includes("validateCommercialCoupon(appliedCoupon.code, commercialBaseOf(quote))"));
   assert.ok(src.includes("validatePartnerCouponUi(appliedPartnerCoupon.code, partnerBaseCents)"));
 });
 

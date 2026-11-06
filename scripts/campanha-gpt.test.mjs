@@ -171,7 +171,7 @@ test("GPT10: marca a passagem por /para/*, aplica sozinho (uma vez, com sacola, 
 test("checkout e sacola: aplica o GPT10 pelo servidor, remover não reaplica, erro limpa o flag; a sacola avisa", () => {
   const checkout = read("src/app/checkout/page.tsx");
   assert.ok(checkout.includes("shouldAutoApplyGpt10({ state, hasCommercialCoupon: false, cartHasItems: items.length > 0 })"));
-  assert.ok(checkout.includes('validateCommercialCoupon("GPT10", couponBaseOf(quote))'), "valida no servidor (/api/coupons/validate), sobre o preço do site");
+  assert.ok(checkout.includes('validateCommercialCoupon("GPT10", commercialBaseOf(quote))'), "valida no servidor (/api/coupons/validate), sobre o valor já com o Esquenta/Black (o GPT10 soma; regra do Luis 05/11)");
   assert.ok(checkout.includes('appliedCoupon?.code === "GPT10"') && checkout.includes("removeGpt10(window.localStorage)"));
   assert.ok(checkout.includes("clearGpt10(window.localStorage)") && checkout.includes("gpt10Tried"));
   const cart = read("src/app/carrinho/page.tsx");

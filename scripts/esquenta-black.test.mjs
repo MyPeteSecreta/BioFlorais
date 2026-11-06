@@ -1,6 +1,6 @@
 /*
  * Esquenta Black (10% de 04/11 a 26/11) e Black Friday (25% de 27/11 a 30/11) no B2C da Bio: datas em São Paulo, preço sobre o
- * preço do site, cupom não soma (vale o maior), Pix sobre o valor com desconto, frete pela base do preço do site, sacola/servidor/
+ * preço do site, cupom comercial soma e cupom da criadora vale o maior (com comissão), Pix sobre o valor com desconto, frete pela base do preço do site, sacola/servidor/
  * checkout com a mesma conta, sale_price nos feeds e B2B intocado.
  */
 import { test } from "node:test";
@@ -12,8 +12,9 @@ import {
   CAMPAIGN_PHASES,
   activeCampaign,
   campaignUnitPriceCents,
-  couponBeatsCampaign,
-  decideCampaign,
+  couponDiscountOn,
+  decideCampaignCoupons,
+  partnerDiscountOn,
   feedCampaignPhase,
   isCampaignPath,
   saleEffectiveDate,
@@ -51,18 +52,53 @@ test("preço: percentual sobre o preço do site, ao centavo; Pix (4%) sobre o va
   assert.ok(pixDiscountCents(3231) < pixDiscountCents(3590), "Pix sobre o valor com desconto");
 });
 
-test("cupom x campanha: não somam, vale o maior; empate fica com a campanha (o cupom não é gasto)", () => {
-  assert.equal(couponBeatsCampaign(718, 0), false);
-  assert.equal(couponBeatsCampaign(718, 718), false, "empate: campanha");
-  assert.equal(couponBeatsCampaign(718, 719), true);
+test("cupom x campanha (regra do Luis 05/11): comercial soma sobre o preço com desconto; criadora vale o maior e mantém a comissão", () => {
+  const gpt10 = { discountType: "percentage", discountValue: 10 };
+  const floresce20 = { discountType: "percentage", discountValue: 20 };
+  const fixed = { discountType: "fixed", discountValue: 1000 };
+  // 2 florais de R$ 35,90: site R$ 71,80; Esquenta R$ 64,62; Black R$ 53,86
+  const esq = { siteSubtotalCents: 7180, siteOfferDiscountCents: 0, campaignSubtotalCents: 6462, campaignOfferDiscountCents: 0 };
+  const blk = { ...esq, campaignSubtotalCents: 5386 };
+  const none = { ...esq, campaignSubtotalCents: null, campaignOfferDiscountCents: null };
 
-  // 2 florais de R$ 35,90 no Esquenta, cupom de 10% (GPT10) sobre o preço do site = R$ 7,18: empate -> campanha
-  const two = { siteSubtotalCents: 7180, siteOfferDiscountCents: 0, campaignSubtotalCents: 6462, campaignOfferDiscountCents: 0 };
-  assert.deepEqual(decideCampaign({ ...two, couponsCents: 718 }), { campaignApplied: true, promotionDiscountCents: 718, offerDiscountCents: 0, campaignSavingsCents: 718 });
-  // cupom de 15% (R$ 10,77) ganha do Esquenta: preço do site + cupom, sem promoção
-  assert.deepEqual(decideCampaign({ ...two, couponsCents: 1077 }), { campaignApplied: false, promotionDiscountCents: 0, offerDiscountCents: 0, campaignSavingsCents: 718 });
-  // na Black (25%), o mesmo cupom de 15% perde
-  assert.equal(decideCampaign({ siteSubtotalCents: 7180, siteOfferDiscountCents: 0, campaignSubtotalCents: 5386, campaignOfferDiscountCents: 0, couponsCents: 1077 }).campaignApplied, true);
+  assert.equal(couponDiscountOn(gpt10, 6462), 646);
+  assert.equal(couponDiscountOn(fixed, 600), 600, "fixo nunca passa da base");
+  assert.equal(partnerDiscountOn(15, 7180), 1077);
+  assert.equal(partnerDiscountOn(null, 7180), 0);
+
+  // só o Esquenta
+  let d = decideCampaignCoupons({ ...esq, commercial: null, partnerDiscountPercent: null });
+  assert.deepEqual([d.campaignApplied, d.promotionDiscountCents, d.merchandiseCents], [true, 718, 6462]);
+
+  // GPT10 SOMA: 10% sobre R$ 64,62 = R$ 6,46 -> R$ 58,16
+  d = decideCampaignCoupons({ ...esq, commercial: gpt10, partnerDiscountPercent: null });
+  assert.deepEqual([d.campaignApplied, d.promotionDiscountCents, d.commercialBaseCents, d.commercialCouponCents, d.merchandiseCents], [true, 718, 6462, 646, 5816]);
+  // FLORESCE20 soma: 20% sobre R$ 64,62 = R$ 12,92 -> R$ 51,70; na Black: 20% sobre R$ 53,86 = R$ 10,77 -> R$ 43,09
+  assert.equal(decideCampaignCoupons({ ...esq, commercial: floresce20, partnerDiscountPercent: null }).merchandiseCents, 5170);
+  assert.equal(decideCampaignCoupons({ ...blk, commercial: floresce20, partnerDiscountPercent: null }).merchandiseCents, 4309);
+
+  // criadora 15% (R$ 10,77) ganha do Esquenta (R$ 7,18): preço do site − 15% = R$ 61,03
+  d = decideCampaignCoupons({ ...esq, commercial: null, partnerDiscountPercent: 15 });
+  assert.deepEqual([d.campaignApplied, d.promotionDiscountCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.merchandiseCents], [false, 0, 1077, false, 6103]);
+
+  // criadora 10% empata com o Esquenta: vale a campanha; criadora registrada sem desconto; comissão sobre R$ 64,62
+  d = decideCampaignCoupons({ ...esq, commercial: null, partnerDiscountPercent: 10 });
+  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 0, true, 6462, 6462]);
+
+  // criadora 15% perde da Black (R$ 53,86 < R$ 61,03): Black; comissão sobre R$ 53,86
+  d = decideCampaignCoupons({ ...blk, commercial: null, partnerDiscountPercent: 15 });
+  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents], [true, 0, true, 5386]);
+
+  // GPT10 + criadora 15%: Esquenta + GPT10 = R$ 58,16; site + GPT10 (R$ 7,18) + criadora (15% de R$ 64,62 = R$ 9,69) = R$ 54,93 -> vale o segundo
+  d = decideCampaignCoupons({ ...esq, commercial: gpt10, partnerDiscountPercent: 15 });
+  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerBaseCents, d.partnerCouponCents, d.merchandiseCents], [false, 718, 6462, 969, 5493]);
+  // GPT10 + criadora 10%: Esquenta + GPT10 (R$ 58,16) ganha de site + GPT10 + criadora (R$ 58,16): empate -> campanha
+  d = decideCampaignCoupons({ ...esq, commercial: gpt10, partnerDiscountPercent: 10 });
+  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 646, 0, true, 5816, 5816]);
+
+  // sem campanha: a regra antiga (comercial e depois criadora, sobre o preço do site)
+  d = decideCampaignCoupons({ ...none, commercial: gpt10, partnerDiscountPercent: 15 });
+  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.merchandiseCents], [false, 718, 969, false, 5493]);
 });
 
 test("cotação da sacola (servidor): no Esquenta, item com riscado, promoção = 10%, total com desconto; base do frete e do cupom = preço do site", async () => {
@@ -92,10 +128,15 @@ test("cotação da sacola (servidor): no Esquenta, item com riscado, promoção 
   }
 });
 
-test("pedido (servidor) e checkout: a mesma regra; o cupom não soma; frete pela base do preço do site; registro da campanha", () => {
+test("pedido (servidor) e checkout: a mesma função (decideCampaignCoupons); comercial sobre a base com a campanha; criadora registrada com comissão; frete pela base do preço do site", () => {
   const order = read("src/app/api/orders/create/route.ts");
-  assert.ok(order.includes("activeCampaign(Date.now())") && order.includes("decideCampaign({"));
-  assert.ok(order.includes("commercialCoupon = null;") && order.includes("partnerCoupon = null;"), "campanha vence: cupom não é aplicado nem gasto");
+  assert.ok(order.includes("activeCampaign(Date.now())") && order.includes("decideCampaignCoupons({"));
+  assert.ok(!order.includes("decideCampaign({") && !order.includes("commercialCoupon = null;") && !order.includes("partnerCoupon = null;"), "nenhum cupom é descartado pela campanha");
+  assert.ok(/resolveCoupon\(\s*body\.couponCode,\s*campaignCouponBaseCents,/.test(order), "comercial validado sobre o valor com a campanha");
+  assert.ok(order.includes("couponDiscountOn(commercialCoupon, siteCouponBaseCents)"), "criadora validada no cenário do preço do site");
+  assert.ok(order.includes("partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent"), "evento da parceira: desconto 0 quando a campanha vence");
+  assert.ok(order.includes("String(partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent)"), "pedido: percentual de desconto da criadora 0");
+  assert.ok(/const partnerCommissionCents =\s*partnerCoupon &&/.test(order), "comissão continua quando há cupom da criadora");
   assert.ok(order.includes("campaign: campaignApplied && campaign ?"), "registro no pedido");
   // o frete grátis continua pelo subtotal bruto (preço do site)
   assert.ok(/computeB2CShipping\(\{\s*subtotalCents,/.test(order));
@@ -103,10 +144,13 @@ test("pedido (servidor) e checkout: a mesma regra; o cupom não soma; frete pela
   assert.ok(order.includes("subtotalCents - offerDiscountCents - promotionDiscountCents - couponDiscountCents - partnerCouponDiscountCents"));
 
   const checkout = read("src/app/checkout/page.tsx");
-  assert.ok(checkout.includes("couponBeatsCampaign(campaignSavingsCents, typedCouponCents + typedPartnerCouponCents)"));
+  assert.ok(checkout.includes("decideCampaignCoupons({") && !checkout.includes("couponBeatsCampaign"));
   assert.ok(checkout.includes("const couponBaseOf = (quote: Quote) => quote.siteTotalCents ?? quote.totalCents;"));
-  assert.ok(!/validateCommercialCoupon\([^)]*quote\.totalCents/.test(checkout), "cupom sempre sobre o preço do site");
-  assert.ok(checkout.includes("O cupom não soma com o"));
+  assert.ok(checkout.includes("const commercialBaseOf = (quote: Quote) => quote.totalCents;"));
+  assert.equal((checkout.match(/validateCommercialCoupon\([^)]*commercialBaseOf\(quote\)/g) ?? []).length, 3, "GPT10, revalidação e aplicar: base com a campanha");
+  assert.ok(!/validateCommercialCoupon\([^)]*couponBaseOf\(quote\)/.test(checkout));
+  assert.ok(checkout.includes("Cupom da parceira registrado: a criadora recebe a comissão"));
+  assert.ok(!checkout.includes("O cupom não soma com o"));
   assert.equal((checkout.match(/data-testid="desconto-campanha"/g) ?? []).length, 1, "uma linha só no resumo");
 });
 
@@ -161,24 +205,28 @@ test("Omie: a Central calcula o desconto por subtotal + frete − total; o pedid
   const { calculateSelectedOffers } = await import("../src/lib/commerce/offers.ts");
   const omieDiscount = (order) => order.subtotalCents + order.shippingCents - order.totalCents; // omie-order-source.ts (Central)
 
-  // a mesma conta de /api/orders/create (offerLines, decideCampaign, Pix sobre os produtos, frete à parte)
-  const orderMoney = ({ qty, phase, couponsCents = 0, pix = false, shippingCents = 0 }) => {
+  // a mesma conta de /api/orders/create (offerLines, decideCampaignCoupons, Pix sobre os produtos, frete à parte)
+  const orderMoney = ({ qty, phase, commercial = null, partnerPercent = null, commissionPercent = 10, pix = false, shippingCents = 0 }) => {
     const site = 3590;
     const line = (unit) => [{ productSlug: "adulto-floral-em-gotas-sono", name: "Sono", category: "Floral em gotas", qty, unitPriceCents: unit }];
     const siteOffers = calculateSelectedOffers(line(site), []);
     const campaignOffers = phase ? calculateSelectedOffers(line(campaignUnitPriceCents(site, phase)), []) : null;
-    let promotion = 0;
-    let offers = siteOffers.offerDiscountCents;
-    let coupons = couponsCents;
-    if (phase && campaignOffers) {
-      const d = decideCampaign({ siteSubtotalCents: siteOffers.grossSubtotalCents, siteOfferDiscountCents: siteOffers.offerDiscountCents, campaignSubtotalCents: campaignOffers.grossSubtotalCents, campaignOfferDiscountCents: campaignOffers.offerDiscountCents, couponsCents });
-      if (d.campaignApplied) { promotion = d.promotionDiscountCents; offers = d.offerDiscountCents; coupons = 0; }
-    }
+    const d = decideCampaignCoupons({
+      siteSubtotalCents: siteOffers.grossSubtotalCents,
+      siteOfferDiscountCents: siteOffers.offerDiscountCents,
+      campaignSubtotalCents: campaignOffers ? campaignOffers.grossSubtotalCents : null,
+      campaignOfferDiscountCents: campaignOffers ? campaignOffers.offerDiscountCents : null,
+      commercial,
+      partnerDiscountPercent: partnerPercent,
+    });
     const subtotalCents = siteOffers.grossSubtotalCents;
-    const merchandise = subtotalCents - offers - promotion - coupons;
+    const coupons = d.commercialCouponCents + d.partnerCouponCents;
+    const merchandise = subtotalCents - d.offerDiscountCents - d.promotionDiscountCents - coupons;
     const pixCents = pix ? pixDiscountCents(merchandise) : 0;
-    return { subtotalCents, shippingCents, discountCents: offers + promotion + coupons + pixCents, totalCents: merchandise - pixCents + shippingCents, pixCents };
+    const commissionCents = partnerPercent === null ? 0 : Math.round((d.partnerBaseCents - d.partnerCouponCents) * (commissionPercent / 100));
+    return { subtotalCents, shippingCents, discountCents: d.offerDiscountCents + d.promotionDiscountCents + coupons + pixCents, totalCents: merchandise - pixCents + shippingCents, pixCents, commissionCents, d };
   };
+  const gpt10 = { discountType: "percentage", discountValue: 10 };
 
   const card = orderMoney({ qty: 2, phase: esquenta });
   assert.deepEqual([card.subtotalCents, card.totalCents, omieDiscount(card)], [7180, 6462, 718]);
@@ -188,9 +236,18 @@ test("Omie: a Central calcula o desconto por subtotal + frete − total; o pedid
   assert.equal(omieDiscount(pix), 718 + pix.pixCents, "Esquenta + Pix");
   assert.equal(omieDiscount(pix), pix.discountCents, "a identidade bate com discount_cents");
 
-  // cupom: chega ao Omie pela mesma identidade (GPT10 sem campanha; cupom de 15% que vence o Esquenta)
-  assert.equal(omieDiscount(orderMoney({ qty: 2, phase: null, couponsCents: 718 })), 718);
-  assert.equal(omieDiscount(orderMoney({ qty: 2, phase: esquenta, couponsCents: 1077 })), 1077);
+  // cupom: chega ao Omie pela mesma identidade
+  assert.equal(omieDiscount(orderMoney({ qty: 2, phase: null, commercial: gpt10 })), 718, "GPT10 sem campanha");
+  const gptEsq = orderMoney({ qty: 2, phase: esquenta, commercial: gpt10, pix: true });
+  assert.equal(gptEsq.totalCents, 5816 - pixDiscountCents(5816), "Esquenta + GPT10 + Pix");
+  assert.equal(omieDiscount(gptEsq), 718 + 646 + pixDiscountCents(5816));
+  assert.equal(omieDiscount(gptEsq), gptEsq.discountCents);
+  // criadora 15% vence o Esquenta: desconto dela 1077, comissão 10% de R$ 61,03
+  const creator = orderMoney({ qty: 2, phase: esquenta, partnerPercent: 15 });
+  assert.deepEqual([omieDiscount(creator), creator.commissionCents], [1077, 610]);
+  // criadora 10% empata: vale o Esquenta (718), desconto dela 0, comissão 10% de R$ 64,62 = R$ 6,46
+  const tie = orderMoney({ qty: 2, phase: esquenta, partnerPercent: 10 });
+  assert.deepEqual([omieDiscount(tie), tie.d.partnerCouponCents, tie.commissionCents], [718, 0, 646]);
   // frete cobrado não entra no desconto
   const withShipping = orderMoney({ qty: 1, phase: esquenta, shippingCents: 990 });
   assert.equal(omieDiscount(withShipping), 359);

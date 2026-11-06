@@ -1,4 +1,4 @@
-import { activeCampaign, campaignUnitPriceCents, decideCampaign } from "@/lib/campaign/esquenta-black";
+import { activeCampaign, campaignUnitPriceCents, couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
 import { isValidCnpj, isValidCpf } from "@/lib/checkout/document";
 import {
@@ -255,6 +255,9 @@ async function resolveCoupon(
     id: coupon.id,
     code,
     couponType: "normal" as const,
+    // Regra do cupom: o pedido recalcula sobre a base do cenário escolhido (decideCampaignCoupons).
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
     discountCents,
   };
 }
@@ -900,71 +903,73 @@ export async function POST(
     const shippingSubsidyCents = b2cShipping.free ? 0 : b2cShipping.benefitCents;
     const shippingCents = b2cShipping.customerCents;
 
-    const couponBaseCents =
+    /*
+     * Cupons x Esquenta/Black (decideCampaignCoupons, regra do Luis 05/11; o checkout faz a mesma conta):
+     *  - cupom comercial / de campanha (GPT10, FLORESCE20...) SOMA com a campanha, sobre o preço já com desconto;
+     *  - cupom da criadora: vale o MAIOR desconto (empate: campanha). Se a campanha vencer, a criadora fica registrada com
+     *    desconto 0 e recebe a comissão sobre os produtos com a campanha e o comercial, antes do Pix e sem frete.
+     */
+    const siteCouponBaseCents =
       Math.max(
         0,
         subtotalCents -
-          offerDiscountCents -
-          promotionDiscountCents
+          offerResult.offerDiscountCents
       );
 
+    const campaignCouponBaseCents =
+      campaign && campaignOfferResult
+        ? Math.max(0, campaignOfferResult.grossSubtotalCents - campaignOfferResult.offerDiscountCents)
+        : siteCouponBaseCents;
+
     /*
-     * Cupom comercial primeiro.
+     * Cupom comercial primeiro: validade e mínimo sobre o valor que o cliente vê (com a campanha, quando houver).
      */
-    let commercialCoupon =
+    const commercialCoupon =
       await resolveCoupon(
         body.couponCode,
-        couponBaseCents,
+        campaignCouponBaseCents,
         email
       );
 
-    let couponDiscountCents =
-      commercialCoupon?.discountCents ?? 0;
-
     /*
-     * Cupom UGC depois do comercial.
+     * Cupom UGC depois do comercial: validado no cenário em que o desconto dele vale (preço do site).
      */
-    const partnerCouponBaseCents =
-      Math.max(
-        0,
-        couponBaseCents -
-          couponDiscountCents
-      );
-
-    let partnerCoupon =
+    const partnerCoupon =
       await resolvePartnerCoupon(
         body.partnerCouponCode,
-        partnerCouponBaseCents
+        Math.max(
+          0,
+          siteCouponBaseCents -
+            couponDiscountOn(commercialCoupon, siteCouponBaseCents)
+        )
       );
 
-    let partnerCouponDiscountCents =
-      partnerCoupon?.discountCents ?? 0;
+    const couponDecision = decideCampaignCoupons({
+      siteSubtotalCents: subtotalCents,
+      siteOfferDiscountCents: offerResult.offerDiscountCents,
+      campaignSubtotalCents: campaign && campaignOfferResult ? campaignOfferResult.grossSubtotalCents : null,
+      campaignOfferDiscountCents: campaign && campaignOfferResult ? campaignOfferResult.offerDiscountCents : null,
+      commercial: commercialCoupon,
+      partnerDiscountPercent: partnerCoupon ? partnerCoupon.discountPercent : null,
+    });
 
-    /*
-     * Esquenta/Black x cupom: NÃO somam, vale o MAIOR desconto (empate: campanha, e o cupom não é gasto).
-     * Campanha: itens com o percentual sobre o preço do site (camada de promoção) e ofertas sobre esse preço.
-     */
-    let campaignApplied = false;
+    const campaignApplied = couponDecision.campaignApplied;
 
-    if (campaign && campaignOfferResult) {
-      const decision = decideCampaign({
-        siteSubtotalCents: subtotalCents,
-        siteOfferDiscountCents: offerResult.offerDiscountCents,
-        campaignSubtotalCents: campaignOfferResult.grossSubtotalCents,
-        campaignOfferDiscountCents: campaignOfferResult.offerDiscountCents,
-        couponsCents: couponDiscountCents + partnerCouponDiscountCents,
-      });
+    promotionDiscountCents = couponDecision.promotionDiscountCents;
+    offerDiscountCents = couponDecision.offerDiscountCents;
 
-      if (decision.campaignApplied) {
-        campaignApplied = true;
-        promotionDiscountCents = decision.promotionDiscountCents;
-        offerDiscountCents = decision.offerDiscountCents;
-        commercialCoupon = null;
-        couponDiscountCents = 0;
-        partnerCoupon = null;
-        partnerCouponDiscountCents = 0;
-      }
-    }
+    const couponDiscountCents =
+      commercialCoupon ? couponDecision.commercialCouponCents : 0;
+
+    const partnerCouponBaseCents =
+      couponDecision.partnerBaseCents;
+
+    const partnerCouponDiscountCents =
+      partnerCoupon ? couponDecision.partnerCouponCents : 0;
+
+    // A campanha deu mais desconto que o cupom da criadora: desconto dela 0, criadora registrada e comissão mantida.
+    const partnerDiscountOverridden =
+      Boolean(partnerCoupon) && couponDecision.partnerDiscountOverridden;
 
     const partnerCommissionPercent =
       partnerCoupon
@@ -1030,6 +1035,7 @@ const commercialAdjustmentsJson =
         partnerCouponCode:
           partnerCoupon?.code ?? null,
         partnerCouponDiscountCents,
+        partnerDiscountOverridden,
 
         partnerId:
           partnerCoupon?.partnerId ?? null,
@@ -1176,7 +1182,7 @@ const orderRows =
 
           partnerDiscountPercent:
             partnerCoupon
-              ? String(partnerCoupon.discountPercent)
+              ? String(partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent)
               : null,
 
           partnerCommissionPercent:
@@ -1295,8 +1301,9 @@ const orderRows =
               partnerCoupon.campaign.name,
           },
 
+          // Campanha venceu o cupom da criadora: desconto 0 (o pedido não teve desconto dela), comissão mantida.
           discountPercent:
-            partnerCoupon.discountPercent,
+            partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent,
 
           commissionPercent:
             partnerCoupon.commissionPercent,
