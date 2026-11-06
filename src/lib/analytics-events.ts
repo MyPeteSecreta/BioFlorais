@@ -7,7 +7,8 @@
 
 import { readAttributionCookie } from "@/lib/attribution";
 
-export const ANALYTICS_EVENTS = ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa", "sugestao_adicionada"] as const;
+// checkout_visto (06/11): o checkout APARECEU com itens (o "checkout" conta toda abertura da página, até com a sacola vazia).
+export const ANALYTICS_EVENTS = ["chegada", "ver_produto", "sacola", "checkout", "checkout_etapa", "sugestao_adicionada", "checkout_visto"] as const;
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
 
 /** Etapas do checkout B2C medidas pelo evento checkout_etapa (a primeira vez que a pessoa chega/mexe em cada uma). */

@@ -4,6 +4,7 @@ import Link from "next/link";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
+import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
 import {
   useCallback,
   useEffect,
@@ -68,6 +69,7 @@ export default function CartPage() {
     setQuantity,
     removeProduct,
     clearCart,
+    hydrated,
   } = useCart();
 
   const [
@@ -231,7 +233,10 @@ export default function CartPage() {
           </Link>
         </div>
 
-        {items.length === 0 ? (
+        {!hydrated ? (
+          // Sacola ainda sendo lida do navegador: esqueleto, nunca "sacola vazia".
+          <CartLoadingSkeleton variant="cart" />
+        ) : items.length === 0 ? (
           <section className="rounded-[28px] border border-[#26352c]/10 bg-white/70 p-8 text-center shadow-sm md:p-12">
             <h2 className="text-2xl font-medium">
               Sua sacola está vazia

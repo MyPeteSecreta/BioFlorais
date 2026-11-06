@@ -65,3 +65,23 @@ test("sem barras flutuantes no checkout nem na retomada de pagamento (cobriam ca
 
   assert.ok(hide.includes('pathname === "/checkout"') && hide.includes('pathname?.startsWith("/checkout/")') && hide.includes('pathname?.startsWith("/pagar/")'));
 });
+
+test("sacola vazia piscando (06/11): /checkout e /carrinho mostram esqueleto enquanto a sacola é lida; nunca 'vazia' antes; checkout_visto só com itens", () => {
+  const norm = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const provider = norm("src/components/cart/CartProvider.tsx");
+  assert.ok(provider.includes("hydrated: boolean;") && /itemCount,\n\s*hydrated,/.test(provider), "a sacola diz quando terminou de ler");
+
+  const checkout = norm("src/app/checkout/page.tsx");
+  const skeletonAt = checkout.indexOf("if (!hydrated) {");
+  const emptyAt = checkout.indexOf('if (items.length === 0 && pendingOrderStatus !== "paid") {');
+  assert.ok(skeletonAt > 0 && emptyAt > skeletonAt, "checkout: esqueleto ANTES do 'sacola vazia'");
+  assert.ok(checkout.includes('<CartLoadingSkeleton variant="checkout" />'));
+  assert.ok(checkout.includes('void trackEvent("checkout_visto");') && checkout.includes("if (checkoutSeenSent.current || !hydrated || items.length === 0) return;"));
+
+  const cart = norm("src/app/carrinho/page.tsx");
+  assert.ok(/\{!hydrated \? \([\s\S]*?<CartLoadingSkeleton variant="cart" \/>[\s\S]*?\) : items\.length === 0 \? \(/.test(cart), "carrinho: esqueleto antes do 'vazia'");
+
+  const skeleton = norm("src/components/cart/CartLoadingSkeleton.tsx");
+  assert.ok(!skeleton.slice(skeleton.indexOf("export default")).includes("vazia") && skeleton.includes('data-testid="sacola-carregando"'));
+  assert.ok(ANALYTICS_EVENTS.includes("checkout_visto"));
+});

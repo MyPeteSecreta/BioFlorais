@@ -53,6 +53,8 @@ interface CartContextValue {
   items: CartItem[];
   offers: CartOffer[];
   itemCount: number;
+  /** false até a sacola ser lida do navegador (no servidor e no 1º render): as páginas mostram "carregando", nunca "vazia". */
+  hydrated: boolean;
   addProduct: (
     product: AddProductInput,
     quantity?: number,
@@ -481,6 +483,7 @@ export function CartProvider({
         offers:
           state.offers,
         itemCount,
+        hydrated,
         addProduct,
         addCombo,
         setQuantity,
@@ -490,6 +493,7 @@ export function CartProvider({
       [
         state,
         itemCount,
+        hydrated,
         addProduct,
         addCombo,
         setQuantity,

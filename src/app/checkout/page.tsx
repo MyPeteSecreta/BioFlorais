@@ -12,7 +12,8 @@ import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
 import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
-import { trackCheckoutStep, type CheckoutStep } from "@/lib/analytics-events";
+import { trackCheckoutStep, trackEvent, type CheckoutStep } from "@/lib/analytics-events";
+import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
@@ -146,6 +147,7 @@ export default function CheckoutPage() {
     items,
     offers,
     clearCart,
+    hydrated,
   } = useCart();
   const cartImages = useCartImages(items.map((item) => item.productSlug));
 
@@ -1076,6 +1078,16 @@ export default function CheckoutPage() {
     stepsSent.current.add(step);
     void trackCheckoutStep(step);
   }, []);
+
+  // checkout_visto: uma vez, quando o checkout aparece COM itens (depois de ler a sacola).
+  const checkoutSeenSent = useRef(false);
+
+  useEffect(() => {
+    if (checkoutSeenSent.current || !hydrated || items.length === 0) return;
+
+    checkoutSeenSent.current = true;
+    void trackEvent("checkout_visto");
+  }, [hydrated, items.length]);
   const markStepForField = useCallback(
     (name: string) => {
       if (["name", "email", "phone", "document", "secondaryDocument"].includes(name)) markStep("dados");
@@ -1105,6 +1117,21 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (selectedShipping) markStep("frete");
   }, [selectedShipping, markStep]);
+
+  // Sacola ainda sendo lida do navegador: esqueleto, nunca "sacola vazia".
+  if (!hydrated) {
+    return (
+      <main className="min-h-screen bg-[#f8f5ee] px-5 py-10 pb-32 text-[#26352c] md:py-14 lg:pb-14">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#26352c]/50">Bio Florais</p>
+            <h1 className="mt-2 text-3xl font-medium md:text-4xl">Finalizar compra</h1>
+          </div>
+          <CartLoadingSkeleton variant="checkout" />
+        </div>
+      </main>
+    );
+  }
 
   if (items.length === 0 && pendingOrderStatus !== "paid") {
     return (
