@@ -31,25 +31,25 @@ test("B2C: abaixo de R$ 70 = frete com desconto (35%) + quanto falta; a partir d
   assert.deepEqual(labels(withPix), ["Frete grátis", "Pix com desconto"]);
 });
 
-test("B2B: NUNCA 'frete grátis' (usa frete especial a partir de R$ 450); Pix 7% e cartão 3% aparecem sem o percentual", () => {
+test("B2B: frete especial na opção econômica e GRÁTIS nela a partir de R$ 450 (sempre com \"na opção econômica\"); Pix 7% e cartão 3% aparecem sem o percentual", () => {
   assert.equal(B2B_FREIGHT_FLAT_THRESHOLD_CENTS, 45000);
 
   const below = buildCheckoutBenefits({ kind: "b2b", subtotalCents: 27860, specialFreightThresholdCents: B2B_FREIGHT_FLAT_THRESHOLD_CENTS, paymentDiscountPercent: B2B_PAYMENT_METHOD_DISCOUNT_PERCENT });
-  assert.deepEqual(labels(below), ["Faltam R$ 171,40 para o frete especial", "Pix com desconto", "Cartão com desconto"]);
+  assert.deepEqual(labels(below), ["Faltam R$ 171,40 para o frete GRÁTIS na opção econômica.", "Pix com desconto", "Cartão com desconto"]);
 
   const reached = buildCheckoutBenefits({ kind: "b2b", subtotalCents: 47760, specialFreightThresholdCents: B2B_FREIGHT_FLAT_THRESHOLD_CENTS, paymentDiscountPercent: B2B_PAYMENT_METHOD_DISCOUNT_PERCENT });
-  assert.deepEqual(labels(reached), ["Frete especial", "Pix com desconto", "Cartão com desconto"]);
+  assert.deepEqual(labels(reached), ["Frete GRÁTIS na opção econômica!", "Pix com desconto", "Cartão com desconto"]);
 
   for (const list of [below, reached]) {
     const text = JSON.stringify(list);
-    assert.ok(!/gr[aá]tis/i.test(text), "B2B nunca fala em frete grátis");
+    assert.ok(!/gr[aá]tis/i.test(text) || /GR[AÁ]TIS na opção econômica/.test(text), "grátis só junto de \"na opção econômica\"");
     assert.ok(!/\d+\s?%/.test(text), "o percentual do desconto não é mostrado ao comprador");
     assert.ok(!/GPT10|cupom/i.test(text), "faixa genérica: nenhum cupom específico");
   }
 
   // sem desconto configurado: não aparece benefício que não existe
   const none = buildCheckoutBenefits({ kind: "b2b", subtotalCents: 47760, specialFreightThresholdCents: 45000, paymentDiscountPercent: { pix: 0, card: 0 } });
-  assert.deepEqual(labels(none), ["Frete especial"]);
+  assert.deepEqual(labels(none), ["Frete GRÁTIS na opção econômica!"]);
 });
 
 test("fiação: faixa no topo do resumo e perto do botão de pagar, nos dois checkouts; B2C usa as constantes da configuração", () => {
@@ -133,11 +133,12 @@ test("Pix com desconto no B2C: 4% sobre os produtos depois dos cupons, arredonda
     "Desconto no Pix",
   ]);
   assert.deepEqual(buildCheckoutTopStrip({ kind: "b2b", specialFreightThresholdCents: 45000, paymentDiscountPercent: { pix: 0.07, card: 0.03 } }), [
-    "Frete especial a partir de R$ 450",
+    "Frete especial na opção econômica · grátis a partir de R$ 450",
     "Desconto no Pix",
     "Desconto no cartão",
   ]);
-  assert.ok(!buildCheckoutTopStrip({ kind: "b2b", specialFreightThresholdCents: 45000, paymentDiscountPercent: { pix: 0.07, card: 0.03 } }).join(" ").match(/gr[aá]tis/i));
+  // B2B: "grátis" só junto de "na opção econômica" (regra do Luis 05/11)
+  assert.ok(buildCheckoutTopStrip({ kind: "b2b", specialFreightThresholdCents: 45000, paymentDiscountPercent: { pix: 0.07, card: 0.03 } }).join(" ").includes("na opção econômica · grátis a partir de R$ 450"));
 
   const route = read("src/app/api/orders/create/route.ts");
   const page = read("src/app/checkout/page.tsx");

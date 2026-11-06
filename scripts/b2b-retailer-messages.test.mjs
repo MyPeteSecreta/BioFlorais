@@ -69,3 +69,22 @@ test("sem as tabelas (22b não aplicado): o link funciona sem marketing e sem po
   assert.equal(await hasSeenPopup(emptyRun, CLIENT_A), true);
   await empty.close();
 });
+
+test("frete grátis (regra do Luis 05/11): só junto de 'na opção econômica a partir de R$ 450'", () => {
+  assert.equal(parseMessageInput({ title: "Oi", body: "Frete grátis na opção econômica a partir de R$ 450!" }).ok, true);
+  assert.equal(parseMessageInput({ title: "Oi", body: "Frete GRÁTIS na opcao economica a partir de R$450 em pedidos elegíveis." }).ok, true);
+  assert.equal(parseMessageInput({ title: "Frete grátis", body: "na opção econômica a partir de R$ 450" }).ok, false, "a condição vale no mesmo campo");
+  assert.equal(parseMessageInput({ title: "Oi", body: "Frete grátis a partir de R$ 450" }).ok, false, "sem 'na opção econômica'");
+  const error = parseMessageInput({ title: "Oi", body: "Aproveite o frete grátis" });
+  assert.ok(!error.ok && error.error.includes("na opção econômica a partir de R$ 450"));
+  assert.equal(parseMessageInput({ title: "Oi", body: "Frete especial na opção econômica" }).ok, true);
+});
+
+test("checkout B2B: depois do CEP, abaixo de R$ 450, a nota com o valor da região (UF verificada pelo servidor)", () => {
+  const src = readFileSync(new URL("../src/app/b2b/checkout/B2BCheckoutContent.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes("b2bEconomyFreightNote(quote.subtotalAfterCouponCents, quote.state)") && src.includes('data-testid="b2b-frete-especial-regiao"'));
+  const cart = readFileSync(new URL("../src/app/b2b/carrinho/B2BCartContent.tsx", import.meta.url), "utf8");
+  assert.ok(cart.includes("b2bFreeFreightProgressText(cart.subtotalCents)") && cart.includes("{B2B_SPECIAL_FREIGHT_LABEL}"));
+  const terms = readFileSync(new URL("../src/lib/b2b/rca-terms.ts", import.meta.url), "utf8");
+  assert.ok(terms.includes("frete especial na opção econômica e grátis a partir de R$ 450 em pedidos elegíveis"));
+});

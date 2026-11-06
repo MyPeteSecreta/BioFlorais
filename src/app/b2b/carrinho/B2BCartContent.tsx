@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { cartLineUnitCents, useB2BCart } from "@/lib/b2b/cart-context";
 import QtyStepper from "@/components/b2b/QtyStepper";
 import { formatB2BCents } from "@/lib/b2b/format";
-import { B2B_MIN_ORDER_CENTS } from "@/lib/b2b/pricing";
+import { B2B_MIN_ORDER_CENTS, B2B_SPECIAL_FREIGHT_LABEL, b2bFreeFreightProgressText } from "@/lib/b2b/pricing";
 
 export default function B2BCartContent() {
   const token = useSearchParams().get("b2b") ?? "";
@@ -113,8 +113,11 @@ export default function B2BCartContent() {
                 <span>{formatB2BCents(cart.subtotalCents)}</span>
               </div>
               <p className="mt-1 text-xs text-[#8a7886]">
-                Frete especial B2B a partir de R$ 450. Frete, cupom e o valor final de cada
+                {B2B_SPECIAL_FREIGHT_LABEL}. Frete, cupom e o valor final de cada
                 forma de pagamento aparecem no checkout.
+              </p>
+              <p className="mt-2 text-sm font-semibold text-[#46644f]" data-testid="b2b-frete-progresso">
+                {b2bFreeFreightProgressText(cart.subtotalCents)}
               </p>
 
               {missingCents > 0 ? (

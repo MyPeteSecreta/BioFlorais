@@ -69,13 +69,13 @@ export function buildCheckoutBenefits(input: CheckoutBenefitsInput): CheckoutBen
       out.push({ key: "falta-frete", icon: "frete", tone: "progress", label: `Faltam ${formatBRL(remaining)} para o frete grátis` });
     }
   } else {
-    // B2B nunca fala em "frete grátis": é frete especial.
+    // B2B (regra do Luis 05/11): frete especial na opção econômica e GRÁTIS nela a partir do piso. Sempre com "na opção econômica".
     const remaining = Math.max(0, input.specialFreightThresholdCents - input.subtotalCents);
 
     if (remaining === 0) {
-      out.push({ key: "frete", icon: "frete", tone: "good", label: "Frete especial", detail: "na modalidade mais econômica" });
+      out.push({ key: "frete", icon: "frete", tone: "good", label: "Frete GRÁTIS na opção econômica!" });
     } else {
-      out.push({ key: "falta-frete", icon: "frete", tone: "progress", label: `Faltam ${formatBRL(remaining)} para o frete especial` });
+      out.push({ key: "falta-frete", icon: "frete", tone: "progress", label: `Faltam ${formatBRL(remaining)} para o frete GRÁTIS na opção econômica.` });
     }
   }
 
@@ -97,7 +97,7 @@ export function pixDiscountCents(baseCents: number, percent: number = B2C_PIX_DI
 /**
  * Faixa do TOPO do checkout (texto fixo, da configuração real; sem cupom específico).
  *  B2C: "Frete grátis a partir de R$ 70 (abaixo disso, frete subsidiado) · Desconto no Pix" (sem cartão)
- *  B2B: "Frete especial a partir de R$ 450 · Desconto no Pix · Desconto no cartão" (nunca "frete grátis")
+ *  B2B: "Frete especial na opção econômica · grátis a partir de R$ 450 · Desconto no Pix · Desconto no cartão"
  */
 export function buildCheckoutTopStrip(input: {
   kind: "b2c" | "b2b";
@@ -116,7 +116,7 @@ export function buildCheckoutTopStrip(input: {
       );
     }
   } else if ((input.specialFreightThresholdCents ?? 0) > 0) {
-    parts.push(`Frete especial a partir de ${brlWhole(input.specialFreightThresholdCents!)}`);
+    parts.push(`Frete especial na opção econômica · grátis a partir de ${brlWhole(input.specialFreightThresholdCents!)}`);
   }
 
   if ((input.paymentDiscountPercent?.pix ?? 0) > 0) parts.push("Desconto no Pix");

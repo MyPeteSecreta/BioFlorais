@@ -391,7 +391,7 @@ export default function B2BOfferCatalog({
               )}
             </p>
             <p className="text-xs text-[#8a7886]">
-              Pedido mínimo: R$ 250,00 em produtos · Frete especial B2B a partir de R$ 450
+              Pedido mínimo: R$ 250,00 em produtos · Frete especial na opção econômica · grátis a partir de R$ 450
             </p>
           </div>
           <Link

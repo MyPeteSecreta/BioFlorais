@@ -16,7 +16,7 @@ test("hero do B2B usa a mesma imagem e identidade do hero do B2C, com texto de l
   for (const token of ["Bio Florais · Desde 1997", "bg-gradient-to-r from-[#fffdf9]/96", "font-serif", "text-[#422347]", "text-[#9b6c24]"]) {
     assert.ok(hero.includes(token), token);
   }
-  assert.ok(/Pedido mínimo R\$ 250/.test(hero) && hero.includes("frete especial B2B a partir de R$ 450") && hero.includes("Pix, cartão em até 3x e boleto PJ"));
+  assert.ok(/Pedido mínimo R\$ 250/.test(hero) && hero.includes("frete especial na opção econômica · grátis a partir de R$ 450") && hero.includes("Pix, cartão em até 3x e boleto PJ"));
 });
 
 test("primeira tela, loja /parceiros e página de linha usam o hero; nada de trio, quiz, UGC ou depoimentos", () => {

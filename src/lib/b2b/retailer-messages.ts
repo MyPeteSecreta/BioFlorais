@@ -1,7 +1,7 @@
 /**
  * BIO FLORAIS B2B — mensagens de marketing ao lojista (C11): editadas no admin
  * B2B e mostradas só no link do cliente (pop-up no 1º acesso, faixa no topo e
- * botão flutuante). Nunca "frete grátis". SQL puro sobre SqlRunner.
+ * botão flutuante). "Frete grátis" só junto de "na opção econômica a partir de R$ 450". SQL puro sobre SqlRunner.
  */
 
 import { isUuid } from "@/lib/b2b/admin-input";
@@ -16,8 +16,14 @@ export const DEFAULT_ROTATION: Rotation = { bannerSeconds: 60, buttonSeconds: 60
 
 export type AdminRetailerMessage = Omit<RetailerMessage, "shortCall"> & { shortCall: string; active: boolean; sortOrder: number };
 
-/** "Frete grátis" não pode aparecer (a política é "frete especial B2B"). */
+/** "Frete grátis" só pode aparecer junto da condição (regra do Luis 05/11: grátis na opção econômica a partir de R$ 450). */
 export const FORBIDDEN_FREE_SHIPPING = /frete\s+gr[aá]tis|gr[aá]tis\s+de\s+frete/i;
+
+/** A condição que libera "frete grátis" no mesmo texto. */
+export const FREE_SHIPPING_CONDITION = /na\s+op[cç][aã]o\s+econ[oô]mica\s+a\s+partir\s+de\s+R\$\s*450/i;
+
+/** true = o texto fala em frete grátis sem a condição. */
+export const breaksFreeShippingRule = (text: string) => FORBIDDEN_FREE_SHIPPING.test(text) && !FREE_SHIPPING_CONDITION.test(text);
 
 export function parseMessageInput(
   body: Record<string, unknown>
@@ -34,8 +40,8 @@ export function parseMessageInput(
     return { ok: false, error: `A chamada curta deve ter até ${SHORT_CALL_MAX} caracteres.` };
   }
 
-  if (FORBIDDEN_FREE_SHIPPING.test(title) || FORBIDDEN_FREE_SHIPPING.test(text) || FORBIDDEN_FREE_SHIPPING.test(shortCall)) {
-    return { ok: false, error: "Não use \"frete grátis\": diga \"frete especial B2B\"." };
+  if (breaksFreeShippingRule(title) || breaksFreeShippingRule(text) || breaksFreeShippingRule(shortCall)) {
+    return { ok: false, error: "Use \"frete grátis\" só junto de \"na opção econômica a partir de R$ 450\" (ou diga \"frete especial na opção econômica\")." };
   }
 
   return { ok: true, value: { title, body: text, shortCall, active: body.active !== false, sortOrder } };

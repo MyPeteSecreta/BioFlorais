@@ -34,7 +34,7 @@ import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
 import { buildCheckoutBenefits, buildCheckoutTopStrip } from "@/lib/checkout/benefits";
-import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT } from "@/lib/b2b/pricing";
+import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT, b2bEconomyFreightNote } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
@@ -78,6 +78,8 @@ type Quote = {
   subtotalCents: number;
   couponDiscountCents: number;
   subtotalAfterCouponCents: number;
+  /** UF verificada pelo servidor (a mesma da regra do frete). */
+  state?: string;
   bonusLines: Array<{ productId: string; qty: number }>;
   discountLines?: Array<{ productId: string; percent: number; listUnitPriceCents: number; unitPriceCents: number }>;
   options: ShippingOption[];
@@ -416,7 +418,7 @@ export default function B2BCheckoutContent() {
     : null;
   const totals = chosen?.totalsByPaymentMethod ?? null;
 
-  // Faixa de benefícios (genérica, da configuração real do B2B: frete especial e desconto Pix/cartão; nunca "frete grátis").
+  // Faixa de benefícios (da configuração real do B2B: frete especial na opção econômica, grátis a partir de R$ 450, e desconto Pix/cartão).
   const checkoutTopStrip = buildCheckoutTopStrip({
     kind: "b2b",
     specialFreightThresholdCents: B2B_FREIGHT_FLAT_THRESHOLD_CENTS,
@@ -1035,6 +1037,11 @@ export default function B2BCheckoutContent() {
                   <strong>{formatB2BCents(option.priceCents)}</strong>
                 </label>
               ))}
+            {quoteIsCurrent && quote && b2bEconomyFreightNote(quote.subtotalAfterCouponCents, quote.state) ? (
+              <p className="text-sm font-semibold text-[#46644f]" data-testid="b2b-frete-especial-regiao">
+                {b2bEconomyFreightNote(quote.subtotalAfterCouponCents, quote.state)}
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-3">

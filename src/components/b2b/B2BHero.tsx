@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
  * quiz, convite UGC, depoimentos ou blocos institucionais (regra visual do Luis, 11/10).
  * Mobile: imagem 16:9 com eyebrow e título como no B2C; desktop: faixa mais baixa que a Home.
  */
-export const B2B_HERO_FACTS = "Pedido mínimo R$ 250 · frete especial B2B a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ";
+export const B2B_HERO_FACTS = "Pedido mínimo R$ 250 · frete especial na opção econômica · grátis a partir de R$ 450 · Pix, cartão em até 3x e boleto PJ";
 
 export default function B2BHero({
   title,

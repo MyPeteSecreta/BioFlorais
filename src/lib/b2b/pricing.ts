@@ -309,6 +309,28 @@ export function resolveB2BRegion(state: string): B2BRegion | null {
   return UF_TO_REGION[state.trim().toUpperCase()] ?? null;
 }
 
+/** Texto das faixas (aprovado pelo Luis, igual ao da My Pet). */
+export const B2B_SPECIAL_FREIGHT_LABEL = "Frete especial na opção econômica · grátis a partir de R$ 450";
+
+/** Sacola: quanto falta para o frete grátis na opção econômica, ou a mensagem de liberado. */
+export function b2bFreeFreightProgressText(baseCentsAfterCoupon: number): string {
+  const missing = Math.max(0, B2B_FREIGHT_FLAT_THRESHOLD_CENTS - baseCentsAfterCoupon);
+  const brl = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+
+  return missing > 0 ? `Faltam ${brl(missing)} para o frete GRÁTIS na opção econômica.` : "Frete GRÁTIS na opção econômica!";
+}
+
+/** Depois do CEP, abaixo de R$ 450: "Opção econômica com frete especial: R$ 9,90." (valor da região). null nos demais casos. */
+export function b2bEconomyFreightNote(baseCentsAfterCoupon: number, verifiedState: string | null | undefined): string | null {
+  if (baseCentsAfterCoupon >= B2B_FREIGHT_FLAT_THRESHOLD_CENTS) return null;
+
+  const region = resolveB2BRegion(String(verifiedState ?? ""));
+
+  if (!region) return null;
+
+  return `Opção econômica com frete especial: R$ ${(B2B_REGIONAL_FLAT_CENTS[region] / 100).toFixed(2).replace(".", ",")}.`;
+}
+
 export type B2BShippingOption = {
   serviceName: string;
   etaDays: number;
@@ -319,10 +341,12 @@ export type B2BShippingOption = {
 };
 
 /**
- * Base (produtos pós-cupom) >= R$ 450: a modalidade mais barata cotada
- * passa a custar Math.min(tarifa regional, preço real). As demais
- * mantêm o preço cheio e nenhuma é ocultada. Abaixo do piso, ou com UF
- * não verificada (state vazio), todas ficam com o preço real.
+ * Regra do Luis (05/11), base = produtos depois da promoção e do cupom (sem frete e sem desconto de pagamento):
+ *  - abaixo de R$ 450: a modalidade MAIS BARATA custa Math.min(tarifa regional, preço real)
+ *    (R$ 9,90 Sul/Sudeste; R$ 35,90 Centro-Oeste/Nordeste; R$ 169,90 Norte/Ceará);
+ *  - a partir de R$ 450: a mais barata é GRÁTIS.
+ * As demais mantêm o preço cheio e nenhuma é ocultada. UF não verificada (state vazio ou sem região): todas no preço real.
+ * Pedido mínimo (R$ 250) e mostruário não mudam.
  */
 export function applyB2BCheapestModalityRule(
   options: readonly { serviceName: string; priceCents: number; etaDays: number }[],
@@ -336,7 +360,7 @@ export function applyB2BCheapestModalityRule(
     realPriceCents: option.priceCents,
   }));
 
-  if (base.length === 0 || baseCentsAfterCoupon < B2B_FREIGHT_FLAT_THRESHOLD_CENTS) {
+  if (base.length === 0) {
     return base;
   }
 
@@ -353,7 +377,7 @@ export function applyB2BCheapestModalityRule(
     }
   }
 
-  const flatCents = B2B_REGIONAL_FLAT_CENTS[region];
+  const flatCents = baseCentsAfterCoupon >= B2B_FREIGHT_FLAT_THRESHOLD_CENTS ? 0 : B2B_REGIONAL_FLAT_CENTS[region];
 
   return base.map((option, index) =>
     index === cheapestIndex

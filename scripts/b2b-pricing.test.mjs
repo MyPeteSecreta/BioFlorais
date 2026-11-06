@@ -45,19 +45,45 @@ test("mínimo e parcelas", () => {
   assert.equal(s.installmentAmountCents + s.lastInstallmentAmountCents, 100001);
 });
 
-test("frete: Math.min(tarifa regional, real) só na mais barata", () => {
+test("frete (regra do Luis 05/11): abaixo de R$ 450 a mais barata = min(tarifa regional, real); a partir de R$ 450 a mais barata é GRÁTIS; as outras no preço cheio", () => {
   const opts = [
     { serviceName: "PAC", priceCents: 2500, etaDays: 5 },
     { serviceName: "SEDEX", priceCents: 4000, etaDays: 2 },
   ];
   const prices = (base, uf, o = opts) =>
     p.applyB2BCheapestModalityRule(o, base, uf).map((x) => x.priceCents);
-  assert.deepEqual(prices(45000, "SP"), [990, 4000]);
-  assert.deepEqual(prices(44999, "SP"), [2500, 4000]);
-  assert.deepEqual(prices(45000, "CE"), [2500, 4000]);
-  assert.deepEqual(prices(45000, "BA", [{ serviceName: "X", priceCents: 5000, etaDays: 3 }]), [3590]);
-  assert.deepEqual(prices(45000, "AM", [{ serviceName: "X", priceCents: 20000, etaDays: 3 }]), [16990]);
+  // abaixo de R$ 450: tarifa da região na mais barata
+  assert.deepEqual(prices(44999, "SP"), [990, 4000], "Sul/Sudeste R$ 9,90");
+  assert.deepEqual(prices(30000, "RS"), [990, 4000]);
+  assert.deepEqual(prices(30000, "BA", [{ serviceName: "X", priceCents: 5000, etaDays: 3 }]), [3590], "Centro-Oeste/Nordeste R$ 35,90");
+  assert.deepEqual(prices(30000, "CE", [{ serviceName: "X", priceCents: 20000, etaDays: 3 }]), [16990], "Norte/Ceará R$ 169,90");
+  assert.deepEqual(prices(30000, "CE"), [2500, 4000], "nunca mais que o preço real");
+  assert.deepEqual(prices(30000, "SP", [{ serviceName: "Mini", priceCents: 700, etaDays: 6 }, { serviceName: "PAC", priceCents: 2500, etaDays: 5 }]), [700, 2500], "real menor que a tarifa: paga o real");
+  // a partir de R$ 450: grátis na mais barata
+  assert.deepEqual(prices(45000, "SP"), [0, 4000]);
+  assert.deepEqual(prices(45000, "CE"), [0, 4000]);
+  assert.deepEqual(prices(90000, "AM", [{ serviceName: "X", priceCents: 20000, etaDays: 3 }]), [0]);
+  // a mais barata é escolhida pelo preço real, em qualquer posição
+  assert.deepEqual(prices(45000, "SP", [{ serviceName: "SEDEX", priceCents: 4000, etaDays: 2 }, { serviceName: "PAC", priceCents: 2500, etaDays: 5 }]), [4000, 0]);
+  // UF sem região (não verificada): tudo no preço real
   assert.deepEqual(prices(45000, ""), [2500, 4000]);
+  assert.deepEqual(prices(30000, "XX"), [2500, 4000]);
+  // o custo real é sempre preservado
+  assert.deepEqual(p.applyB2BCheapestModalityRule(opts, 45000, "SP").map((x) => x.realPriceCents), [2500, 4000]);
+  assert.deepEqual(prices(45000, "SP", []), []);
+});
+
+test("frete: textos aprovados (iguais aos da My Pet): faixas, sacola e nota da região depois do CEP", () => {
+  assert.equal(p.B2B_SPECIAL_FREIGHT_LABEL, "Frete especial na opção econômica · grátis a partir de R$ 450");
+  assert.equal(p.b2bFreeFreightProgressText(27860), "Faltam R$ 171,40 para o frete GRÁTIS na opção econômica.");
+  assert.equal(p.b2bFreeFreightProgressText(25000), "Faltam R$ 200,00 para o frete GRÁTIS na opção econômica.");
+  assert.equal(p.b2bFreeFreightProgressText(45000), "Frete GRÁTIS na opção econômica!");
+  assert.equal(p.b2bEconomyFreightNote(30000, "SP"), "Opção econômica com frete especial: R$ 9,90.");
+  assert.equal(p.b2bEconomyFreightNote(30000, "pe"), "Opção econômica com frete especial: R$ 35,90.");
+  assert.equal(p.b2bEconomyFreightNote(30000, "CE"), "Opção econômica com frete especial: R$ 169,90.");
+  assert.equal(p.b2bEconomyFreightNote(45000, "SP"), null, "a partir de R$ 450 a faixa já diz grátis");
+  assert.equal(p.b2bEconomyFreightNote(30000, ""), null);
+  assert.equal(p.B2B_MIN_ORDER_CENTS, 25000, "pedido mínimo não muda");
 });
 
 test("boleto: vencimentos 28/42/56 dias da data do pedido, soma exata", () => {

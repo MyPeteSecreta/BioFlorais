@@ -64,7 +64,7 @@ export const RCA_TERMS_SECTIONS: TermsSection[] = [
           ["Cartão", "Até 3x, parcela mínima de R$ 500,00"],
           ["Boleto", "Somente cliente pessoa jurídica; até 3x, parcela mínima R$ 500,00, vencimentos em 28/42/56 dias"],
           ["Pagamento", "Feito pelo cliente direto à Empresa, pelo portal"],
-          ["Frete", "Calculado pelo portal; condição especial a partir de R$ 450,00"],
+          ["Frete", "Calculado pelo portal; frete especial na opção econômica e grátis a partir de R$ 450 em pedidos elegíveis"],
         ],
       },
       {

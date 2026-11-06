@@ -67,8 +67,8 @@ export default function MessagesTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-[#7b6a77]">
           Mensagens que o lojista vê no link da oferta: pop-up no 1º acesso (a primeira da ordem), faixa no topo
-          alternando as ativas a cada ~8 s e botão flutuante. Não use &quot;frete grátis&quot;: diga &quot;frete
-          especial B2B&quot;.
+          alternando as ativas a cada ~8 s e botão flutuante. &quot;Frete grátis&quot; só junto de &quot;na opção
+          econômica a partir de R$ 450&quot; (ou diga &quot;frete especial na opção econômica&quot;).
         </p>
         {!draft && (
           <button type="button" onClick={() => setDraft({ ...EMPTY })} className="rounded-full bg-[#342737] px-5 py-2.5 text-sm font-extrabold text-white">
