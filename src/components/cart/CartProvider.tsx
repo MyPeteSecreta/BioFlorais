@@ -298,9 +298,9 @@ export function CartProvider({
         // Sugestão do carrinho conta como "sugestao_adicionada" (o funil ver_produto → sacola fica só com a página de produto).
         void trackEvent(source === "sugestao" ? "sugestao_adicionada" : "sacola");
         {
-          // Meta AddToCart (só com o pixel carregado e o aceite de marketing)
+          // Meta AddToCart (só com o pixel carregado e o aceite de marketing; produto sensível não envia nada)
           const event = metaAddToCartEvent(product.productSlug);
-          trackMeta(event.name, event.params);
+          if (event) trackMeta(event.name, event.params);
         }
         setState(
           (current) =>

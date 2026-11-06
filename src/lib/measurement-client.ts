@@ -4,6 +4,7 @@
  */
 
 import { hasMarketingConsent } from "@/lib/consent";
+import { isMetaPixelPath } from "@/lib/meta-privacy";
 
 type Gtag = (...args: unknown[]) => void;
 type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue?: unknown[]; loaded?: boolean; version?: string; push?: unknown };
@@ -61,7 +62,12 @@ export function installMetaPixel(pixelId: string): void {
   fbq.queue = [];
   window.fbq = fbq;
   window._fbq = fbq;
+  // Privacidade (decisão do Luis 05/11): sem leitura automática da página (autoConfig lê dados estruturados, como nome e
+  // categoria do produto, e cliques) e sem PageView automático nas trocas de página: o PageView sai do MetaPixel.tsx,
+  // que bloqueia as páginas de produto sensível.
+  (fbq as unknown as { disablePushState?: boolean }).disablePushState = true;
   loadScript("https://connect.facebook.net/en_US/fbevents.js");
+  window.fbq("set", "autoConfig", false, pixelId);
   window.fbq("init", pixelId);
 }
 
@@ -85,6 +91,8 @@ export function trackGoogle(name: string, params: Record<string, unknown>): bool
 /** Evento da Meta: só se o pixel foi carregado E o aceite de marketing continua valendo. `eventId` deduplica com a API de Conversões. */
 export function trackMeta(name: string, params: Record<string, unknown>, eventId?: string): boolean {
   if (typeof window === "undefined" || !window.fbq || !marketingAllowed()) return false;
+  // Página de produto sensível: nenhum evento da Meta (nem de outro produto adicionado nela).
+  if (!isMetaPixelPath(window.location.pathname)) return false;
 
   if (eventId) window.fbq("track", name, params, { eventID: eventId });
   else window.fbq("track", name, params);

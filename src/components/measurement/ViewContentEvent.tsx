@@ -1,6 +1,9 @@
 "use client";
 
-/** ViewContent da Meta na página do produto (só com o pixel carregado e o aceite de marketing; tenta de novo se o aceite vier depois). */
+/**
+ * ViewContent da Meta na página do produto (só com o pixel carregado e o aceite de marketing; tenta de novo se o aceite vier depois).
+ * Sem o nome do produto; produto sensível não envia nada (meta-privacy.ts).
+ */
 
 import { useEffect } from "react";
 
@@ -8,7 +11,7 @@ import { CONSENT_EVENT } from "@/lib/consent";
 import { metaViewContentEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
 
-export default function ViewContentEvent({ slug, name, priceCents }: { slug: string; name: string; priceCents: number | null }) {
+export default function ViewContentEvent({ slug, priceCents }: { slug: string; priceCents: number | null }) {
   useEffect(() => {
     let sent = false;
     const timers: number[] = [];
@@ -16,7 +19,13 @@ export default function ViewContentEvent({ slug, name, priceCents }: { slug: str
     const send = () => {
       if (sent) return;
 
-      const event = metaViewContentEvent({ slug, name, priceCents });
+      const event = metaViewContentEvent({ slug, priceCents });
+
+      if (!event) {
+        sent = true;
+        return;
+      }
+
       sent = trackMeta(event.name, event.params);
     };
 
@@ -34,7 +43,7 @@ export default function ViewContentEvent({ slug, name, priceCents }: { slug: str
       timers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener(CONSENT_EVENT, onConsent);
     };
-  }, [slug, name, priceCents]);
+  }, [slug, priceCents]);
 
   return null;
 }

@@ -2,7 +2,8 @@
 
 /**
  * Pixel da Meta: ID em NEXT_PUBLIC_META_PIXEL_ID; sem ID, nada carrega. SÓ carrega depois do aceite de marketing do banner
- * (sem aceite não há script nem requisição para a Meta). PageView a cada página. Ao retirar o aceite, revoga o consentimento do pixel.
+ * (sem aceite não há script nem requisição para a Meta). PageView a cada página, menos na de produto sensível (meta-privacy.ts).
+ * Ao retirar o aceite, revoga o consentimento do pixel.
  * Nunca no admin, na área do vendedor nem em /api.
  */
 
@@ -13,6 +14,7 @@ import { isPixelPath } from "@/lib/ads-tag";
 import { CONSENT_EVENT, hasMarketingConsent } from "@/lib/consent";
 import { metaPixelId } from "@/lib/measurement";
 import { installMetaPixel, trackMeta } from "@/lib/measurement-client";
+import { isMetaPixelPath } from "@/lib/meta-privacy";
 
 export default function MetaPixel() {
   const pathname = usePathname();
@@ -43,7 +45,7 @@ export default function MetaPixel() {
           started.current = true;
           installMetaPixel(pixelId);
           window.fbq?.("consent", "grant");
-          trackMeta("PageView", {});
+          if (isMetaPixelPath(pathRef.current)) trackMeta("PageView", {});
         }
       } else if (!consent && started.current) {
         window.fbq?.("consent", "revoke");
@@ -63,7 +65,7 @@ export default function MetaPixel() {
       return;
     }
 
-    if (pixelId && started.current && isPixelPath(pathname)) trackMeta("PageView", {});
+    if (pixelId && started.current && isMetaPixelPath(pathname)) trackMeta("PageView", {});
   }, [pixelId, pathname]);
 
   return null;

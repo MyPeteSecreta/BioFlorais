@@ -5,13 +5,15 @@
  *    page_view e purchase (valor em BRL e id do pedido, sem dado pessoal). A ação "Compra" do Google Ads só conta com o evento
  *    "conversion" com send_to = AW-…/rótulo: o rótulo vem de NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL (sem ele, esse evento não sai).
  *  - Pixel da Meta: só carrega depois do aceite de marketing. Eventos: PageView, ViewContent, AddToCart, InitiateCheckout e
- *    Purchase (event_id = id do pedido, para deduplicar com a API de Conversões no futuro).
+ *    Purchase (event_id = id do pedido, para deduplicar com a API de Conversões no futuro). Privacidade (meta-privacy.ts):
+ *    content_ids = código neutro (BF0001...), nunca o nome nem a categoria do produto; produto sensível nunca identificado.
  *  - Nada roda no /admin, na área do vendedor nem em /api (mesma regra do banner: `isPixelPath`).
  * Funções puras (testáveis sem navegador). O carregamento dos scripts fica em src/components/measurement.
  */
 
 import { sanitizeAnalyticsUrl } from "@/lib/analytics-url";
 import { feedItemId } from "@/lib/feeds/feed-id";
+import { metaAllowedProductSlugs, metaContentId } from "@/lib/meta-privacy";
 import type { ConsentChoice } from "@/lib/consent";
 
 export const CURRENCY = "BRL";
@@ -118,46 +120,86 @@ export function googleAdsConversionEvent(order: PurchasePayload, target: string)
   };
 }
 
-/** Purchase da Meta: event_id = id do pedido (deduplica com a API de Conversões no futuro). */
+/** Itens identificáveis para a Meta: só os não sensíveis, pelo código neutro; quantidade somada por código. */
+function metaContents(items: Array<{ slug: string; quantity: number; priceCents?: number }>) {
+  const allowed = new Set(metaAllowedProductSlugs(items.map((item) => item.slug)));
+  const byId = new Map<string, { id: string; quantity: number; item_price?: number }>();
+
+  for (const item of items) {
+    if (!allowed.has(item.slug)) continue;
+
+    const id = metaContentId(item.slug)!;
+    const current = byId.get(id);
+
+    if (current) current.quantity += item.quantity;
+    else byId.set(id, { id, quantity: item.quantity, ...(item.priceCents !== undefined ? { item_price: toValue(item.priceCents) } : {}) });
+  }
+
+  return [...byId.values()];
+}
+
+/** content_type/content_ids/contents só quando há item identificável (pedido só com sensíveis: valor, moeda e quantidade). */
+function metaContentParams(contents: ReturnType<typeof metaContents>, withContents: boolean) {
+  if (contents.length === 0) return {};
+
+  return {
+    content_type: "product",
+    content_ids: contents.map((item) => item.id),
+    ...(withContents ? { contents } : {}),
+  };
+}
+
+/** Purchase da Meta: event_id = id do pedido (deduplica com a API de Conversões no futuro). Itens sensíveis não são identificados. */
 export function metaPurchaseEvent(order: PurchasePayload) {
+  const contents = metaContents(order.items.map((item) => ({ slug: item.id, quantity: item.quantity, priceCents: item.priceCents })));
+
   return {
     name: "Purchase" as const,
     params: {
       value: toValue(order.valueCents),
       currency: CURRENCY,
-      content_type: "product",
-      content_ids: order.items.map((item) => feedItemId(item.id)),
-      contents: order.items.map((item) => ({ id: feedItemId(item.id), quantity: item.quantity, item_price: toValue(item.priceCents) })),
+      ...metaContentParams(contents, true),
       num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
     },
     eventId: order.orderId,
   };
 }
 
-export function metaViewContentEvent(product: { slug: string; name: string; priceCents: number | null }) {
+/** ViewContent da Meta: código neutro e preço, sem nome. Produto sensível (ou sem código): null, nada é enviado. */
+export function metaViewContentEvent(product: { slug: string; priceCents: number | null }) {
+  const id = metaAllowedProductSlugs([product.slug]).length ? metaContentId(product.slug) : null;
+
+  if (!id) return null;
+
   return {
     name: "ViewContent" as const,
     params: {
       content_type: "product",
-      content_ids: [feedItemId(product.slug)],
-      content_name: product.name,
+      content_ids: [id],
       ...(product.priceCents ? { value: toValue(product.priceCents), currency: CURRENCY } : {}),
     },
   };
 }
 
+/** AddToCart da Meta: código neutro. Produto sensível (ou sem código): null, nada é enviado. */
 export function metaAddToCartEvent(productSlug: string) {
-  return { name: "AddToCart" as const, params: { content_type: "product", content_ids: [feedItemId(productSlug)], currency: CURRENCY } };
+  const id = metaAllowedProductSlugs([productSlug]).length ? metaContentId(productSlug) : null;
+
+  if (!id) return null;
+
+  return { name: "AddToCart" as const, params: { content_type: "product", content_ids: [id], currency: CURRENCY } };
 }
 
+/** InitiateCheckout da Meta: valor total, moeda e quantidade total; só os itens não sensíveis são identificados. */
 export function metaInitiateCheckoutEvent(cart: { valueCents: number; items: Array<{ slug: string; qty: number }> }) {
+  const contents = metaContents(cart.items.map((item) => ({ slug: item.slug, quantity: item.qty })));
+
   return {
     name: "InitiateCheckout" as const,
     params: {
       value: toValue(cart.valueCents),
       currency: CURRENCY,
-      content_type: "product",
-      content_ids: cart.items.map((item) => feedItemId(item.slug)),
+      ...metaContentParams(contents, false),
       num_items: cart.items.reduce((sum, item) => sum + item.qty, 0),
     },
   };

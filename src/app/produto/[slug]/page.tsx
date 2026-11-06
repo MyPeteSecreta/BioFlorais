@@ -718,7 +718,7 @@ export default async function ProductPage({
         lg:pb-0
       "
     >
-      <ViewContentEvent slug={product.slug} name={product.name} priceCents={product.priceCents} />
+      <ViewContentEvent slug={product.slug} priceCents={product.priceCents} />
       <script
         type="application/ld+json"
         // "<" escapado: o JSON nunca fecha a tag <script>.

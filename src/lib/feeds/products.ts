@@ -10,6 +10,7 @@ import type { BioProduct } from "@/lib/catalog/bio-products";
 import { campaignUnitPriceCents, feedCampaignPhase, saleEffectiveDate } from "@/lib/campaign/esquenta-black";
 import { feedItemId } from "@/lib/feeds/feed-id";
 import { GTIN_BY_SLUG } from "@/lib/feeds/gtin-data";
+import { META_CONTENT_IDS } from "@/lib/feeds/meta-content-ids";
 
 export const FEED_BRAND = "Bio Florais";
 
@@ -57,7 +58,10 @@ const TYPE_SHORT: Record<string, string> = {
 };
 
 export type FeedItem = {
+  /** Id do Google Merchant (feed-id.ts). */
   id: string;
+  /** Id do catálogo da Meta: o código neutro e fixo (BF0001...), o mesmo content_id do pixel (meta-privacy.ts). */
+  metaId: string;
   title: string;
   description: string;
   link: string;
@@ -121,6 +125,7 @@ export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (p
 
   return {
     id: feedItemId(product.slug),
+    metaId: META_CONTENT_IDS[product.slug] ?? feedItemId(product.slug),
     title: feedTitle(product),
     description: feedDescription(product),
     link: `${base}/produto/${product.slug}`,
@@ -177,7 +182,7 @@ export const META_CSV_COLUMNS = ["id", "title", "description", "availability", "
 
 export function renderMetaFeedCsv(items: FeedItem[]): string {
   const rows = items.map((item) =>
-    [item.id, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType, item.adLabel, item.salePrice ?? "", item.salePriceEffectiveDate ?? ""].map(csvCell).join(",")
+    [item.metaId, item.title, item.description, item.availability, item.condition, item.price, item.link, item.imageLink, item.brand, item.gtin ?? "", item.productType, item.adLabel, item.salePrice ?? "", item.salePriceEffectiveDate ?? ""].map(csvCell).join(",")
   );
 
   return `${META_CSV_COLUMNS.join(",")}\n${rows.join("\n")}\n`;

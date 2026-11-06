@@ -27,6 +27,10 @@ import { FEED_AD_LABEL_ALLOWED, FEED_AD_LABEL_EXCLUDED, META_CSV_COLUMNS, buildF
 import { FEED_ID_MAX_LENGTH, FEED_SHORT_IDS, feedItemId } from "../src/lib/feeds/feed-id.ts";
 import { PET_COSMETIC_FOLDERS, loadFeedItems } from "../src/lib/feeds/items.server.ts";
 import { bioProducts } from "../src/lib/catalog/bio-products.ts";
+import { META_CONTENT_IDS } from "../src/lib/feeds/meta-content-ids.ts";
+import { isMetaPixelPath, isMetaSensitiveProductSlug, metaAllowedProductSlugs, metaContentId, productSlugFromPath } from "../src/lib/meta-privacy.ts";
+import { isPixelPath } from "../src/lib/ads-tag.ts";
+import { FEED_AD_EXCLUDED_SLUGS } from "../src/lib/feeds/products.ts";
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
@@ -75,9 +79,11 @@ test("eventos: purchase (Google) e Purchase (Meta) com valor em BRL e id do pedi
 
   for (const text of [JSON.stringify(google), JSON.stringify(meta)]) assert.ok(!/@|cpf|cnpj|email|phone|telefone|nome/i.test(text), "sem dado pessoal");
 
-  assert.deepEqual(metaViewContentEvent({ slug: "x", name: "X", priceCents: 3590 }).params, { content_type: "product", content_ids: ["x"], content_name: "X", value: 35.9, currency: "BRL" });
-  assert.deepEqual(metaAddToCartEvent("x").params, { content_type: "product", content_ids: ["x"], currency: "BRL" });
-  assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 7180, items: [{ slug: "a", qty: 2 }] }).params, { value: 71.8, currency: "BRL", content_type: "product", content_ids: ["a"], num_items: 2 });
+  const sono = META_CONTENT_IDS["adulto-floral-em-gotas-sono"];
+  assert.deepEqual(meta.params.content_ids, [sono], "Purchase: código neutro");
+  assert.deepEqual(metaViewContentEvent({ slug: "adulto-floral-em-gotas-sono", priceCents: 3590 }).params, { content_type: "product", content_ids: [sono], value: 35.9, currency: "BRL" });
+  assert.deepEqual(metaAddToCartEvent("adulto-floral-em-gotas-sono").params, { content_type: "product", content_ids: [sono], currency: "BRL" });
+  assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 7180, items: [{ slug: "adulto-floral-em-gotas-sono", qty: 2 }] }).params, { value: 71.8, currency: "BRL", content_type: "product", content_ids: [sono], num_items: 2 });
   assert.equal(purchaseSentKey("meta", "abc"), "bio_purchase_meta_abc");
   assert.equal(safePageLocation("https://www.bioflorais.com.br/acompanhe/TOKEN123?b2b=segredo&x=1"), "https://www.bioflorais.com.br/acompanhe/[token]?x=1");
 });
@@ -263,14 +269,16 @@ test("feeds: id com até 50 caracteres (limite do Google); só os 10 longos muda
   const short = items.find((item) => item.id === "cosmeticos-pet-cond-ansiedade-pelos-escuros-5l");
   assert.ok(short.link.endsWith("/produto/cosmeticos-pet-condicionador-ansiedade-pelos-escuros-5l"), short.link);
 
-  // eventos de anúncio usam o mesmo id do feed (catálogo e remarketing)
+  // eventos de anúncio usam o mesmo id do feed: Google = id do Merchant; Meta = código neutro do catálogo da Meta (meta.csv)
   const long = "cosmeticos-pet-condicionador-ansiedade-pelos-escuros-5l";
   const order = { orderId: "x", valueCents: 1000, items: [{ id: long, quantity: 1, priceCents: 1000 }] };
+  const metaId = META_CONTENT_IDS[long];
   assert.equal(googlePurchaseEvent(order).params.items[0].item_id, FEED_SHORT_IDS[long]);
-  assert.deepEqual(metaPurchaseEvent(order).params.content_ids, [FEED_SHORT_IDS[long]]);
-  assert.deepEqual(metaAddToCartEvent(long).params.content_ids, [FEED_SHORT_IDS[long]]);
-  assert.deepEqual(metaViewContentEvent({ slug: long, name: "X", priceCents: null }).params.content_ids, [FEED_SHORT_IDS[long]]);
-  assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 1000, items: [{ slug: long, qty: 1 }] }).params.content_ids, [FEED_SHORT_IDS[long]]);
+  assert.deepEqual(metaPurchaseEvent(order).params.content_ids, [metaId]);
+  assert.deepEqual(metaAddToCartEvent(long).params.content_ids, [metaId]);
+  assert.deepEqual(metaViewContentEvent({ slug: long, priceCents: null }).params.content_ids, [metaId]);
+  assert.deepEqual(metaInitiateCheckoutEvent({ valueCents: 1000, items: [{ slug: long, qty: 1 }] }).params.content_ids, [metaId]);
+  assert.equal(items.find((item) => item.id === FEED_SHORT_IDS[long]).metaId, metaId);
 });
 
 test("políticas de cookies e de privacidade citam Google e Meta, o consentimento e o que é enviado", () => {
@@ -279,4 +287,107 @@ test("políticas de cookies e de privacidade citam Google e Meta, o consentiment
     assert.ok(page.includes('data-testid="google-meta-politica"'), file);
     for (const part of ["Google tag", "Consent Mode v2", "Pixel da Meta", "negados", "nem é carregado", "e-mail e o telefone informados no pedido", "hash SHA-256", "art. 7º, I, da LGPD", "art. 33 da LGPD", "art. 18 da LGPD", "Se você não aceitar ou retirar o consentimento", "Configurar cookies", "3 de novembro de 2026"]) assert.ok(page.includes(part), `${file}: ${part}`);
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Privacidade do pixel da Meta (05/11, aprovado pelo Luis): código neutro BF0001..., produto sensível nunca identificado, página de
+// produto sensível sem evento, sem content_name/content_category, sem leitura automática; Google, oppref e GPT10 intocados.
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+const SENSITIVE = "adulto-floral-em-gotas-panico";
+const NORMAL = "adulto-floral-em-gotas-sono";
+
+test("Meta: código neutro e fixo para TODOS os produtos (BF0001...), sem repetir, sem texto do produto; o catálogo da Meta usa o mesmo id", () => {
+  const codes = bioProducts.map((product) => META_CONTENT_IDS[product.slug]);
+  assert.ok(codes.every((code) => /^BF\d{4}$/.test(code)), "todo produto tem código BF0000");
+  assert.equal(new Set(codes).size, codes.length, "sem repetir");
+  assert.equal(Object.keys(META_CONTENT_IDS).length, bioProducts.length, "nenhum código sobrando");
+  // fixos: o catálogo e os públicos da Meta dependem disso
+  assert.equal(META_CONTENT_IDS[bioProducts[0].slug], "BF0001");
+  assert.equal(META_CONTENT_IDS["pet-snack-floral-lambedura"], "BF0250");
+  assert.equal(metaContentId(NORMAL), META_CONTENT_IDS[NORMAL]);
+  assert.equal(metaContentId("nao-existe"), null);
+
+  const items = loadFeedItems();
+  assert.ok(items.every((item) => /^BF\d{4}$/.test(item.metaId)), "meta.csv só com código neutro");
+  const [, ...rows] = renderMetaFeedCsv(items).trim().split("\n");
+  assert.ok(rows.every((row, i) => row.startsWith(`${items[i].metaId},`)), "1ª coluna do meta.csv = código neutro");
+  // o Google Merchant continua com o id de sempre
+  assert.ok(renderGoogleFeedXml(items, "https://www.bioflorais.com.br").includes(`<g:id>${feedItemId(NORMAL)}</g:id>`));
+});
+
+test("Meta: lista de sensíveis = a MESMA dos feeds (FEED_AD_EXCLUDED_SLUGS); página de produto sensível sem nenhum evento; isPixelPath intocado", () => {
+  for (const product of bioProducts) {
+    assert.equal(isMetaSensitiveProductSlug(product.slug), FEED_AD_EXCLUDED_SLUGS.some((pattern) => pattern.test(product.slug)), product.slug);
+  }
+
+  assert.equal(productSlugFromPath(`/produto/${SENSITIVE}`), SENSITIVE);
+  assert.equal(productSlugFromPath("/linha/adulto"), null);
+  assert.equal(isMetaPixelPath(`/produto/${SENSITIVE}`), false);
+  assert.equal(isMetaPixelPath(`/produto/${SENSITIVE}/`), false);
+  assert.equal(isMetaPixelPath(`/produto/${SENSITIVE}?oppref=abc`), false);
+  assert.equal(isMetaPixelPath(`/produto/${NORMAL}`), true);
+  for (const path of ["/", "/linha/adulto", "/carrinho", "/checkout", "/para/pet-sozinho", "/quiz"]) assert.equal(isMetaPixelPath(path), true, path);
+  for (const path of ["/admin", "/api/x"]) assert.equal(isMetaPixelPath(path), false, path);
+
+  // isPixelPath (ChatGPT Ads, oppref, GPT10, Image Tag) continua liberando a página sensível: só a Meta sai dela
+  assert.equal(isPixelPath(`/produto/${SENSITIVE}`), true);
+  assert.ok(!read("src/lib/ads-tag.ts").includes("meta-privacy"), "ads-tag.ts não depende da privacidade da Meta");
+
+  assert.deepEqual(metaAllowedProductSlugs([NORMAL, SENSITIVE, "nao-existe", null]), [NORMAL]);
+});
+
+test("Meta: ViewContent/AddToCart de produto sensível não existem; InitiateCheckout/Purchase com valor, moeda e quantidade total, sem os sensíveis", () => {
+  assert.equal(metaViewContentEvent({ slug: SENSITIVE, priceCents: 3590 }), null);
+  assert.equal(metaAddToCartEvent(SENSITIVE), null);
+  assert.equal(metaAddToCartEvent("nao-existe"), null);
+
+  const ic = metaInitiateCheckoutEvent({ valueCents: 10770, items: [{ slug: NORMAL, qty: 2 }, { slug: SENSITIVE, qty: 1 }] });
+  assert.deepEqual(ic.params, { value: 107.7, currency: "BRL", content_type: "product", content_ids: [META_CONTENT_IDS[NORMAL]], num_items: 3 });
+
+  const onlySensitive = metaInitiateCheckoutEvent({ valueCents: 3590, items: [{ slug: SENSITIVE, qty: 1 }] });
+  assert.deepEqual(onlySensitive.params, { value: 35.9, currency: "BRL", num_items: 1 }, "sem content_ids nem content_type");
+
+  const purchase = metaPurchaseEvent({ orderId: "pedido-1", valueCents: 10340, items: [{ id: NORMAL, quantity: 2, priceCents: 3590 }, { id: SENSITIVE, quantity: 1, priceCents: 3590 }] });
+  assert.deepEqual(purchase.params, {
+    value: 103.4,
+    currency: "BRL",
+    content_type: "product",
+    content_ids: [META_CONTENT_IDS[NORMAL]],
+    contents: [{ id: META_CONTENT_IDS[NORMAL], quantity: 2, item_price: 35.9 }],
+    num_items: 3,
+  });
+  assert.equal(purchase.eventId, "pedido-1", "deduplicação mantida");
+  assert.deepEqual(metaPurchaseEvent({ orderId: "p2", valueCents: 3590, items: [{ id: SENSITIVE, quantity: 1, priceCents: 3590 }] }).params, { value: 35.9, currency: "BRL", num_items: 1 });
+
+  // nenhum evento leva slug, nome, categoria ou dado pessoal
+  const all = JSON.stringify([ic, onlySensitive, purchase, metaViewContentEvent({ slug: NORMAL, priceCents: 3590 }), metaAddToCartEvent(NORMAL)]);
+  assert.ok(!/content_name|content_category|floral|sono|panico|@|cpf|email|phone|telefone|nome|endere|cep|quiz|search/i.test(all), all);
+
+  // o Google continua igual (id do Merchant, todos os itens)
+  const google = googlePurchaseEvent({ orderId: "p3", valueCents: 7180, items: [{ id: NORMAL, quantity: 1, priceCents: 3590 }, { id: SENSITIVE, quantity: 1, priceCents: 3590 }] });
+  assert.deepEqual(google.params.items.map((item) => item.item_id), [feedItemId(NORMAL), feedItemId(SENSITIVE)]);
+});
+
+test("Meta (fiação): sem content_name no código; pixel sem leitura automática e sem PageView automático; PageView e todo evento bloqueados na página sensível; aceite preservado", () => {
+  for (const file of ["src/lib/measurement.ts", "src/lib/measurement-client.ts", "src/components/measurement/MetaPixel.tsx", "src/components/measurement/ViewContentEvent.tsx", "src/components/measurement/PurchaseMeasurement.tsx", "src/components/cart/CartProvider.tsx", "src/app/checkout/page.tsx"]) {
+    const src = read(file);
+    assert.ok(!src.includes("content_name") && !src.includes("content_category"), file);
+  }
+
+  const client = read("src/lib/measurement-client.ts");
+  assert.ok(client.includes('window.fbq("set", "autoConfig", false, pixelId);'), "autoConfig desligado");
+  assert.ok(client.indexOf('"autoConfig", false') < client.indexOf('window.fbq("init", pixelId)'), "antes do init");
+  assert.ok(client.includes("disablePushState = true"), "sem PageView automático nas trocas de página");
+  assert.ok(client.includes("if (!isMetaPixelPath(window.location.pathname)) return false;"), "nenhum evento na página sensível");
+  assert.ok(client.includes("!marketingAllowed()"), "aceite de marketing continua obrigatório");
+
+  const pixel = read("src/components/measurement/MetaPixel.tsx");
+  assert.ok(pixel.includes('if (isMetaPixelPath(pathRef.current)) trackMeta("PageView", {});'), "PageView da 1ª página");
+  assert.ok(pixel.includes('isMetaPixelPath(pathname)) trackMeta("PageView", {});'), "PageView nas trocas de página, menos a sensível");
+  assert.ok(pixel.includes("consent && isPixelPath(pathRef.current)"), "instala nas mesmas páginas de antes (depois do aceite)");
+
+  assert.ok(read("src/components/cart/CartProvider.tsx").includes("if (event) trackMeta(event.name, event.params);"));
+  assert.ok(read("src/components/measurement/ViewContentEvent.tsx").includes("metaViewContentEvent({ slug, priceCents })"));
+  assert.ok(read("src/app/produto/[slug]/page.tsx").includes("<ViewContentEvent slug={product.slug} priceCents={product.priceCents} />"));
 });
