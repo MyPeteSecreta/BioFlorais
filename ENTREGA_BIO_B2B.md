@@ -1761,3 +1761,44 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 
   No checkout aparece "Cupom da parceira registrado: a criadora recebe a comissão; o desconto que vale é o do Esquenta Black". O evento da parceira manda desconto 0 e a comissão. O total pago e o Omie não mudam. Só com o OK do Luis.
 - **JSON-LD com o preço do site:** fica para depois (mestre).
+
+## 05–06/11 (ordens da mestre, pelo Luis): cupom novo, privacidade do pixel da Meta e frete B2B (sem push)
+
+### Cupom x Esquenta/Black (`3140502`)
+- **Regra do Luis:** o cupom comercial (GPT10, FLORESCE20...) **soma** com o Esquenta/Black, aplicado sobre o preço já com desconto. No cupom da criadora vale o **maior desconto**, ou seja, o caminho mais barato para a cliente; no empate fica a campanha. Se a campanha vencer, a criadora fica registrada (partner_id, cupom, comissão) com desconto 0 e recebe a comissão sobre os produtos com a campanha e o comercial, antes do Pix e sem frete. O evento da parceira sai com desconto 0.
+- **Uma função para tudo:** `decideCampaignCoupons` (`src/lib/campaign/esquenta-black.ts`), usada pelo servidor (`/api/orders/create`) e pelo checkout. A sacola mostra só a campanha (não tem campo de cupom). O comercial é validado sobre o valor com a campanha; a criadora, no cenário do preço do site.
+- **Omie:** sem mudança. A identidade subtotal + frete − total continua batendo (o subtotal fica pelo preço do site e todos os descontos vão em `discount_cents`).
+- **Exemplo aprovado pelo Luis** (2 florais de R$ 35,90; comissão de 10%):
+
+| Caso | O que vale | Produtos | No Pix | Comissão |
+|---|---|---|---|---|
+| Esquenta + GPT10 | Esquenta −7,18 e GPT10 −6,46 | R$ 58,16 | R$ 55,83 | – |
+| Esquenta + criadora 15% | criadora −10,77 | R$ 61,03 | R$ 58,59 | R$ 6,10 |
+| Esquenta + criadora 10% (empate) | Esquenta −7,18 | R$ 64,62 | R$ 62,04 | R$ 6,46 |
+| Esquenta + GPT10 + criadora 15% | preço do site, GPT10 −7,18 e criadora −9,69 | R$ 54,93 | R$ 52,73 | R$ 5,49 |
+| Black + criadora 15% | Black −17,94 | R$ 53,86 | R$ 51,71 | R$ 5,39 |
+
+### Privacidade do pixel da Meta (`7c4108b`)
+- `src/lib/meta-privacy.ts`: a lista de produtos sensíveis é a MESMA dos feeds (`FEED_AD_EXCLUDED_SLUGS`); `isMetaPixelPath` = `isPixelPath`, menos a página de produto sensível. O `isPixelPath` não mudou (ChatGPT Ads, oppref, GPT10 e Image Tag continuam iguais).
+- **Código neutro e fixo** `BF0001`…`BF0250` (`src/lib/feeds/meta-content-ids.ts`, aprovado pelo Luis; não gerar de novo, produto novo entra no fim). Vale nos `content_ids` e na 1ª coluna do `/feeds/meta.csv`. O Google Merchant continua com o id de `feed-id.ts`.
+- Nunca vão `content_name` nem `content_category`. Na página de produto sensível não sai nenhum evento da Meta: `trackMeta` bloqueia, inclusive o AddToCart de outro produto feito nela. ViewContent e AddToCart de item sensível não existem. InitiateCheckout e Purchase levam valor, moeda e quantidade total, com só os itens não sensíveis identificados; pedido só com sensíveis vai sem `content_ids`.
+- **Decisão do Luis:** leitura automática desligada (`autoConfig` false, antes do `init`) e sem PageView automático do pixel (`disablePushState`). O PageView nas trocas de página continua pelo `MetaPixel.tsx`, menos na página sensível. Aceite de marketing preservado.
+- Ficou registrado: o pixel manda a URL da página em todo evento (inerente ao pixel); nas páginas sensíveis nada é enviado.
+- Google Ads, Analytics, checkout, Merchant e eventos internos intocados (teste cobra).
+
+### Frete B2B (`5343437`)
+- **Regra do Luis:** base = produtos depois da promoção e do cupom. Abaixo de R$ 450, a modalidade mais barata = min(tarifa regional, preço real): R$ 9,90 Sul/Sudeste, R$ 35,90 Centro-Oeste/Nordeste, R$ 169,90 Norte/Ceará. A partir de R$ 450, a mais barata é grátis. As outras ficam no preço cheio. UF sem região continua com tudo no preço real. Pedido mínimo e mostruário não mudam.
+- `applyB2BCheapestModalityRule` (`src/lib/b2b/pricing.ts`), lida pela cotação (`src/lib/b2b/quote.ts`), que o pedido e a tela usam.
+- **Textos (iguais aos da My Pet):**
+  - faixas (hero, catálogo, topo do checkout): "Frete especial na opção econômica · grátis a partir de R$ 450";
+  - sacola: "Faltam R$ X para o frete GRÁTIS na opção econômica." / "Frete GRÁTIS na opção econômica!";
+  - checkout, depois do CEP e abaixo de R$ 450: "Opção econômica com frete especial: R$ 9,90." (valor da região);
+  - termos do vendedor: "frete especial na opção econômica e grátis a partir de R$ 450 em pedidos elegíveis";
+  - mensagens ao lojista: "frete grátis" só junto de "na opção econômica a partir de R$ 450".
+- A página pública "Frete e entrega" é só do B2C e não fala do B2B; não mudou. A sacola B2B não calcula CEP, então a nota da região aparece só no checkout.
+
+### Registrado para depois (não feito)
+- Tela "Sua sacola está vazia" piscando por cerca de 1 s ao tocar em "Comprar agora".
+- Etapas de pagamento no evento `checkout_etapa`: Pix gerado/expirado/pago, erro, cartão aprovado/recusado.
+
+**Testes:** tsc sem erros; `npm test` **502/502** (com `DATABASE_URL` fictício no ambiente: sem ele, 4 arquivos de banco falham antes de rodar); `next build` OK; `git diff --check` limpo.
