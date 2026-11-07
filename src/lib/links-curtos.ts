@@ -72,6 +72,12 @@ export const LINKS_CURTOS: Readonly<Record<string, LinkCurto>> = Object.fromEntr
   instagramStory("cosmeticos-pet", "/linha/cosmeticos-pet"),
   instagramStory("home-care", "/linha/home-care"),
   instagramStory("black", "/"),
+
+  // 07/11: menopausa e estudante (Facebook e Story)
+  facebookOrganico("menopausa", "/produto/adulto-floral-em-gotas-fase-da-menopausa"),
+  facebookOrganico("estudante", "/produto/adulto-floral-em-gotas-momento-do-estudante"),
+  instagramStory("menopausa", "/produto/adulto-floral-em-gotas-fase-da-menopausa"),
+  instagramStory("estudante", "/produto/adulto-floral-em-gotas-momento-do-estudante"),
 ]);
 
 /** Destino quando o código não existe (ou a linha da tabela está errada). */

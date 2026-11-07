@@ -108,7 +108,7 @@ test("Story do Instagram (07/11): ig-<codigo> com os mesmos destinos; instagram 
   // utm_content que chega no link não sobrescreve
   const location = new URL((await call("ig-sono", "?utm_content=outro")).headers.get("location"));
   assert.deepEqual(location.searchParams.getAll("utm_content"), ["story"]);
-  assert.equal(Object.keys(LINKS_CURTOS).length, 34, "8 + 9 códigos, cada um com /v/ e /v/ig-");
+  assert.equal(Object.keys(LINKS_CURTOS).length, 38, "8 + 9 + 2 códigos, cada um com /v/ e /v/ig-");
 });
 
 test("mais 9 códigos (07/11), cada um no Facebook e no Story; destinos existem (o 1º teste confere todos)", async () => {
@@ -131,4 +131,18 @@ test("mais 9 códigos (07/11), cada um no Facebook e no Story; destinos existem 
 
   assert.equal((await call("cosmeticos-pet")).headers.get("location"), "https://www.bioflorais.com.br/linha/cosmeticos-pet?utm_source=facebook&utm_medium=organic&utm_campaign=org_cosmeticos-pet");
   assert.equal((await call("ig-sos")).headers.get("location"), "https://www.bioflorais.com.br/produto/pet-floral-em-gotas-s-o-s?utm_source=instagram&utm_medium=organic&utm_campaign=org_ig_sos&utm_content=story");
+});
+
+test("menopausa e estudante (07/11), no Facebook e no Story", async () => {
+  const NOVOS = {
+    menopausa: "/produto/adulto-floral-em-gotas-fase-da-menopausa",
+    estudante: "/produto/adulto-floral-em-gotas-momento-do-estudante",
+  };
+
+  for (const [codigo, destino] of Object.entries(NOVOS)) {
+    assert.deepEqual(LINKS_CURTOS[codigo], { destino, utm_source: "facebook", utm_medium: "organic", utm_campaign: `org_${codigo}` }, codigo);
+    assert.deepEqual(LINKS_CURTOS[`ig-${codigo}`], { destino, utm_source: "instagram", utm_medium: "organic", utm_campaign: `org_ig_${codigo}`, utm_content: "story" }, `ig-${codigo}`);
+  }
+
+  assert.equal((await call("menopausa")).headers.get("location"), "https://www.bioflorais.com.br/produto/adulto-floral-em-gotas-fase-da-menopausa?utm_source=facebook&utm_medium=organic&utm_campaign=org_menopausa");
 });
