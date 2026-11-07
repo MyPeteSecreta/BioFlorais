@@ -85,3 +85,16 @@ test("sacola vazia piscando (06/11): /checkout e /carrinho mostram esqueleto enq
   assert.ok(!skeleton.slice(skeleton.indexOf("export default")).includes("vazia") && skeleton.includes('data-testid="sacola-carregando"'));
   assert.ok(ANALYTICS_EVENTS.includes("checkout_visto"));
 });
+
+test("aviso de cookies no /checkout (decisão do Luis 06/11): no celular e no tablet vai para o TOPO, sem tampar a barra do botão de pagar nem o CPF; botões iguais; fora do checkout, o lugar de sempre", () => {
+  const norm = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const banner = norm("src/components/consent/CookieBanner.tsx");
+  assert.ok(banner.includes('=== "/checkout";'));
+  assert.ok(banner.includes('? "top-2 sm:inset-x-auto sm:left-4 sm:top-4 lg:top-auto lg:bottom-4"'), "checkout: topo até o lg (onde a barra fixa existe)");
+  assert.ok(banner.includes(': "bottom-2 sm:inset-x-auto sm:bottom-4 sm:left-4";'), "demais páginas: rodapé, como antes");
+  for (const label of ["Aceitar", "Recusar", "Configurar"]) assert.ok(banner.includes(label), label);
+
+  const checkout = norm("src/app/checkout/page.tsx");
+  assert.ok(checkout.includes('className="fixed inset-x-0 bottom-0 z-[65]') && checkout.includes("lg:hidden"), "a barra fixa só existe abaixo do lg");
+  assert.ok(!checkout.includes("usado na nota fiscal"), "CPF sem mudança");
+});

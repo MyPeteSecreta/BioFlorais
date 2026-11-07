@@ -52,12 +52,20 @@ export default function CookieBanner() {
   // Só aparece onde o pixel pode rodar (B2C e páginas do lojista); nunca no admin nem na área do vendedor.
   if (!open || !isPixelPath(pathname)) return null;
 
+  // /checkout no celular e no tablet (onde existe a barra fixa do botão de pagar): o aviso fica no TOPO, para não tampar a
+  // barra do "Continuar" nem o campo CPF (decisão do Luis 06/11). No computador (sem barra fixa), o lugar de sempre.
+  const onCheckout = String(pathname ?? "").split("?")[0].replace(/\/+$/, "") === "/checkout";
+  const position = onCheckout
+    ? "top-2 sm:inset-x-auto sm:left-4 sm:top-4 lg:top-auto lg:bottom-4"
+    : "bottom-2 sm:inset-x-auto sm:bottom-4 sm:left-4";
+
   return (
     <div
       role="dialog"
       aria-label="Preferências de cookies"
       data-testid="cookie-banner"
-      className="fixed inset-x-2 bottom-2 z-[200] mx-auto max-w-[440px] rounded-[20px] border border-[#eadfd9] bg-white p-3 text-[#422347] shadow-[0_12px_36px_rgba(61,35,65,0.18)] sm:inset-x-auto sm:bottom-4 sm:left-4 sm:mx-0"
+      data-position={onCheckout ? "checkout-topo" : "rodape"}
+      className={`fixed inset-x-2 ${position} z-[200] mx-auto max-w-[440px] rounded-[20px] border border-[#eadfd9] bg-white p-3 text-[#422347] shadow-[0_12px_36px_rgba(61,35,65,0.18)] sm:mx-0`}
     >
       {!settings && (
         <p className="text-[13px] leading-snug text-[#6c5b69]">
