@@ -24,7 +24,8 @@ export const CAMPAIGN_PHASES: readonly CampaignPhase[] = [
     key: "esquenta",
     percent: 10,
     priceLabel: "Preço Esquenta Black",
-    strip: "Esquenta Black: 10% em tudo até 26/11",
+    // Faixa sem o percentual (Luis, 07/11): o desconto aparece no preço riscado do produto.
+    strip: "Esquenta Black em tudo até 26/11 · Frete grátis a partir de R$ 70",
     startsAtMs: Date.parse("2026-11-04T00:00:00-03:00"),
     endsAtMs: Date.parse("2026-11-26T23:59:59.999-03:00"),
   },
@@ -32,7 +33,8 @@ export const CAMPAIGN_PHASES: readonly CampaignPhase[] = [
     key: "black",
     percent: 25,
     priceLabel: "Preço Black",
-    strip: "Black Friday: 25% em tudo até 30/11",
+    // Sem percentual até o Luis definir o "até X%".
+    strip: "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70",
     startsAtMs: Date.parse("2026-11-27T00:00:00-03:00"),
     endsAtMs: Date.parse("2026-11-30T23:59:59.999-03:00"),
   },

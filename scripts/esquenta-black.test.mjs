@@ -41,7 +41,11 @@ test("datas em São Paulo: Esquenta de 04/11 00:00 a 26/11 23:59; Black de 27/11
   assert.equal(black.percent, 25);
   assert.equal(esquenta.priceLabel, "Preço Esquenta Black");
   assert.equal(black.priceLabel, "Preço Black");
-  assert.equal(esquenta.strip, "Esquenta Black: 10% em tudo até 26/11");
+  assert.equal(esquenta.strip, "Esquenta Black em tudo até 26/11 · Frete grátis a partir de R$ 70");
+  assert.equal(black.strip, "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70");
+  // a faixa não destaca o percentual (07/11); o desconto continua no preço
+  for (const phase of CAMPAIGN_PHASES) assert.ok(!/%/.test(phase.strip), phase.key);
+  assert.deepEqual(CAMPAIGN_PHASES.map((phase) => phase.percent), [10, 25]);
 });
 
 test("preço: percentual sobre o preço do site, ao centavo; Pix (4%) sobre o valor já com desconto", () => {
