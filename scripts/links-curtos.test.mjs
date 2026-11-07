@@ -92,3 +92,21 @@ test("atribuição igual a um link normal: a URL de destino traz a UTM que o bio
 
   assert.equal(resolveLegacyRedirect("/v/fogos"), null, "o middleware de URLs antigas não mexe no /v");
 });
+
+test("Story do Instagram (07/11): ig-<codigo> com os mesmos destinos; instagram / organic / org_ig_<codigo> / utm_content=story", async () => {
+  for (const [codigo, destino] of Object.entries(ESPERADOS)) {
+    assert.deepEqual(LINKS_CURTOS[`ig-${codigo}`], { destino, utm_source: "instagram", utm_medium: "organic", utm_campaign: `org_ig_${codigo}`, utm_content: "story" }, `ig-${codigo}`);
+    assert.equal(LINKS_CURTOS[codigo].destino, LINKS_CURTOS[`ig-${codigo}`].destino, "mesmo destino do código sem ig-");
+    assert.equal(LINKS_CURTOS[codigo].utm_content, undefined, "Facebook sem utm_content");
+  }
+
+  assert.equal(
+    (await call("ig-fogos")).headers.get("location"),
+    "https://www.bioflorais.com.br/produto/pet-floral-em-gotas-medo-de-fogos?utm_source=instagram&utm_medium=organic&utm_campaign=org_ig_fogos&utm_content=story"
+  );
+  assert.equal((await call("IG-Esquenta")).headers.get("location"), "https://www.bioflorais.com.br/?utm_source=instagram&utm_medium=organic&utm_campaign=org_ig_esquenta&utm_content=story");
+  // utm_content que chega no link não sobrescreve
+  const location = new URL((await call("ig-sono", "?utm_content=outro")).headers.get("location"));
+  assert.deepEqual(location.searchParams.getAll("utm_content"), ["story"]);
+  assert.equal(Object.keys(LINKS_CURTOS).length, 16);
+});
