@@ -43,7 +43,8 @@ test("referrer: só o domínio (sem www, sem caminho/query); site próprio e esq
   assert.equal(at.referrerDomain("https://www.google.com/search?q=floral&x=1"), "google.com");
   assert.equal(at.referrerDomain("https://chatgpt.com/c/abc"), "chatgpt.com");
   assert.equal(at.referrerDomain("https://www.bioflorais.com.br/linha/adulto", "bioflorais.com.br"), null, "navegação interna");
-  assert.equal(at.referrerDomain("android-app://com.instagram.android"), null);
+  assert.equal(at.referrerDomain("javascript:alert(1)"), null);
+  assert.equal(at.referrerDomain("ftp://x.com/a"), null);
   assert.equal(at.referrerDomain("não é url"), null);
   assert.equal(at.referrerDomain(""), null);
 });
@@ -176,4 +177,48 @@ test("ligações: captura no layout, gravação nos dois pedidos, origem e expor
     assert.ok(page.includes("não é compartilhado com terceiros"), file);
   }
   assert.ok(!read("src/components/consent/CookieBanner.tsx").includes("Sem cookies"), "Análise não diz mais 'Sem cookies'");
+});
+
+test("referrer de app Android (07/11): android-app://<pacote> grava só o pacote (cookie, pedido e origem do Analytics); primeiro toque e oppref iguais", async () => {
+  const { eventProps } = await import("../src/lib/analytics-events.ts");
+
+  assert.equal(at.referrerDomain("android-app://com.openai.chatgpt"), "com.openai.chatgpt");
+  assert.equal(at.referrerDomain("android-app://com.instagram.android"), "com.instagram.android");
+  assert.equal(at.referrerDomain("android-app://com.facebook.katana/"), "com.facebook.katana");
+  assert.equal(at.referrerDomain("android-app://com.google.android.gm/https/mail.google.com/x?y=1"), "com.google.android.gm", "sem caminho nem query");
+  assert.equal(at.referrerDomain("ANDROID-APP://Com.OpenAI.ChatGPT"), "com.openai.chatgpt");
+  assert.equal(at.referrerDomain("https://l.instagram.com/?u=x"), "l.instagram.com", "web continua igual");
+  assert.equal(at.referrerDomain(""), null);
+  assert.equal(at.referrerDomain(null), null);
+  for (const bad of ["android-app://", "android-app://semponto", "android-app://com.x<script>", "android-app://com..x", "android-app://1com.x"]) {
+    assert.equal(at.referrerDomain(bad), null, bad);
+  }
+
+  // cookie bio_origem com o pacote, e a origem do Analytics usa o mesmo valor
+  const { env, writes } = fakeEnv({ search: "", referrer: "android-app://com.openai.chatgpt" });
+  assert.equal(at.captureAttribution(env), "set");
+  const saved = at.readAttributionCookie(writes[0].split(";")[0]);
+  assert.deepEqual(saved, { utm_source: null, utm_medium: null, utm_campaign: null, referrer_domain: "com.openai.chatgpt" });
+  assert.deepEqual(eventProps(writes[0].split(";")[0]), { origem: "com.openai.chatgpt", campanha: "nenhuma" });
+
+  // vazio: continua "direto" e nada é gravado
+  const empty = fakeEnv({ search: "", referrer: "" });
+  assert.equal(at.captureAttribution(empty.env), "none");
+  assert.equal(empty.writes.length, 0);
+  assert.deepEqual(eventProps(""), { origem: "direto", campanha: "nenhuma" });
+
+  // primeiro toque: quem já tem origem não troca pelo app
+  const first = fakeEnv({ search: "?utm_source=facebook&utm_medium=organic&utm_campaign=org_fogos", referrer: "" });
+  at.captureAttribution(first.env);
+  const again = fakeEnv({ search: "", referrer: "android-app://com.instagram.android", cookie: first.writes[0].split(";")[0] });
+  assert.equal(at.captureAttribution(again.env), "kept");
+  assert.equal(again.writes.length, 0);
+
+  // UTM continua valendo junto com o pacote
+  assert.deepEqual(at.parseAttribution("?utm_source=chatgpt.com", "android-app://com.openai.chatgpt", "bioflorais.com.br"), {
+    utm_source: "chatgpt.com",
+    utm_medium: null,
+    utm_campaign: null,
+    referrer_domain: "com.openai.chatgpt",
+  });
 });

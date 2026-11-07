@@ -39,10 +39,24 @@ export function hasAttribution(attribution: Attribution | null | undefined): boo
 
 const bareHost = (host: string) => host.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
 
-/** Só o domínio do referrer (sem caminho nem query); null se vazio, inválido ou do próprio site. */
+/** Pacote de app Android (ex.: com.openai.chatgpt): letras, números e "_", com pelo menos um ponto. */
+const ANDROID_PACKAGE = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
+
+/**
+ * Só o domínio do referrer (sem caminho nem query); null se vazio, inválido ou do próprio site.
+ * Clique vindo de app Android chega como android-app://<pacote>[/...] (ChatGPT, Instagram, Facebook...): grava só o
+ * pacote (ex.: "com.openai.chatgpt"), que não é dado pessoal (07/11; antes virava "Direto").
+ */
 export function referrerDomain(referrer: string | null | undefined, ownHostname?: string | null): string | null {
   const raw = String(referrer ?? "").trim();
   if (!raw) return null;
+
+  const app = /^android-app:\/\/([^/?#]+)/i.exec(raw);
+  if (app) {
+    const pkg = app[1].toLowerCase();
+
+    return ANDROID_PACKAGE.test(pkg) ? cleanField(pkg) : null;
+  }
 
   try {
     const url = new URL(raw);
