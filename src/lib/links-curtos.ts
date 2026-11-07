@@ -51,6 +51,27 @@ export const LINKS_CURTOS: Readonly<Record<string, LinkCurto>> = Object.fromEntr
   instagramStory("adulto", "/linha/adulto"),
   instagramStory("infantil", "/linha/infantil"),
   instagramStory("esquenta", "/"),
+
+  // 07/11: mais 9 (Facebook e Story)
+  facebookOrganico("pet-ansiedade", "/produto/pet-floral-em-gotas-ansiedade"),
+  facebookOrganico("viagem", "/produto/pet-floral-em-gotas-viagens"),
+  facebookOrganico("sos", "/produto/pet-floral-em-gotas-s-o-s"),
+  facebookOrganico("stress", "/produto/adulto-floral-em-gotas-stress"),
+  facebookOrganico("infantil-sono", "/produto/infantil-floral-em-gotas-sono"),
+  facebookOrganico("cosmeticos", "/linha/cosmeticos"),
+  facebookOrganico("cosmeticos-pet", "/linha/cosmeticos-pet"),
+  facebookOrganico("home-care", "/linha/home-care"),
+  facebookOrganico("black", "/"),
+
+  instagramStory("pet-ansiedade", "/produto/pet-floral-em-gotas-ansiedade"),
+  instagramStory("viagem", "/produto/pet-floral-em-gotas-viagens"),
+  instagramStory("sos", "/produto/pet-floral-em-gotas-s-o-s"),
+  instagramStory("stress", "/produto/adulto-floral-em-gotas-stress"),
+  instagramStory("infantil-sono", "/produto/infantil-floral-em-gotas-sono"),
+  instagramStory("cosmeticos", "/linha/cosmeticos"),
+  instagramStory("cosmeticos-pet", "/linha/cosmeticos-pet"),
+  instagramStory("home-care", "/linha/home-care"),
+  instagramStory("black", "/"),
 ]);
 
 /** Destino quando o código não existe (ou a linha da tabela está errada). */
