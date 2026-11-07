@@ -1826,3 +1826,9 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - **Atribuição:** igual a um link normal. A página de destino lê a UTM e grava o `bio_origem` (first-touch, 30 dias), que vai para o pedido. O `fbclid` e outros parâmetros seguem junto, mas os `utm_*` da tabela vencem.
 - Para acrescentar um link: uma linha nova na tabela, rodar `scripts/links-curtos.test.mjs` (confere que o produto ou a linha existem) e fazer o deploy.
 - **Testes:** tsc sem erros; `npm test` **507/507**; build OK (rota `ƒ /v/[codigo]`).
+
+## 07/11 (mestre, decisão do Luis): aviso de cookies no /checkout do celular (`cb95886`, sem push)
+- No `/checkout`, no celular e no tablet (até o `lg`, onde existe a barra fixa do botão de pagar), o aviso de cookies vai para o **topo** da tela. A 375 px ele ocupa de 8 a 120 px; a barra do "Continuar com Pix" (736–812 px) fica livre e o aviso não tampa o campo CPF. No computador e nas demais páginas, o aviso fica onde sempre esteve (conferido em `/sobre`: rodapé). Os botões Aceitar, Recusar e Configurar não mudaram.
+- **CPF:** sem mudança, por decisão do Luis (sem a frase "usado na nota fiscal").
+- Print a 375 px: `C:\Users\User\PROMPTS_B2B\prints_checkout_carregando\checkout_aviso_cookies_no_topo_375.jpg`.
+- **Testes:** tsc sem erros; `npm test` **508/508**; build OK.
