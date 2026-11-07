@@ -96,6 +96,11 @@ export const bioCommercialOrder = {
       "pet-floral-em-gotas-reequilibrio-alimentar",
     ],
   },
+  // Baby (07/11, Luis): o Sono vem primeiro; os demais seguem a ordem do catálogo.
+  baby: {
+    featuredCount: 1,
+    slugs: ["baby-floral-em-gotas-sono"],
+  },
 } as const;
 
 

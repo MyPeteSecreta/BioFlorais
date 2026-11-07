@@ -1277,6 +1277,10 @@ function getCommercialOrder(
     return bioCommercialOrder.pet.slugs;
   }
 
+  if (lineSlug === "baby") {
+    return bioCommercialOrder.baby.slugs;
+  }
+
   return null;
 }
 function isHairPairCategory(
