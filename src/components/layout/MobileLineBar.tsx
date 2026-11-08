@@ -10,12 +10,12 @@ const lines = [
     "href": "/linha/pet"
   },
   {
-    "name": "Infantil",
-    "href": "/linha/infantil"
-  },
-  {
     "name": "Baby",
     "href": "/linha/baby"
+  },
+  {
+    "name": "Infantil",
+    "href": "/linha/infantil"
   },
   {
     "name": "Kids",

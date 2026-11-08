@@ -29,14 +29,15 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: [OG_IMAGES.home] },
 };
 
+// Baby primeiro (Luis, 07/11): Baby, Infantil, Kids.
 const rowTwo = [
-  {
-    name: "Infantil",
-    image: "/assets/home/linhas/Infantil.png",
-  },
   {
     name: "Baby",
     image: "/assets/home/linhas/Baby.png",
+  },
+  {
+    name: "Infantil",
+    image: "/assets/home/linhas/Infantil.png",
   },
   {
     name: "Kids",
@@ -469,16 +470,16 @@ export default function Home() {
             />
           </div>
 
-          {/* 2ª LINHA */}
+          {/* 2ª LINHA (celular): Baby primeiro (Luis, 07/11) */}
           <div className="mt-4 grid gap-4 md:hidden">
-            <VisualLineCard
-              name="Infantil"
-              image="/assets/home/linhas/Infantil.png"
-            />
-
             <VisualLineCard
               name="Baby"
               image="/assets/home/linhas/Baby.png"
+            />
+
+            <VisualLineCard
+              name="Infantil"
+              image="/assets/home/linhas/Infantil.png"
             />
 
             <div className="rounded-[22px] bg-white px-4 py-5">
