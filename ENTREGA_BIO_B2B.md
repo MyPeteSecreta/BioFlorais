@@ -1832,3 +1832,11 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - **CPF:** sem mudança, por decisão do Luis (sem a frase "usado na nota fiscal").
 - Print a 375 px: `C:\Users\User\PROMPTS_B2B\prints_checkout_carregando\checkout_aviso_cookies_no_topo_375.jpg`.
 - **Testes:** tsc sem erros; `npm test` **508/508**; build OK.
+
+## 07–08/11 (mestre): Story, origem de app, faixa, ordem e links (sem push)
+- `58f2460` e `cb04f74`, `ac21f8e` · links curtos: códigos `ig-` (Story), mais 9 e menopausa/estudante; 38 entradas na tabela `src/lib/links-curtos.ts`.
+- `48c093a` · origem: `android-app://<pacote>` grava o pacote como `referrer_domain` em vez de virar Direto.
+- `509d9c7` · linha Baby com o Sono primeiro (mostruário B2B sem mudança).
+- `b75e9d8` · faixa sem percentual: "Esquenta Black em tudo até 26/11 · Frete grátis a partir de R$ 70" e "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70". Desconto e preço riscado sem mudança.
+- Baby antes de Infantil e Kids na home (computador e celular) e na barra de linhas do celular.
+- **Testes:** tsc sem erros; `npm test` **515/515**; `next build` OK.
