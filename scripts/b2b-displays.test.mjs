@@ -181,7 +181,10 @@ test("frete soma 200 g (30 × 30 × 3 cm); observação do Omie; display não vi
 test("fotos: nome fixo em public/b2b/displays; sem arquivo o card usa a imagem da linha; adulto-compacto já publicada", () => {
   assert.ok(existsSync(new URL("../public/b2b/displays/adulto-compacto.webp", import.meta.url)));
   assert.equal(server.displayPhotoUrl("adulto-compacto"), "/b2b/displays/adulto-compacto.webp");
-  assert.equal(server.displayPhotoUrl("pet-12"), null);
+  // Pet 12: foto sem fundo do Luis (09/11), em webp com transparência
+  assert.ok(existsSync(new URL("../public/b2b/displays/pet-12.webp", import.meta.url)));
+  assert.equal(server.displayPhotoUrl("pet-12"), "/b2b/displays/pet-12.webp");
+  assert.equal(server.displayPhotoUrl("pet-30"), null, "Pet 30 e 44 seguem com a imagem da linha");
 
   const root = mkdtempSync(join(tmpdir(), "displays-"));
   mkdirSync(join(root, "public", "b2b", "displays"), { recursive: true });
@@ -215,6 +218,8 @@ test("cards de kit por linha: Adulto (compacto + escolha), Pet (escolha), demais
   assert.deepEqual(pet[0].options.map((option) => option.label), ["12", "30", "44"]);
   assert.deepEqual(pet[0].options.map((option) => option.units), [13, 30, 44]);
   assert.equal(pet[0].options[0].totalCents, 25870);
+  assert.equal(pet[0].options[0].photo, "/b2b/displays/pet-12.webp");
+  assert.equal(pet[0].options[1].photo, null);
   assert.equal(pet[0].options[0].summary, "13 unidades (12 no display + 1 Ansiedade de reposição) · display grátis");
 
   for (const line of ["baby", "kids", "teen", "infantil", "virtudes-divinas", "dose-unica"]) {
