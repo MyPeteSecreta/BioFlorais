@@ -5,6 +5,7 @@ import { createMercadoPagoCardAdapter } from "@angelblancdigital/payments";
 
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
+import { cardAttemptIdempotencyKey, cardDeclineMessage, outcomeFromAdapterError, outcomeFromPayload } from "@/lib/payments/card-decline";
 import { customers, orders, payments } from "@/lib/db/schema";
 
 export const runtime = "nodejs";
@@ -153,25 +154,50 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // BIO_MP_SERVER_IDEMPOTENCY_V1
-    // A identidade da tentativa de pagamento pertence ao servidor.
-    // Retry/F5/duplo envio do mesmo checkout_pending reutiliza a
-    // mesma chave no Mercado Pago.
-    const idempotencyKey =
-      `bio-card-order-${order.id}`;
+    // BIO_MP_SERVER_IDEMPOTENCY_V2 (09/11): a chave é POR TENTATIVA (pedido + token do cartão). O duplo envio do mesmo
+    // cartão reaproveita a chave; outra tentativa ou outro cartão não herda a recusa da anterior.
+    const idempotencyKey = cardAttemptIdempotencyKey(order.id, cardToken);
 const adapter = createMercadoPagoCardAdapter({
       accessToken,
     });
 
-    const result = await adapter.createPayment({
-      orderId: order.id,
-      amountCents: order.totalCents,
-      payerEmail: authoritativeEmail,
-      cardToken,
-      paymentMethodId,
-      installments,
-      idempotencyKey,
-    });
+    let result: Awaited<ReturnType<typeof adapter.createPayment>>;
+
+    try {
+      result = await adapter.createPayment({
+        orderId: order.id,
+        amountCents: order.totalCents,
+        payerEmail: authoritativeEmail,
+        cardToken,
+        paymentMethodId,
+        installments,
+        idempotencyKey,
+      });
+    } catch (paymentError) {
+      // Recusa do MP (ex.: 402 high_risk): grava a tentativa como "failed" com o motivo, sem token nem dado do cartão,
+      // e devolve uma mensagem clara (antes o cliente via o JSON do MP e nada ficava em payments).
+      const declined = outcomeFromAdapterError(paymentError);
+
+      if (!declined) throw paymentError;
+
+      console.error("[mercadopago/card] recusado", { orderId: order.id, ...declined });
+
+      await db.insert(payments).values({
+        orderId: order.id,
+        provider: "mercadopago",
+        externalId: declined.mpOrderId,
+        method: "card",
+        status: "failed",
+        rawPayload: { installments, paymentMethodId, ...declined },
+      });
+
+      return NextResponse.json(
+        { error: cardDeclineMessage(declined.mpStatusDetail), statusDetail: declined.mpStatusDetail },
+        { status: 402 }
+      );
+    }
+
+    const outcome = outcomeFromPayload(result.rawPayload);
 
     await db.insert(payments).values({
       orderId: order.id,
@@ -182,8 +208,15 @@ const adapter = createMercadoPagoCardAdapter({
       rawPayload: {
         installments,
         paymentMethodId,
+        mpStatus: outcome.mpStatus,
+        mpStatusDetail: outcome.mpStatusDetail,
       },
     });
+
+    // Recusa sem erro HTTP: a mesma mensagem clara.
+    if (result.status === "failed" || result.status === "cancelled") {
+      return NextResponse.json({ error: cardDeclineMessage(outcome.mpStatusDetail), statusDetail: outcome.mpStatusDetail }, { status: 402 });
+    }
 
     if (result.status === "paid") {
       // BIO_MP_SHARED_PAID_FINALIZER_CARD_V1
