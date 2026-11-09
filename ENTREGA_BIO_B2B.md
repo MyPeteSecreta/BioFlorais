@@ -1840,3 +1840,17 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - `b75e9d8` · faixa sem percentual: "Esquenta Black em tudo até 26/11 · Frete grátis a partir de R$ 70" e "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70". Desconto e preço riscado sem mudança.
 - Baby antes de Infantil e Kids na home (computador e celular) e na barra de linhas do celular.
 - **Testes:** tsc sem erros; `npm test` **515/515**; `next build` OK.
+
+## 09/11: CNPJ no campo CPF, display Pet 12, teste de boletos e correção do cartão B2C (sem push)
+- `a20d5e6` bio/b2b (publicado): CNPJ de 14 dígitos no campo CPF troca sozinho para Pessoa jurídica e o boleto volta, com aviso curto. O servidor segue sem boleto para PF.
+- `3360ba6` bio/b2b: foto sem fundo do display Pet 12 (aprovada pelo Luis) em `public/b2b/displays/pet-12.webp`, usada na opção 12 do card "Escolha seu display". Os PDFs ficam para depois.
+- `fc5ef81` bio/b2b: o teste de boletos usa data fixa (as parcelas de teste vencem em 07/11).
+- `f5e031e` bio/cartao: chave de idempotência por tentativa (pedido + token); a recusa do Mercado Pago entra em `payments` como "failed", com status, status_detail e HTTP (sem token nem dado do cartão); o cliente recebe uma mensagem clara conforme o motivo, em vez do JSON do MP. Teste `scripts/cartao-recusa.test.mjs` (4).
+- **Avaliação (item 4, nada ligado):**
+  - **Hoje vai ao MP:** só o e-mail do pagador, o token do cartão (o nome do titular vai dentro dele), as parcelas e o valor. Não vão CPF/CNPJ, telefone, endereço, itens nem identificação do aparelho.
+  - **Dados do pagador:** o servidor já tem nome, CPF/CNPJ, telefone e endereço do pedido. Mandar ao MP (payer.first_name/last_name, identification, phone, address) não exige mudar a tela, mas exige trocar a chamada do pacote `@angelblancdigital/payments`, que só manda o e-mail: uma chamada local à /v1/orders ou uma versão nova do pacote, usado também pelas outras marcas.
+  - **Identificação do aparelho:** o script de segurança do MP na página (`security.js`, view "checkout") e o cabeçalho `X-meli-session-id`. Pesa muito no antifraude; mexe na tela e na chamada.
+  - **3DS** (`transaction_security.validation = "on_fraud_risk"`): **exige a tela**. Quando o MP pede o desafio, a resposta vem como "ação necessária" com um endereço do banco, que a tela precisa abrir (iframe) e depois conferir o status. Sem isso, ligar o 3DS deixaria a compra parada. Esforço médio, a testar com cartões de teste do MP.
+  - **Proposta (mostrar ao Luis):** 1º dados do pagador + identificação do aparelho; 2º o 3DS com o desafio na tela.
+
+**Testes:** `tsc` sem erros; testes do cartão, do lembrete e do checkout 52/52; `next build` OK.
