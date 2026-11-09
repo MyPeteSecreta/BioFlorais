@@ -59,7 +59,8 @@ test("pedido arquivado: some por padrão, aparece (marcado) com includeArchived;
   assert.deepEqual(archived.map((i) => i.orderId), [UUID(12)]);
   assert.ok(withArchived.filter((item) => !item.archived).every((item) => item.archived === false));
 
-  const open = await loadBoletoInstallments(run, { status: "aberto" });
+  // data fixa: as parcelas de teste vencem em 07/11/2026; com a data de hoje elas viram "vencido" e o teste falhava sozinho
+  const open = await loadBoletoInstallments(run, { status: "aberto" }, new Date("2026-10-10T12:00:00Z"));
   assert.ok(open.length >= 6);
   assert.equal((await loadBoletoInstallments(run, { responsibleId: UUID(2) })).length, 6);
 });
