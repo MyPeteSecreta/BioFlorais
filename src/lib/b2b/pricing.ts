@@ -385,3 +385,13 @@ export function applyB2BCheapestModalityRule(
       : option
   );
 }
+
+/**
+ * CNPJ digitado no campo CPF (14 dígitos, com ou sem pontuação): o checkout passa sozinho para Pessoa jurídica e o boleto
+ * volta (aprovado pelo Luis em 09/11; antes, quem digitava o CNPJ em PF perdia o boleto sem entender por quê).
+ */
+export function cpfFieldHasCnpj(value: string): boolean {
+  return value.replace(/\D/g, "").length === 14;
+}
+
+export const B2B_SWITCHED_TO_PJ_NOTICE = "Esse número é um CNPJ: mudamos para Pessoa jurídica. O boleto está liberado.";

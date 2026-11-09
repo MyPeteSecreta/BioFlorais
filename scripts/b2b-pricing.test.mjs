@@ -108,3 +108,19 @@ test("boleto: vira o ano e recusa parcelas inválidas", () => {
   assert.throws(() => p.buildB2BBoletoSchedule(100000, 0, new Date()));
   assert.equal(p.formatB2BDueDate("2027-01-17"), "17/01/2027");
 });
+
+test("CNPJ digitado no campo CPF troca sozinho para PJ e o boleto volta (Luis, 09/11); servidor intocado", async () => {
+  const { readFileSync } = await import("node:fs");
+  for (const value of ["12.345.678/0001-90", "12345678000190", " 12345678000190 "]) assert.equal(p.cpfFieldHasCnpj(value), true, value);
+  for (const value of ["123.456.789-09", "12345678909", "1234567800019", "123456780001901", ""]) assert.equal(p.cpfFieldHasCnpj(value), false, value);
+  assert.equal(p.B2B_SWITCHED_TO_PJ_NOTICE, "Esse número é um CNPJ: mudamos para Pessoa jurídica. O boleto está liberado.");
+
+  const checkout = readFileSync(new URL("../src/app/b2b/checkout/B2BCheckoutContent.tsx", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.match(checkout, /if \(cpfFieldHasCnpj\(e\.target\.value\)\) \{\s*setPersonType\("pj"\);\s*setCnpj\(e\.target\.value\);\s*setCpf\(""\);\s*setSwitchedToPj\(true\);/);
+  assert.ok(checkout.includes('data-testid="aviso-troca-pj"'), "aviso curto na troca");
+  assert.ok(/setPersonType\(type\);\s*setSwitchedToPj\(false\);/.test(checkout), "o aviso some ao clicar em PJ/PF");
+  // com PJ o boleto volta; PF continua sem boleto na tela e no servidor
+  assert.ok(checkout.includes('personType === "pf" ? ["pix", "card"] : ["pix", "card", "boleto"]'));
+  const server = readFileSync(new URL("../src/app/api/b2b/orders/create/route.ts", import.meta.url), "utf8");
+  assert.ok(server.includes('personType === "pf" && paymentMethod === "boleto"'), "regra do servidor intocada");
+});

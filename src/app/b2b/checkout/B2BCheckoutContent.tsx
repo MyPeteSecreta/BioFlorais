@@ -34,7 +34,7 @@ import { clearQuoteDraft, readQuoteDraft } from "@/lib/b2b/quote-draft";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
 import { buildCheckoutBenefits, buildCheckoutTopStrip } from "@/lib/checkout/benefits";
-import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT, b2bEconomyFreightNote } from "@/lib/b2b/pricing";
+import { B2B_FREIGHT_FLAT_THRESHOLD_CENTS, B2B_MIN_ORDER_CENTS, B2B_PAYMENT_METHOD_DISCOUNT_PERCENT, B2B_SWITCHED_TO_PJ_NOTICE, b2bEconomyFreightNote, cpfFieldHasCnpj } from "@/lib/b2b/pricing";
 import { COMPLEMENT_HELP, ORDER_NOTE_MAX, validateComplement } from "@/lib/order-note";
 import { buildCardPayLinkPath, launchStorageKey } from "@/lib/b2b/launch-constants";
 import {
@@ -115,6 +115,8 @@ export default function B2BCheckoutContent() {
   const cart = useB2BCart();
 
   const [personType, setPersonType] = useState<"pf" | "pj">("pj");
+  // Aviso curto quando um CNPJ digitado no campo CPF troca sozinho para PJ.
+  const [switchedToPj, setSwitchedToPj] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -942,6 +944,7 @@ export default function B2BCheckoutContent() {
                   type="button"
                   onClick={() => {
                     setPersonType(type);
+                    setSwitchedToPj(false);
                     // Pessoa física paga só com Pix ou cartão.
                     if (type === "pf" && paymentMethod === "boleto") setPaymentMethod("pix");
                   }}
@@ -962,11 +965,32 @@ export default function B2BCheckoutContent() {
             </div>
             {personType === "pj" ? (
               <div className="grid gap-3 sm:grid-cols-2">
+                {switchedToPj && (
+                  <p role="status" data-testid="aviso-troca-pj" className="rounded-xl bg-[#f6eef7] px-3 py-2 text-sm font-bold text-[#55245f] sm:col-span-2">
+                    {B2B_SWITCHED_TO_PJ_NOTICE}
+                  </p>
+                )}
                 <input className={inputClass} inputMode="numeric" placeholder="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} />
                 <input className={inputClass} placeholder="Inscrição estadual" value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} />
               </div>
             ) : (
-              <input className={inputClass} inputMode="numeric" placeholder="CPF" value={cpf} onChange={(e) => setCpf(e.target.value)} />
+              <input
+                className={inputClass}
+                inputMode="numeric"
+                placeholder="CPF"
+                value={cpf}
+                onChange={(e) => {
+                  // CNPJ (14 dígitos) no campo CPF: passa sozinho para PJ, leva o número para o campo CNPJ e o boleto volta.
+                  if (cpfFieldHasCnpj(e.target.value)) {
+                    setPersonType("pj");
+                    setCnpj(e.target.value);
+                    setCpf("");
+                    setSwitchedToPj(true);
+                    return;
+                  }
+                  setCpf(e.target.value);
+                }}
+              />
             )}
           </section>
 
