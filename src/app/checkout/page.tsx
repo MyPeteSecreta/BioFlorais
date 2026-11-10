@@ -643,10 +643,12 @@ export default function CheckoutPage() {
                 rawData?.mercadoPagoOrderId,
               status:
                 rawData?.status,
-              // A rota cria o Pix com validade de 30 minutos.
-              expiresAt: new Date(
-                Date.now() + 30 * 60 * 1000
-              ).toISOString(),
+              // Validade informada pela rota (Pix reaproveitado: a do Pix original); sem ela, 30 minutos.
+              expiresAt:
+                rawData?.expiresAt ??
+                new Date(
+                  Date.now() + 30 * 60 * 1000
+                ).toISOString(),
               pix: {
                 qrCode:
                   rawData?.pix?.qrCode,

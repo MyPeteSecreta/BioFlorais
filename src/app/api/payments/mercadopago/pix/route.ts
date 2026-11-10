@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/lib/db/client";
@@ -8,6 +8,7 @@ import {
   orders,
   payments,
 } from "@/lib/db/schema";
+import { PIX_NO_CODE_MESSAGE, PIX_REUSE_MAX_AGE_MINUTES, PIX_VALIDITY_MINUTES, pixResponseFromOrder, reusablePix } from "@/lib/payments/pix-reuse";
 
 type RequestBody = {
   orderId?: string;
@@ -185,6 +186,32 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    /*
+     * Pix pendente do MESMO pedido e valor, com código e criado há menos de 25 min: devolve o mesmo, em vez de criar outro
+     * (aprovado pelo Luis em 10/11: um pedido gerou 11 Pix em 6 minutos, a cada "Tentar novamente" ou nova abertura da página).
+     */
+    const recentPix = await db
+      .select({ status: payments.status, rawPayload: payments.rawPayload, createdAt: payments.createdAt })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.orderId, order.orderId),
+          eq(payments.provider, "mercadopago"),
+          eq(payments.method, "pix"),
+          sql`${payments.createdAt} > (now() AT TIME ZONE 'UTC') - make_interval(mins => ${PIX_REUSE_MAX_AGE_MINUTES})`
+        )
+      )
+      .orderBy(desc(payments.createdAt))
+      .limit(5);
+
+    const totalAmount = centsToAmount(order.totalCents);
+
+    for (const candidate of recentPix) {
+      const reused = reusablePix(candidate, totalAmount);
+
+      if (reused) return NextResponse.json({ success: true, reused: true, ...reused });
     }
 
     /*
@@ -367,8 +394,15 @@ export async function POST(
           data,
       });
 
+    // Sem o código do Pix não dá para pagar: a tentativa fica registrada acima, e a tela recebe um erro claro (antes: 200 sem
+    // código, "Não foi possível carregar o Pix" e um Pix novo a cada "Tentar novamente").
+    if (!pixResponseFromOrder(data)) {
+      return NextResponse.json({ error: PIX_NO_CODE_MESSAGE }, { status: 502 });
+    }
+
     return NextResponse.json({
       success: true,
+      expiresAt: new Date(Date.now() + PIX_VALIDITY_MINUTES * 60 * 1000).toISOString(),
 
       mercadoPagoOrderId:
         data.id,
