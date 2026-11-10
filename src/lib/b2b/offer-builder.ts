@@ -54,6 +54,8 @@ export type BuilderPromotion = {
   scopeText: string | null;
   /** Preço B2B por unidade dos produtos que a promoção cobre (para a conta pronta). null = sem preço. */
   priceRange?: PriceRange | null;
+  /** Fim da promoção (null = sem data de término); usado no Catálogo do representante. */
+  endsAt?: Date | null;
 };
 
 export type BuilderLine = {
@@ -202,6 +204,7 @@ export async function loadBuilderLines(
         buyQuantity: row.buyQuantity ?? 0,
         freeQuantity: row.freeQuantity ?? 0,
         percent: row.type === B2B_PERCENT_PROMOTION_TYPE ? Number(row.percentage) : null,
+        endsAt: row.endsAt ?? null,
         ...(() => {
           const promoType: PromotionType = row.promoType === "recorrente" ? "recorrente" : "abertura_reconquista";
           if (!clientId) return { promoType, available: true, reason: "" };

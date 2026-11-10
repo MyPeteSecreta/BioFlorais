@@ -19,6 +19,9 @@ import {
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { B2B_SESSION_COOKIE, B2B_SESSION_MAX_AGE, createB2BResponsibleSession } from "@/lib/b2b/responsible-session";
 
+/** A demonstração abre PRIMEIRO no Catálogo (10/11): antes caía em "Seus clientes" vazio e o representante não entendia. */
+const DEMO_START_PATH = "/b2b/painel/catalogo";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -55,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const state = await loadDemoState(run, existing.responsibleId);
 
       if (state.isDemo && !state.expired && state.expiresAt) {
-        return setSession(redirectTo("/b2b/painel"), existing.responsibleId, new Date(state.expiresAt));
+        return setSession(redirectTo(DEMO_START_PATH), existing.responsibleId, new Date(state.expiresAt));
       }
     }
 
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const seller = await createDemoSeller(run, link.linkId);
 
-    return setSession(redirectTo("/b2b/painel"), seller.responsibleId, seller.expiresAt);
+    return setSession(redirectTo(DEMO_START_PATH), seller.responsibleId, seller.expiresAt);
   } catch (error) {
     console.error("[b2b/demo]", error);
 

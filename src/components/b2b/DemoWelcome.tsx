@@ -35,10 +35,10 @@ export default function DemoWelcome() {
 
         <ol className="mt-4 space-y-3 text-base text-[#422347]">
           <li>
-            <strong>1.</strong> Crie um cliente fictício (só o nome).
+            <strong>1.</strong> Veja o <strong>Catálogo</strong>: linhas, preço ao lojista, promoções e PDFs.
           </li>
           <li>
-            <strong>2.</strong> Escolha linhas e promoções e veja a sua comissão.
+            <strong>2.</strong> Quando quiser testar, crie um cliente de exemplo (só o nome) e monte uma oferta.
           </li>
           <li>
             <strong>3.</strong> Gere o link e abra para ver como o seu cliente vai ver.
@@ -49,8 +49,8 @@ export default function DemoWelcome() {
           Nada aqui é real e as compras estão desativadas. Seus dados de teste ficam por 24 horas e depois são apagados automaticamente.
         </p>
 
-        <button type="button" onClick={close} className="mt-5 min-h-12 w-full rounded-full bg-[#55245f] text-base font-extrabold text-white">
-          Começar
+        <button type="button" onClick={close} className="mt-5 min-h-12 w-full rounded-full bg-[#55245f] text-base font-extrabold text-white" data-testid="demo-ver-catalogo">
+          Ver o catálogo
         </button>
       </div>
     </div>

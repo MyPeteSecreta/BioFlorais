@@ -54,6 +54,9 @@ export default async function B2BPanelLayout({ children }: { children: ReactNode
           <nav aria-label="Área do vendedor" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" data-testid="menu-vendedor">
             {access.state !== "expired" && (
               <>
+                <Link href="/b2b/painel/catalogo" className="font-bold text-[#63326d] underline underline-offset-4" data-testid="menu-catalogo">
+                  Catálogo
+                </Link>
                 <Link href="/b2b/painel" className="font-bold text-[#63326d] underline underline-offset-4">
                   Meus clientes
                 </Link>
