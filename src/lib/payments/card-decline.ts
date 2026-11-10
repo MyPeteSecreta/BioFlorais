@@ -28,26 +28,40 @@ type OrderPayload = {
   status_detail?: unknown;
   transactions?: { payments?: Array<{ status?: unknown; status_detail?: unknown }> };
   errors?: Array<{ code?: unknown; details?: unknown }>;
+  /** No erro 402 ("pedido criado, mas a transação falhou") o pedido do MP pode vir dentro de "data". */
+  data?: unknown;
 };
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
 
 /** Status e motivo de uma resposta do MP (o do pagamento vale mais que o do pedido). */
 export function outcomeFromPayload(payload: unknown, httpStatus: number | null = null): MercadoPagoOutcome {
-  const order = (payload && typeof payload === "object" ? payload : {}) as OrderPayload;
+  const root = (payload && typeof payload === "object" ? payload : {}) as OrderPayload;
+  // Recusa 402: o pedido (id, status, transactions) pode vir em "data"; sem isso o id do MP ficava nulo (10/11).
+  const order = (root.data && typeof root.data === "object" ? root.data : root) as OrderPayload;
   const payment = order.transactions?.payments?.[0];
-  const codes = (order.errors ?? []).flatMap((error) => {
+  const codes = (root.errors ?? order.errors ?? []).flatMap((error) => {
     const details = Array.isArray(error.details) ? error.details.map(text).filter((item): item is string => Boolean(item)) : [];
     return [text(error.code), ...details].filter((item): item is string => Boolean(item));
   });
 
   return {
     httpStatus,
-    mpOrderId: text(order.id),
+    mpOrderId: text(order.id) ?? text(root.id),
     mpStatus: text(payment?.status) ?? text(order.status),
-    mpStatusDetail: text(payment?.status_detail) ?? text(order.status_detail) ?? codes.find((code) => /_|risk|rejected/i.test(code)) ?? null,
+    mpStatusDetail: text(payment?.status_detail) ?? detailFromCodes(codes) ?? text(order.status_detail) ?? null,
     mpErrorCodes: codes.slice(0, 10),
   };
+}
+
+/** Motivo dentro dos detalhes do erro ("pay_01ABC: high_risk" -> "high_risk"; "rejected_high_risk" fica como está). */
+function detailFromCodes(codes: string[]): string | null {
+  for (const code of codes) {
+    const tail = /:\s*([a-z][a-z0-9_]+)\s*$/i.exec(code);
+    if (tail) return tail[1];
+  }
+
+  return codes.find((code) => /^[a-z0-9_]+$/i.test(code) && /_|risk|rejected/i.test(code) && code !== "failed") ?? null;
 }
 
 /**

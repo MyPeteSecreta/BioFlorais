@@ -69,3 +69,22 @@ test("rota: chave por tentativa; recusa gravada como failed com o motivo, sem to
   // o componente mostra o "error" da resposta (a mensagem clara) em vez do JSON do MP
   assert.ok(read("src/components/payments/MercadoPagoCardPayment.tsx").includes("result?.error ||"));
 });
+
+test("recusa 402 com o pedido em \"data\" e o motivo nos details (caso de 10/11): id do MP e motivo não ficam nulos", () => {
+  const body = {
+    errors: [{ code: "failed", message: "The following transactions failed", details: ["pay_01JX9ABC: high_risk"] }],
+    data: { id: "ORD01DEF", status: "failed", transactions: { payments: [{ id: "pay_01JX9ABC", status: "failed" }] } },
+  };
+  const outcome = outcomeFromAdapterError(new Error(`Mercado Pago request failed (402): ${JSON.stringify(body)}`));
+  assert.equal(outcome.httpStatus, 402);
+  assert.equal(outcome.mpOrderId, "ORD01DEF", "id do pedido do MP lido de data");
+  assert.equal(outcome.mpStatus, "failed");
+  assert.equal(outcome.mpStatusDetail, "high_risk", "motivo lido dos details");
+  assert.deepEqual(outcome.mpErrorCodes, ["failed", "pay_01JX9ABC: high_risk"]);
+  assert.match(cardDeclineMessage(outcome.mpStatusDetail), /antifraude/);
+
+  // só errors (sem data): o motivo ainda sai dos details
+  const onlyErrors = outcomeFromAdapterError(new Error(`Mercado Pago request failed (402): ${JSON.stringify({ errors: [{ code: "failed", details: ["pay_X: rejected_insufficient_amount"] }] })}`));
+  assert.equal(onlyErrors.mpStatusDetail, "rejected_insufficient_amount");
+  assert.equal(onlyErrors.mpOrderId, null);
+});
