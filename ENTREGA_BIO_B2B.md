@@ -1854,3 +1854,10 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
   - **Proposta (mostrar ao Luis):** 1º dados do pagador + identificação do aparelho; 2º o 3DS com o desafio na tela.
 
 **Testes:** `tsc` sem erros; testes do cartão, do lembrete e do checkout 52/52; `next build` OK.
+
+## 10/11: Catálogo do representante e antifraude do cartão (sem push)
+- `7566db7` bio/b2b: **Catálogo do representante** (`/b2b/painel/catalogo`, só leitura). Topo com as condições (mínimo R$ 250,00, frete grátis acima de R$ 450,00 na opção econômica, promoções até 6 meses), o selo "Até 25% de comissão, direto da indústria" e o vídeo "Como funciona em 1 minuto". Cada linha mostra foto, preço ao lojista, promoções vigentes com validade e os PDFs; os grupos são Florais, Pet e Cosméticos e Home Care. Nada é criado: o botão final leva ao card "Montar oferta". A demonstração abre no catálogo, com boas-vindas novas, e o item "Catálogo" entra no menu. Teste `scripts/b2b-catalogo.test.mjs`. Prints [TESTE] em `C:\Users\User\PROMPTS_B2B\prints_catalogo_representante\`.
+- `dc3767e` bio/cartao: o cartão B2C manda ao Mercado Pago o pagador do pedido (nome, CPF/CNPJ, telefone, endereço) e a identificação do aparelho (`security.js` → `X-meli-session-id`), por uma chamada local à /v1/orders. Esses dados não vão para log nem para `raw_payload`. Teste `scripts/cartao-antifraude.test.mjs`. O 3DS fica para a 2ª etapa.
+- **Pacote `@angelblancdigital/payments`:** pacote único no GitHub Packages (0.1.1), usado hoje só pela Bio; My Pet e Secreta têm o próprio código de cartão.
+
+**Testes:** `tsc` sem erros; catálogo, demo e Offer Builder 21/21; cartão, recusa, lembrete e checkout 23/23; lint limpo nos arquivos novos (2 erros antigos em `DemoWelcome.tsx` e `MercadoPagoCardPayment.tsx`, de antes); `next build` OK.
