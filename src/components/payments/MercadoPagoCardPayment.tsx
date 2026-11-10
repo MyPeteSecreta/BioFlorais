@@ -27,6 +27,26 @@ const B2C_MAX_INSTALLMENTS = 3;
 
 let initializedPublicKey: string | null = null;
 
+/** Script de segurança do Mercado Pago: gera a identificação do aparelho (window.MP_DEVICE_SESSION_ID) usada no antifraude. */
+export const MP_SECURITY_SCRIPT_URL = "https://www.mercadopago.com/v2/security.js";
+
+function loadMercadoPagoSecurityScript() {
+  if (document.getElementById("mp-security-js")) return;
+
+  const script = document.createElement("script");
+  script.id = "mp-security-js";
+  script.src = MP_SECURITY_SCRIPT_URL;
+  script.async = true;
+  script.setAttribute("view", "checkout");
+  document.head.appendChild(script);
+}
+
+function deviceSessionId(): string | undefined {
+  const value = (window as unknown as { MP_DEVICE_SESSION_ID?: unknown }).MP_DEVICE_SESSION_ID;
+
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function formatBRL(cents: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -67,6 +87,11 @@ export default function MercadoPagoCardPayment({
     process.env
       .NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
       ?.trim() ?? "";
+
+  // Identificação do aparelho para o antifraude do MP (aprovado pelo Luis em 09/11): só na tela de pagamento com cartão.
+  useEffect(() => {
+    loadMercadoPagoSecurityScript();
+  }, []);
 
   useEffect(() => {
     if (
@@ -351,6 +376,8 @@ export default function MercadoPagoCardPayment({
                           payerEmail,
                         idempotencyKey:
                           crypto.randomUUID(),
+                        deviceSessionId:
+                          deviceSessionId(),
                       }),
                     }
                   );

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
-import { createMercadoPagoCardAdapter } from "@angelblancdigital/payments";
 
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
 import { cardAttemptIdempotencyKey, cardDeclineMessage, outcomeFromAdapterError, outcomeFromPayload } from "@/lib/payments/card-decline";
-import { customers, orders, payments } from "@/lib/db/schema";
+import { addresses, customers, orders, payments } from "@/lib/db/schema";
+import { buildMercadoPagoPayer, createMercadoPagoCardOrder, sanitizeDeviceSessionId, type CardPayerInput } from "@/lib/payments/mercadopago-card-order";
 
 export const runtime = "nodejs";
 
@@ -16,6 +16,8 @@ type CardRequest = {
   paymentMethodId?: string;
   installments?: number;
   payerEmail?: string;
+  /** Identificação do aparelho (security.js do MP): vai só no cabeçalho X-meli-session-id. */
+  deviceSessionId?: string;
 };
 
 
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
         totalCents: orders.totalCents,
         paymentMethodDiscountCents: orders.paymentMethodDiscountCents,
         customerId: orders.customerId,
+        shippingAddressId: orders.shippingAddressId,
       })
       .from(orders)
       .where(eq(orders.id, orderId))
@@ -104,11 +107,18 @@ export async function POST(request: Request) {
      * do snapshot server-authoritative do pedido.
      */
     let authoritativeEmail = payerEmail;
+    // Pagador para o antifraude do MP (aprovado pelo Luis em 09/11): dados do PRÓPRIO pedido, lidos no servidor. Vão só ao MP.
+    const payerInput: CardPayerInput = { email: payerEmail };
 
     if (order.customerId) {
       const [customer] = await db
         .select({
           email: customers.email,
+          name: customers.name,
+          personType: customers.personType,
+          cpf: customers.cpf,
+          cnpj: customers.cnpj,
+          phone: customers.phone,
         })
         .from(customers)
         .where(eq(customers.id, order.customerId))
@@ -117,7 +127,21 @@ export async function POST(request: Request) {
       if (customer?.email) {
         authoritativeEmail = customer.email;
       }
+
+      Object.assign(payerInput, { name: customer?.name, personType: customer?.personType, cpf: customer?.cpf, cnpj: customer?.cnpj, phone: customer?.phone });
     }
+
+    if (order.shippingAddressId) {
+      const [address] = await db
+        .select({ cep: addresses.cep, street: addresses.street, number: addresses.number, complement: addresses.complement, district: addresses.district, city: addresses.city, state: addresses.state })
+        .from(addresses)
+        .where(eq(addresses.id, order.shippingAddressId))
+        .limit(1);
+
+      payerInput.address = address ?? null;
+    }
+
+    payerInput.email = authoritativeEmail;
 
         // B2C_CARD_INSTALLMENT_RULE
     // Regra autoritativa:
@@ -157,21 +181,20 @@ export async function POST(request: Request) {
     // BIO_MP_SERVER_IDEMPOTENCY_V2 (09/11): a chave é POR TENTATIVA (pedido + token do cartão). O duplo envio do mesmo
     // cartão reaproveita a chave; outra tentativa ou outro cartão não herda a recusa da anterior.
     const idempotencyKey = cardAttemptIdempotencyKey(order.id, cardToken);
-const adapter = createMercadoPagoCardAdapter({
-      accessToken,
-    });
-
-    let result: Awaited<ReturnType<typeof adapter.createPayment>>;
+    let result: Awaited<ReturnType<typeof createMercadoPagoCardOrder>>;
 
     try {
-      result = await adapter.createPayment({
+      // Chamada local (o pacote @angelblancdigital/payments só manda o e-mail): pagador completo + identificação do aparelho.
+      result = await createMercadoPagoCardOrder({
+        accessToken,
         orderId: order.id,
         amountCents: order.totalCents,
-        payerEmail: authoritativeEmail,
+        payer: buildMercadoPagoPayer(payerInput),
         cardToken,
         paymentMethodId,
         installments,
         idempotencyKey,
+        deviceSessionId: sanitizeDeviceSessionId(body.deviceSessionId),
       });
     } catch (paymentError) {
       // Recusa do MP (ex.: 402 high_risk): grava a tentativa como "failed" com o motivo, sem token nem dado do cartão,
