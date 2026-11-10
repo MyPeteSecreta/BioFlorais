@@ -83,3 +83,16 @@ test("menu com Catálogo (vendedor e demo); a demonstração abre no catálogo; 
   const welcome = read("src/components/b2b/DemoWelcome.tsx");
   assert.ok(welcome.includes("Veja o <strong>Catálogo</strong>") && welcome.includes("Ver o catálogo"));
 });
+
+test("vendedor recém-cadastrado (período de teste, antes do cadastro completo) já vê o Catálogo com as promoções em vigor", () => {
+  const layout = read("src/app/b2b/painel/layout.tsx");
+  // o menu (com Catálogo) e as páginas só somem quando o teste VENCEU sem cadastro completo
+  assert.ok(layout.includes('{access.state !== "expired" && ('));
+  assert.ok(/access\.state === "expired" \? \(\s*<CompleteProfileForm[\s\S]*?\) : \(\s*children\s*\)/.test(layout));
+  const page = read("src/app/b2b/painel/catalogo/page.tsx");
+  assert.ok(!/loadVendorAccess|profile_completed|onboarding/.test(page), "a página não pede cadastro completo");
+  // promoções em vigor: as mesmas do Offer Builder (ativas, selecionáveis e dentro da data), sem cliente
+  const builder = read("src/lib/b2b/offer-builder.ts");
+  assert.ok(builder.includes("row.active &&") && builder.includes("row.sellerSelectable &&") && builder.includes("!(row.endsAt && now > row.endsAt)"));
+  assert.ok(builder.includes('if (!clientId) return { promoType, available: true, reason: "" };'), "sem cliente: todas disponíveis");
+});

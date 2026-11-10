@@ -18,6 +18,12 @@ import type { SqlRunner } from "@/lib/b2b/ownership";
 
 export const DEMO_HOURS = 24;
 export const DEMO_LINK_DEFAULT_DAYS = 30;
+/**
+ * Link de demonstração SEM PRAZO (Luis, 10/11: o link tem de existir sempre, não só na campanha). A coluna expires_at é NOT NULL,
+ * então "sem prazo" grava esta data distante (nenhum SQL); a tela mostra "Sem prazo".
+ */
+export const DEMO_LINK_NO_EXPIRY_ISO = "2099-12-31T23:59:59.000Z";
+export const DEMO_DEFAULT_LINK_CAMPAIGN = "Link padrão (permanente)";
 export const DEMO_IP_LIMIT = 10; // por IP por hora
 export const DEMO_SELLER_NAME = "Demonstração";
 export const DEMO_EXAMPLE_CLIENT = "Loja Exemplo";
@@ -52,6 +58,10 @@ export type DemoLinkRow = {
   id: string;
   campaign: string;
   expiresAt: string;
+  /** Validade "sem prazo" (data distante). */
+  noExpiry: boolean;
+  /** O link padrão permanente (sempre visível no admin). */
+  isDefault: boolean;
   maxAccesses: number | null;
   accesses: number;
   revoked: boolean;
@@ -61,14 +71,16 @@ export type DemoLinkRow = {
 
 export function parseDemoLinkInput(
   body: Record<string, unknown>
-): { ok: true; campaign: string; days: number; maxAccesses: number | null } | { ok: false; error: string } {
+): { ok: true; campaign: string; days: number | null; maxAccesses: number | null } | { ok: false; error: string } {
   const campaign = String(body.campaign ?? "").trim();
-  const days = body.days === undefined || body.days === "" ? DEMO_LINK_DEFAULT_DAYS : Number(body.days);
+  // "sem prazo": days = null (o link vale até ser revogado)
+  const noExpiry = body.noExpiry === true || body.noExpiry === "true" || body.days === "sem-prazo";
+  const days = noExpiry ? null : body.days === undefined || body.days === "" ? DEMO_LINK_DEFAULT_DAYS : Number(body.days);
   const rawMax = body.maxAccesses;
   const maxAccesses = rawMax === undefined || rawMax === null || rawMax === "" ? null : Number(rawMax);
 
   if (campaign.length < 2) return { ok: false, error: "Informe o nome da campanha." };
-  if (!Number.isInteger(days) || days < 1 || days > 365) return { ok: false, error: "A validade vai de 1 a 365 dias." };
+  if (days !== null && (!Number.isInteger(days) || days < 1 || days > 365)) return { ok: false, error: "A validade vai de 1 a 365 dias (ou marque \"sem prazo\")." };
 
   if (maxAccesses !== null && (!Number.isInteger(maxAccesses) || maxAccesses < 1)) {
     return { ok: false, error: "O limite de acessos deve ser um número inteiro maior que 0 (ou deixe vazio)." };
@@ -79,11 +91,11 @@ export function parseDemoLinkInput(
 
 export async function createDemoLink(
   run: SqlRunner,
-  input: { campaign: string; days: number; maxAccesses: number | null; createdBy: string; now?: Date }
+  input: { campaign: string; days: number | null; maxAccesses: number | null; createdBy: string; now?: Date }
 ): Promise<{ id: string; token: string; expiresAt: Date }> {
   const now = input.now ?? new Date();
   const token = crypto.randomBytes(32).toString("base64url");
-  const expiresAt = new Date(now.getTime() + input.days * 86_400_000);
+  const expiresAt = input.days === null ? new Date(DEMO_LINK_NO_EXPIRY_ISO) : new Date(now.getTime() + input.days * 86_400_000);
 
   const rows = await run(
     `INSERT INTO b2b_demo_links (campaign, token_hash, expires_at, max_accesses, created_by)
@@ -94,9 +106,9 @@ export async function createDemoLink(
   return { id: String(rows[0].id), token, expiresAt };
 }
 
-export async function listDemoLinks(run: SqlRunner, now: Date = new Date()): Promise<DemoLinkRow[]> {
+export async function listDemoLinks(run: SqlRunner, now: Date = new Date(), defaultTokenHash: string | null = null): Promise<DemoLinkRow[]> {
   const rows = await run(
-    `SELECT id, campaign, expires_at, max_accesses, accesses, revoked_at, created_at FROM b2b_demo_links ORDER BY created_at DESC LIMIT 100`
+    `SELECT id, campaign, expires_at, max_accesses, accesses, revoked_at, created_at, token_hash FROM b2b_demo_links ORDER BY created_at DESC LIMIT 100`
   );
 
   return rows.map((row) => {
@@ -106,6 +118,8 @@ export async function listDemoLinks(run: SqlRunner, now: Date = new Date()): Pro
       id: String(row.id),
       campaign: String(row.campaign),
       expiresAt: expiresAt.toISOString(),
+      noExpiry: isNoExpiry(expiresAt),
+      isDefault: defaultTokenHash !== null && row.token_hash === defaultTokenHash,
       maxAccesses: row.max_accesses === null || row.max_accesses === undefined ? null : Number(row.max_accesses),
       accesses: Number(row.accesses ?? 0),
       revoked: row.revoked_at !== null && row.revoked_at !== undefined,
@@ -113,6 +127,57 @@ export async function listDemoLinks(run: SqlRunner, now: Date = new Date()): Pro
       expired: expiresAt.getTime() <= now.getTime(),
     };
   });
+}
+
+/** "Sem prazo" = a data distante gravada no lugar de "nunca vence". */
+export function isNoExpiry(date: Date | string | null | undefined): boolean {
+  const value = date instanceof Date ? date : date ? new Date(date) : null;
+
+  return Boolean(value) && value!.getUTCFullYear() >= 2099;
+}
+
+/**
+ * LINK PADRÃO PERMANENTE: o token é derivado do segredo do admin (HMAC), então o mesmo link pode ser mostrado SEMPRE no admin
+ * (Copiar e QR) sem guardar o token: no banco fica só o hash, como nos outros links. Trocar o segredo troca o link.
+ */
+export function defaultDemoToken(secret: string): string {
+  return crypto.createHmac("sha256", secret).update("bio-demo-link-padrao-v1").digest("base64url");
+}
+
+export function defaultDemoTokenHash(secret: string): string {
+  return hashToken(defaultDemoToken(secret));
+}
+
+/** Garante a linha do link padrão (sem prazo, sem limite). Idempotente: só cria se ainda não existe. */
+export async function ensureDefaultDemoLink(
+  run: SqlRunner,
+  secret: string
+): Promise<{ id: string; token: string; accesses: number; revoked: boolean }> {
+  const token = defaultDemoToken(secret);
+  const tokenHash = hashToken(token);
+  const select = () => run(`SELECT id, accesses, revoked_at FROM b2b_demo_links WHERE token_hash = $1 LIMIT 1`, [tokenHash]);
+  let [row] = await select();
+
+  if (!row) {
+    await run(
+      `INSERT INTO b2b_demo_links (campaign, token_hash, expires_at, max_accesses, created_by)
+       SELECT $1, $2, $3::timestamptz, NULL, 'Sistema'
+        WHERE NOT EXISTS (SELECT 1 FROM b2b_demo_links WHERE token_hash = $2)`,
+      [DEMO_DEFAULT_LINK_CAMPAIGN, tokenHash, DEMO_LINK_NO_EXPIRY_ISO]
+    );
+    [row] = await select();
+  }
+
+  return { id: String(row.id), token, accesses: Number(row.accesses ?? 0), revoked: row.revoked_at !== null && row.revoked_at !== undefined };
+}
+
+/** Reativa o link padrão (se alguém o revogou): o mesmo endereço volta a abrir. */
+export async function reactivateDefaultDemoLink(run: SqlRunner, secret: string): Promise<boolean> {
+  const rows = await run(`UPDATE b2b_demo_links SET revoked_at = NULL WHERE token_hash = $1 AND revoked_at IS NOT NULL RETURNING id`, [
+    defaultDemoTokenHash(secret),
+  ]);
+
+  return rows.length > 0;
 }
 
 export async function revokeDemoLink(run: SqlRunner, id: string): Promise<boolean> {

@@ -205,3 +205,53 @@ test("fios: bloqueios no servidor, exclusões, faixa, QR com aviso, cron e rotas
   assert.ok(read("src/app/b2b/demo/[token]/route.ts").includes("registerDemoCreation"));
   assert.ok(read("src/components/admin/b2b/ResponsiblesTab.tsx").includes("<DemoLinksPanel"));
 });
+
+test("link de demonstração SEM PRAZO e LINK PADRÃO PERMANENTE (Luis, 10/11): sempre visível, abre o demo, reativa se revogado", async () => {
+  await fresh();
+  const now = new Date("2026-11-10T12:00:00Z");
+
+  // sem prazo: data distante gravada (a coluna é NOT NULL), "sem prazo" na lista
+  const parsed = demo.parseDemoLinkInput({ campaign: "Contratação", noExpiry: true });
+  assert.deepEqual(parsed, { ok: true, campaign: "Contratação", days: null, maxAccesses: null });
+  assert.equal(demo.parseDemoLinkInput({ campaign: "Contratação", days: "sem-prazo" }).days, null);
+  assert.equal(demo.parseDemoLinkInput({ campaign: "X", days: "400" }).ok, false);
+  const created = await demo.createDemoLink(run, { campaign: "Contratação", days: null, maxAccesses: null, createdBy: "Admin", now });
+  assert.equal(created.expiresAt.toISOString(), demo.DEMO_LINK_NO_EXPIRY_ISO);
+  assert.deepEqual(await demo.resolveDemoLink(run, created.token, new Date("2040-01-01T00:00:00Z")), { ok: true, linkId: created.id }, "vale em 2040");
+
+  // link padrão: token derivado do segredo (o mesmo sempre), só o hash no banco; criação idempotente
+  const secret = "segredo-de-teste-demo";
+  assert.equal(demo.defaultDemoToken(secret), demo.defaultDemoToken(secret));
+  assert.notEqual(demo.defaultDemoToken(secret), demo.defaultDemoToken("outro-segredo"));
+  const first = await demo.ensureDefaultDemoLink(run, secret);
+  const again = await demo.ensureDefaultDemoLink(run, secret);
+  assert.equal(first.id, again.id);
+  assert.equal(first.token, demo.defaultDemoToken(secret));
+  assert.equal((await run(`SELECT count(*)::int AS n FROM b2b_demo_links WHERE campaign = $1`, [demo.DEMO_DEFAULT_LINK_CAMPAIGN]))[0].n, 1);
+  assert.equal((await run(`SELECT count(*)::int AS n FROM b2b_demo_links WHERE token_hash = $1`, [first.token]))[0].n, 0, "o token não é gravado");
+
+  const list = await demo.listDemoLinks(run, now, demo.defaultDemoTokenHash(secret));
+  const fixed = list.find((row) => row.isDefault);
+  assert.ok(fixed && fixed.noExpiry && fixed.maxAccesses === null && !fixed.revoked);
+  assert.equal(list.filter((row) => row.isDefault).length, 1);
+  assert.ok(list.find((row) => row.campaign === "Contratação").noExpiry);
+  assert.deepEqual(await demo.resolveDemoLink(run, first.token, now), { ok: true, linkId: first.id });
+
+  // revogado: não abre; reativar volta o MESMO link
+  await demo.revokeDemoLink(run, first.id);
+  assert.equal((await demo.resolveDemoLink(run, first.token, now)).ok, false);
+  assert.equal((await demo.ensureDefaultDemoLink(run, secret)).revoked, true);
+  assert.equal(await demo.reactivateDefaultDemoLink(run, secret), true);
+  assert.deepEqual(await demo.resolveDemoLink(run, first.token, now), { ok: true, linkId: first.id });
+});
+
+test("admin: link padrão sempre visível com Copiar, QR e WhatsApp; formulário com \"sem prazo\"; rota devolve o link padrão", () => {
+  const panel = read("src/components/admin/b2b/DemoLinksPanel.tsx").replace(/\r\n/g, "\n");
+  const visible = panel.indexOf('data-testid="demo-link-padrao"');
+  assert.ok(visible > 0 && visible < panel.indexOf("{open && ("), "fora do formulário que abre e fecha");
+  for (const id of ["demo-link-padrao-url", "demo-link-padrao-copiar", "demo-link-padrao-qr", "demo-sem-prazo"]) assert.ok(panel.includes(`data-testid="${id}"`), id);
+  assert.ok(panel.includes("<QrCodeModal url={defaultLink.url}"));
+  const route = read("src/app/api/admin/b2b/demo-links/route.ts").replace(/\r\n/g, "\n");
+  assert.ok(route.includes("ensureDefaultDemoLink(run, secret)") && route.includes("defaultLink });") && route.includes('"reactivate-default"'));
+  assert.ok(route.includes("isAdminRequest(request)"), "só o admin");
+});
