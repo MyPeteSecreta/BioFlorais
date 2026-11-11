@@ -2,6 +2,7 @@
 
 import TrackOrderCard from "@/components/TrackOrderCard";
 import AdsPurchaseTag from "@/components/consent/AdsPurchaseTag";
+import { hasMarketingConsent } from "@/lib/consent";
 import { cartItemDisplay } from "@/lib/cart-display";
 import { useCartImages } from "@/lib/cart-images";
 
@@ -1851,6 +1852,14 @@ export default function CheckoutPage() {
                       },
 
                       body: JSON.stringify({
+                        // aceite de marketing do banner: libera a API de Conversões da Meta para este pedido
+                        marketingConsent: (() => {
+                          try {
+                            return hasMarketingConsent(window.localStorage);
+                          } catch {
+                            return false;
+                          }
+                        })(),
                         customer: {
                           name:
                             readField("name"),

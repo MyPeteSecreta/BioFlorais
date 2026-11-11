@@ -9,6 +9,9 @@ import {
   orders,
 } from "@/lib/db/schema";
 import { confirmPartnerPaid } from "@/lib/partners/confirm-paid";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { sendMetaCapiPurchase } from "@/lib/meta-capi";
+import { getSiteUrl } from "@/lib/seo/site-url";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -241,6 +244,10 @@ export async function finalizeMercadoPagoPaid(
       partnerError
     );
   }
+
+  // API de Conversões da Meta (Purchase pelo servidor, event_id = id do pedido): timeout curto, nunca lança, nunca
+  // atrapalha o pagamento. Sem META_CAPI_TOKEN ou sem aceite de marketing no pedido, não envia nada.
+  await sendMetaCapiPurchase(getAppSqlRunner(), input.orderId, { siteUrl: getSiteUrl() });
 
   return result;
 }

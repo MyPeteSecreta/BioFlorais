@@ -17,6 +17,7 @@ import { OPPREF_COOKIE, readOppRefCookie } from "@/lib/ads-tag";
 import { attachOppref } from "@/lib/ads-tag-server";
 import { ATTRIBUTION_COOKIE, attachAttribution, attributionFromRequest } from "@/lib/attribution-server";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { captureMetaCapi } from "@/lib/meta-capi";
 import { validateComplement, validateOrderNote } from "@/lib/order-note";
 import { attachOrderNote } from "@/lib/order-note-server";
 import { db } from "@/lib/db/client";
@@ -1020,6 +1021,9 @@ export async function POST(
 const commercialAdjustmentsJson =
       JSON.stringify({
         storeKey: "bio",
+
+        // API de Conversões da Meta: só com o aceite de marketing do banner (sem aceite, null e nada é enviado).
+        metaCapi: captureMetaCapi(request.headers, (body as { marketingConsent?: unknown }).marketingConsent),
 
         offers:
           (campaignApplied && campaignOfferResult ? campaignOfferResult : offerResult).breakdown,
