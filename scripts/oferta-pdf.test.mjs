@@ -83,3 +83,16 @@ test("rota e botões: /b2b/oferta/<token>/pdf com dados da oferta; Baixar PDF e 
   assert.ok(button.includes('data-testid="baixar-pdf-oferta"') && button.includes("OFFER_SHARE_TEXT"));
   assert.ok(read("src/components/b2b/ClientCardActions.tsx").includes('data-testid="cliente-pdf-oferta"'));
 });
+
+test("numeração das páginas na ordem; promoção de um produto usa o nome e a foto do produto (como no modelo)", () => {
+  const lines = [
+    { ...popularPet[0] },
+    { ...popularPet[1], promotion: { ...popularPet[1].promotion, productName: "Spray para Hálito – Menta", productImage: "/products/cosmeticos-pet/spray/halito.png" } },
+    popularPet[2],
+  ];
+  const html = buildOfferPdfHtml(data(lines));
+  const numbers = [...html.matchAll(/<div class="rodape"><span>[^<]*<\/span><span>(\d+)<\/span><\/div>/g)].map((match) => Number(match[1]));
+  assert.deepEqual(numbers, [1, 2, 3, 4, 5], "capa, promoções, display, tabela, condições");
+  assert.ok(html.includes("<h3>Spray para Hálito – Menta</h3>") && html.includes("/products/cosmeticos-pet/spray/halito.png"));
+  assert.ok(html.includes("<div class=\"obs\">Cosméticos Pet · vale nas suas próximas 3 compras</div>"));
+});

@@ -11,6 +11,8 @@ import { lineSlugsWithDisplay, displayPhotoUrl, loadDisabledDisplays } from "@/l
 import { homeLineImage } from "@/lib/b2b/line-images";
 import { buildOfferPdfHtml, type OfferPdfLine } from "@/lib/b2b/offer-pdf";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { bioProducts } from "@/lib/catalog/bio-products";
+import { getProductMainImage } from "@/lib/catalog/product-images.server";
 import {
   B2B_BOLETO_DUE_DAYS,
   B2B_FREIGHT_FLAT_THRESHOLD_CENTS,
@@ -29,6 +31,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DISPLAY_BY_LINE: Record<string, string> = { adulto: "adulto-compacto", pet: "pet-12" };
+
+function singleProduct(slug: string, name: string): { productName: string; productImage: string | null } {
+  const product = bioProducts.find((item) => item.slug === slug);
+
+  return { productName: name, productImage: product ? getProductMainImage(product) : null };
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -72,6 +80,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
                 usesRemaining: notice.usesRemaining,
                 validUntil: notice.validUntil,
                 scopeText: notice.productIds.length > 0 ? describeScope(covered) : null,
+                // promoção de UM produto: nome e foto dele no card (como no PDF modelo)
+                ...(notice.productIds.length > 0 && covered.length === 1 ? singleProduct(covered[0].slug, covered[0].name) : {}),
                 b2bMinCents: Math.min(...covered.map((product) => resolveB2BUnitPriceCents(product.b2cPriceCents, product.category))),
                 consumerMinCents: Math.min(...covered.map((product) => product.b2cPriceCents)),
               }

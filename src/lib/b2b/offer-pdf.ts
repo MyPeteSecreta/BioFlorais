@@ -20,6 +20,9 @@ export type OfferPdfPromotion = {
   validUntil: Date | null;
   /** "Oferta válida para o Spray para Hálito – Menta" (promoção só em alguns produtos). */
   scopeText: string | null;
+  /** Promoção de UM produto: o card usa o nome e a foto dele (como no modelo). */
+  productName?: string | null;
+  productImage?: string | null;
   /** Preços dos produtos que a promoção cobre (B2B e consumidor), para a conta. */
   b2bMinCents: number;
   consumerMinCents: number | null;
@@ -95,7 +98,8 @@ function promotionNote(line: OfferPdfLine): string {
   const promotion = line.promotion!;
   const parts = [`${line.productCount} ${line.productCount === 1 ? "produto" : "produtos"}`];
 
-  if (promotion.scopeText) parts.push(`Oferta válida para ${promotion.scopeText}`);
+  if (promotion.productName) parts[0] = line.name;
+  else if (promotion.scopeText) parts.push(`Oferta válida para ${promotion.scopeText}`);
   if (promotion.usesRemaining !== null) parts.push(`vale nas suas próximas ${promotion.usesRemaining} ${promotion.usesRemaining === 1 ? "compra" : "compras"}`);
   else if (promotion.validUntil) parts.push(`válida até ${new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(promotion.validUntil)}`);
 
@@ -122,10 +126,11 @@ export function buildOfferPdfHtml(data: OfferPdfData, options: { autoPrint?: boo
       const promotion = line.promotion!;
       const unit = promotionUnitCents(promotion, promotion.b2bMinCents);
       const consumer = promotion.consumerMinCents;
-      const src = image(data, line.image);
+      const src = image(data, promotion.productImage ?? line.image);
+      const title = promotion.productName ?? line.name;
 
       return `<div class="promo">${src ? `<img src="${esc(src)}" alt="">` : ""}<div class="in">
-    <span class="regra">${esc(promotionRule(promotion))}</span><h3>${esc(line.name)}</h3><div class="obs">${esc(promotionNote(line))}</div>
+    <span class="regra">${esc(promotionRule(promotion))}</span><h3>${esc(title)}</h3><div class="obs">${esc(promotionNote(line))}</div>
     <div class="pp"><div><small>Preço lojista</small><b>${brl(promotion.b2bMinCents)}</b><small>por unidade</small></div>
     <div class="pr"><small>Com a promoção</small><b>${brl(unit)}</b><small>por unidade</small></div>
     <div><small>Sugerido ao consumidor</small><b>${consumer ? brl(consumer) : "—"}</b><small>por unidade</small></div></div>
@@ -141,7 +146,8 @@ export function buildOfferPdfHtml(data: OfferPdfData, options: { autoPrint?: boo
     })
     .join("");
 
-  const displayPage = displays.length
+  const displayPage = () =>
+    displays.length
     ? `
 <section class="pg">
   <div class="kick">Destaque no balcão</div>
@@ -189,7 +195,7 @@ ${
   ${footer()}
 </section>`
     : ""
-}${displayPage}
+}${displayPage()}
 
 <section class="pg">
   <div class="kick">Tabela de preços</div>
