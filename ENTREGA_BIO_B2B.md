@@ -9,6 +9,15 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Boleto a prazo B2B vai para a separação ao ser criado (11/11/2026), `31ff419` sobre `be7555a`
+
+- Caso Gral Animal (pedido d9adc1f5): o boleto B2B ficava "aguardando pagamento" até todas as parcelas serem baixadas.
+- Agora o boleto B2B é liberado para separação ao registrar a solicitação (`status` continua `pending`, `fulfillment_status` vira `paid_to_prepare`) e aparece na Central/Omie.
+- Admin do pedido: botão "Liberar para separação (boleto a prazo)" para os pedidos parados, com registro de quem e quando (`order_events`, `boleto_released`). Sem SQL.
+- Baixa de todas as parcelas marca `paid` sem voltar etapa; desfazer baixa só volta o financeiro; cancelado sai da separação. Comissão pela data da baixa, Pix/cartão e B2C sem mudança.
+- Testes, tsc, lint e build ok. Sem push.
+
+---
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Rodada 20 · Cupom GPT10 e proposta das páginas /para/* (23/10/2026), sobre `a54ee67`
 
 Sem push, deploy ou Neon. **Etapa 1 de 2:** cupom pronto; as 8 páginas **só serão montadas depois da aprovação da tabela de produtos** (pedido da mestre).
