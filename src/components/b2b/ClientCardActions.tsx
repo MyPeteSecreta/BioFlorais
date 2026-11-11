@@ -29,7 +29,7 @@ export default function ClientCardActions({
   const [copied, setCopied] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
 
-  async function act(kind: "copy" | "whatsapp" | "qr") {
+  async function act(kind: "copy" | "whatsapp" | "qr" | "pdf") {
     if (!offerId) return;
     setBusy(true);
     setError("");
@@ -43,7 +43,8 @@ export default function ClientCardActions({
         return;
       }
 
-      if (kind === "qr") setQrUrl(String(data.url));
+      if (kind === "pdf") window.open(`${String(data.url).replace(/[?#].*$/, "")}/pdf`, "_blank", "noopener");
+      else if (kind === "qr") setQrUrl(String(data.url));
       else if (kind === "whatsapp") window.open(String(data.whatsappUrl), "_blank", "noopener");
       else {
         try {
@@ -69,7 +70,7 @@ export default function ClientCardActions({
         Nova oferta
       </Link>
       {offerId && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <button type="button" disabled={busy} onClick={() => act("copy")} className={`${small} border border-[#55245f] text-[#55245f]`}>
             {copied ? "Copiado ✓" : "Copiar link"}
           </button>
@@ -78,6 +79,9 @@ export default function ClientCardActions({
           </button>
           <button type="button" disabled={busy} onClick={() => act("qr")} className={`${small} bg-[#26352c] text-white`}>
             QR
+          </button>
+          <button type="button" disabled={busy} onClick={() => act("pdf")} className={`${small} border border-[#55245f] text-[#55245f]`} data-testid="cliente-pdf-oferta">
+            PDF
           </button>
         </div>
       )}

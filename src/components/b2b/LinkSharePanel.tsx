@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import OfferPdfButton from "@/components/b2b/OfferPdfButton";
 import QrCodeModal from "@/components/b2b/QrCodeModal";
 
 /** Link do cliente (aparece só uma vez): Copiar + Enviar pelo WhatsApp. */
@@ -70,6 +71,7 @@ export default function LinkSharePanel({
           </p>
         </>
       )}
+      <OfferPdfButton url={url} />
       {showQr && <QrCodeModal url={url} clientName={clientName} demo={demo} onClose={() => setShowQr(false)} />}
     </div>
   );
