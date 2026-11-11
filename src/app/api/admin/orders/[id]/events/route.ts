@@ -6,6 +6,7 @@
  * gravada (útil depois para a Academia/UGC; o envio não foi implementado).
  */
 
+import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -58,14 +59,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const note = String(body.note ?? "").trim().slice(0, 300);
 
     const [order] = await db
-      .select({ id: orders.id, status: orders.status, fulfillmentStatus: orders.fulfillmentStatus })
+      .select({ id: orders.id, status: orders.status, fulfillmentStatus: orders.fulfillmentStatus, b2bOfferId: orders.b2bOfferId, paymentMethod: orders.paymentMethod })
       .from(orders)
       .where(eq(orders.id, id))
       .limit(1);
 
     if (!order) return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
 
-    const paid = order.status === "paid" || order.status === "approved";
+    // Pago, ou boleto a prazo B2B liberado para separação (boleto-release.ts).
+    const paid = canFulfillOrder(order);
 
     if (!paid) return NextResponse.json({ error: "O pedido ainda não está pago." }, { status: 409 });
 

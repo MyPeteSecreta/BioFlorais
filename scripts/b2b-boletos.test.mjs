@@ -164,7 +164,7 @@ test("COMISSÃO do boleto: por parcela, pela data da BAIXA (nunca pelo venciment
   assert.deepEqual(order, { status: "pending", fulfillment_status: "awaiting_payment" });
 });
 
-test("todas as parcelas baixadas = pedido Pago (entra na separação); desfazer baixa volta a aguardar", async () => {
+test("todas as parcelas baixadas = pedido Pago (financeiro); desfazer baixa só volta o financeiro (a separação continua)", async () => {
   const id = await boletoOrder();
   const now = new Date("2026-11-20T12:00:00Z");
 
@@ -176,11 +176,11 @@ test("todas as parcelas baixadas = pedido Pago (entra na separação); desfazer 
   let [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [id]);
   assert.deepEqual(order, { status: "paid", fulfillment_status: "paid_to_prepare" });
 
-  // Desfazer exige motivo e devolve o pedido a "aguardando pagamento".
+  // Desfazer exige motivo e devolve só o financeiro (boleto a prazo: a separação não depende do pagamento, 11/11).
   assert.equal((await undoBaixa(run, { orderId: id, installment: 3, reason: " " })).ok, false);
   assert.deepEqual(await undoBaixa(run, { orderId: id, installment: 3, reason: "Baixa lançada no pedido errado" }), { ok: true });
   [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [id]);
-  assert.deepEqual(order, { status: "pending", fulfillment_status: "awaiting_payment" });
+  assert.deepEqual(order, { status: "pending", fulfillment_status: "paid_to_prepare" });
   const parcels = (await loadBoletoInstallments(run, {}, now)).filter((item) => item.orderId === id);
   assert.deepEqual(parcels.map((item) => item.status), ["pago", "pago", "vencido"]);
 
@@ -188,11 +188,13 @@ test("todas as parcelas baixadas = pedido Pago (entra na separação); desfazer 
   assert.deepEqual(log.map((row) => row.action).sort(), ["baixa", "desfeita"]);
 });
 
-test("não desfaz baixa se o pedido já avançou na separação ou se a comissão da parcela já foi paga", async () => {
+test("desfaz baixa mesmo com o pedido já enviado (só o financeiro volta); não desfaz se a comissão da parcela já foi paga", async () => {
   const shipped = await boletoOrder({ installments: 1, total: 50000, schedule: JSON.stringify([{ installment: 1, dueDate: "2026-10-20", amountCents: 50000 }]) });
   await giveBaixa(run, { orderId: shipped, installment: 1, paidAt: "2026-10-20", paidCents: null, note: null }, NOW);
   await run(`UPDATE orders SET fulfillment_status = 'shipped' WHERE id = $1`, [shipped]);
-  assert.equal((await undoBaixa(run, { orderId: shipped, installment: 1, reason: "teste" })).status, 409);
+  assert.deepEqual(await undoBaixa(run, { orderId: shipped, installment: 1, reason: "teste" }), { ok: true });
+  const [after] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [shipped]);
+  assert.deepEqual(after, { status: "pending", fulfillment_status: "shipped" }, "a separação/envio não volta de etapa");
 
   const paidOut = await boletoOrder();
   await giveBaixa(run, { orderId: paidOut, installment: 1, paidAt: "2026-10-20", paidCents: null, note: null }, NOW);
@@ -215,4 +217,65 @@ test("BUG da baixa às 23h em São Paulo: a data padrão é a de SP (não a de U
   const spDate = todaySaoPaulo(at2330);
   assert.equal(spDate, "2026-10-20");
   assert.deepEqual(await giveBaixa(run, { orderId: id, installment: 1, paidAt: spDate, paidCents: null, note: null }, at2330), { ok: true, orderPaid: false });
+});
+
+test("boleto a prazo B2B (11/11): liberado para separação ao registrar o boleto, sem ficar 'pago'; quitar não volta etapa; Pix/cartão e B2C não mudam", async () => {
+  const { BOLETO_RELEASED_EVENT, FULFILLABLE_ORDER_SQL, canFulfillOrder, releaseBoletoForFulfillment } = await import("../src/lib/b2b/boleto-release.ts");
+  await run(`CREATE TABLE IF NOT EXISTS order_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, event text, carrier text, tracking_code text, tracking_url text, note text, created_by text, created_at timestamp DEFAULT now())`);
+
+  const id = await boletoOrder();
+  await run(`UPDATE orders SET fulfillment_status = 'awaiting_payment' WHERE id = $1`, [id]);
+  assert.equal(await releaseBoletoForFulfillment(run, id, "sistema", "teste"), true);
+  assert.equal(await releaseBoletoForFulfillment(run, id, "admin", "de novo"), false, "idempotente");
+  let [order] = await run(`SELECT status, fulfillment_status, payment_method, b2b_offer_id FROM orders WHERE id = $1`, [id]);
+  assert.deepEqual([order.status, order.fulfillment_status], ["pending", "paid_to_prepare"], "liberado para separação, financeiro em aberto");
+  const [event] = await run(`SELECT event, created_by FROM order_events WHERE order_id = $1`, [id]);
+  assert.deepEqual(event, { event: BOLETO_RELEASED_EVENT, created_by: "sistema" }, "quem e quando");
+
+  // aparece na fila de separação (Central/Omie) pela mesma regra
+  const [listed] = await run(`SELECT count(*)::int AS n FROM orders o WHERE o.id = $1 AND ${FULFILLABLE_ORDER_SQL("o")} AND o.fulfillment_status = 'paid_to_prepare'`, [id]);
+  assert.equal(listed.n, 1);
+  assert.equal(canFulfillOrder({ status: "pending", paymentMethod: "boleto", b2bOfferId: "x", fulfillmentStatus: "paid_to_prepare" }), true);
+
+  // separa e envia antes de pagar; quitar as parcelas não volta a etapa
+  await run(`UPDATE orders SET fulfillment_status = 'shipped' WHERE id = $1`, [id]);
+  const now = new Date("2026-11-20T12:00:00Z");
+  for (const [n, d] of [[1, "2026-10-20"], [2, "2026-11-03"], [3, "2026-11-17"]]) await giveBaixa(run, { orderId: id, installment: n, paidAt: d, paidCents: null, note: null }, now);
+  [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [id]);
+  assert.deepEqual(order, { status: "paid", fulfillment_status: "shipped" });
+
+  // cancelado sai da separação
+  assert.equal(canFulfillOrder({ status: "pending", paymentMethod: "boleto", b2bOfferId: "x", fulfillmentStatus: "cancelled" }), false);
+  // Pix e cartão B2B: só depois de pagos (como antes); B2C (sem oferta) idem
+  assert.equal(canFulfillOrder({ status: "pending", paymentMethod: "pix", b2bOfferId: "x", fulfillmentStatus: "paid_to_prepare" }), false);
+  assert.equal(canFulfillOrder({ status: "pending", paymentMethod: "card", b2bOfferId: "x", fulfillmentStatus: "paid_to_prepare" }), false);
+  assert.equal(canFulfillOrder({ status: "pending", paymentMethod: "boleto", b2bOfferId: null, fulfillmentStatus: "paid_to_prepare" }), false);
+  assert.equal(canFulfillOrder({ status: "paid", paymentMethod: "pix", b2bOfferId: null, fulfillmentStatus: "paid_to_prepare" }), true);
+});
+
+test("fiação: solicitação do boleto libera; Central, avanço e admin aceitam o boleto liberado; botão no admin para os parados", () => {
+  const src = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.ok(src("src/app/api/b2b/payments/boleto/route.ts").includes("releaseBoletoForFulfillment(getAppSqlRunner(), order.id, \"sistema\""));
+  assert.ok(src("src/lib/central/brand-api.ts").includes('WHERE ${FULFILLABLE_ORDER_SQL("o")}'));
+  assert.ok(src("src/lib/central/order-progress.ts").includes("canFulfillOrder({"));
+  assert.ok(src("src/app/api/admin/orders/[id]/fulfillment/route.ts").includes("const paymentApproved = canFulfillOrder(order);"));
+  assert.ok(src("src/app/api/admin/orders/[id]/events/route.ts").includes("const paid = canFulfillOrder(order);"));
+  const page = src("src/app/admin/(protected)/pedidos/[id]/page.tsx");
+  assert.ok(page.includes("{boletoWaiting && <ReleaseBoletoButton orderId={order.id} />}"));
+  assert.ok(src("src/app/api/admin/orders/[id]/release-boleto/route.ts").includes("isAdminRequest(request)"));
+});
+
+test("pedido parado antigo (fulfillment vazio) também é liberado pelo botão; Pix/B2C não", async () => {
+  const { releaseBoletoForFulfillment } = await import("../src/lib/b2b/boleto-release.ts");
+  const id = await boletoOrder();
+  await run(`UPDATE orders SET fulfillment_status = NULL WHERE id = $1`, [id]);
+  assert.equal(await releaseBoletoForFulfillment(run, id, "admin", "teste"), true);
+  const [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [id]);
+  assert.deepEqual(order, { status: "pending", fulfillment_status: "paid_to_prepare" });
+  const pix = await boletoOrder();
+  await run(`UPDATE orders SET payment_method = 'pix', fulfillment_status = 'awaiting_payment' WHERE id = $1`, [pix]);
+  assert.equal(await releaseBoletoForFulfillment(run, pix, "admin", "teste"), false);
+  const b2c = await boletoOrder();
+  await run(`UPDATE orders SET b2b_offer_id = NULL, fulfillment_status = 'awaiting_payment' WHERE id = $1`, [b2c]);
+  assert.equal(await releaseBoletoForFulfillment(run, b2c, "admin", "teste"), false);
 });

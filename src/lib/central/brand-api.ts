@@ -4,6 +4,7 @@
  * do vendedor reaproveitam as mesmas regras do admin da Bio.
  */
 
+import { FULFILLABLE_ORDER_SQL } from "@/lib/b2b/boleto-release";
 import { isUuid } from "@/lib/b2b/admin-input";
 import { andNotArchived } from "@/lib/b2b/archive";
 import { effectiveOmieVendor } from "@/lib/b2b/omie-vendor";
@@ -104,7 +105,7 @@ export async function listBrandOrders(run: SqlRunner, stage: OrderStage): Promis
        LEFT JOIN customers c ON c.id = o.customer_id
        LEFT JOIN addresses a ON a.id = o.shipping_address_id
        LEFT JOIN b2b_responsibles r ON r.id::text = to_jsonb(o) ->> 'b2b_responsible_id'
-      WHERE o.status IN ('paid', 'approved')${notArchived}
+      WHERE ${FULFILLABLE_ORDER_SQL("o")}${notArchived}
         AND ${stageFilter}
       ORDER BY o.created_at ASC
       LIMIT 300`

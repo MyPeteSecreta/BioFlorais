@@ -12,6 +12,8 @@
  *   e índice único parcial em payments(order_id) WHERE method='boleto'.
  */
 
+import { releaseBoletoForFulfillment } from "@/lib/b2b/boleto-release";
+import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -190,6 +192,11 @@ export async function POST(request: NextRequest) {
       )[0];
 
     const repeated = !boleto?.wasInserted;
+
+    // Boleto a prazo: a separação/faturamento não espera o pagamento (src/lib/b2b/boleto-release.ts).
+    if (current) {
+      await releaseBoletoForFulfillment(getAppSqlRunner(), order.id, "sistema", "Boleto a prazo: liberado para separação ao registrar a solicitação.").catch(() => false);
+    }
 
     return NextResponse.json({
       success: true,

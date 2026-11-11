@@ -55,7 +55,10 @@ test("orçamento NÃO conta como compra, NÃO reserva promoção, NÃO vai à Ce
   assert.ok(counts.includes("o.status = 'paid'") && reserves.includes("o.status = 'pending'"), "só pago e pendente contam");
 
   const central = read("src/lib/central/brand-api.ts");
-  assert.ok(central.includes("WHERE o.status IN ('paid', 'approved')"), "a Central/Omie só lê pedido pago");
+  // Central/Omie: pedido pago ou boleto a prazo B2B liberado (status pending); orçamento (quote) nunca entra.
+  assert.ok(central.includes("WHERE ${FULFILLABLE_ORDER_SQL(\"o\")}"), "a Central/Omie só lê pedido pago ou boleto liberado");
+  const release = read("src/lib/b2b/boleto-release.ts");
+  assert.ok(!release.includes("quote"), "orçamento fora da separação");
   assert.ok(read("src/lib/ads-tag-server.ts").includes("status IN ('paid', 'approved')"), "tag de anúncio só em pedido pago");
 
   for (const file of ["src/app/api/b2b/payments/boleto/route.ts"]) assert.ok(read(file).includes('order.status !== "pending"'), file);

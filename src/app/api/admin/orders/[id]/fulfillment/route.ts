@@ -1,3 +1,4 @@
+import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -41,6 +42,8 @@ export async function PATCH(
       .select({
         status: orders.status,
         fulfillmentStatus: orders.fulfillmentStatus,
+        b2bOfferId: orders.b2bOfferId,
+        paymentMethod: orders.paymentMethod,
       })
       .from(orders)
       .where(eq(orders.id, id))
@@ -63,9 +66,8 @@ export async function PATCH(
       );
     }
 
-    const paymentApproved =
-      order.status === "paid" ||
-      order.status === "approved";
+    // Pago, ou boleto a prazo B2B liberado para separação (boleto-release.ts).
+    const paymentApproved = canFulfillOrder(order);
 
     if (!paymentApproved && status !== "cancelled") {
       return NextResponse.json(

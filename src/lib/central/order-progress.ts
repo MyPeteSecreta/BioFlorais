@@ -6,6 +6,7 @@
  */
 
 import { isUuid } from "@/lib/b2b/admin-input";
+import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import type { ProgressAction } from "@/lib/central/contract";
 
@@ -40,13 +41,22 @@ export async function applyOrderProgress(
     return { ok: false, error: "Informe a transportadora e o código de rastreio.", status: 400 };
   }
 
-  const [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [input.orderId]);
+  const [order] = await run(
+    `SELECT status, fulfillment_status, b2b_offer_id, to_jsonb(o) ->> 'payment_method' AS payment_method FROM orders o WHERE id = $1`,
+    [input.orderId]
+  );
 
   if (!order) return { ok: false, error: "Pedido não encontrado.", status: 404 };
 
   const current = String(order.fulfillment_status ?? "");
 
-  if (!PAID.includes(String(order.status))) return { ok: false, error: "O pedido ainda não está pago.", status: 409 };
+  // Pago, ou boleto a prazo B2B liberado para separação (boleto-release.ts).
+  if (
+    !PAID.includes(String(order.status)) &&
+    !canFulfillOrder({ status: String(order.status), fulfillmentStatus: current, b2bOfferId: order.b2b_offer_id ? String(order.b2b_offer_id) : null, paymentMethod: order.payment_method ? String(order.payment_method) : null })
+  ) {
+    return { ok: false, error: "O pedido ainda não está pago.", status: 409 };
+  }
   if (current === "cancelled") return { ok: false, error: "Este pedido está cancelado.", status: 409 };
 
   let next: string;

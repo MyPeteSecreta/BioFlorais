@@ -199,9 +199,11 @@ export async function giveBaixa(
   const allPaid = mine.every((item) => item.installment === input.installment || item.status === "pago");
 
   if (allPaid) {
-    // Pedido B2B por boleto com todas as parcelas baixadas = Pago (entra na separação).
+    // Todas as parcelas baixadas = Pago (financeiro). A separação já foi liberada na solicitação do boleto (boleto-release.ts):
+    // só um pedido que ainda aguardava entra agora; quem já está em separação/enviado não volta de etapa.
     await run(
-      `UPDATE orders SET status = 'paid', fulfillment_status = 'paid_to_prepare'
+      `UPDATE orders SET status = 'paid',
+              fulfillment_status = CASE WHEN fulfillment_status = 'awaiting_payment' THEN 'paid_to_prepare' ELSE fulfillment_status END
         WHERE id = $1 AND b2b_offer_id IS NOT NULL AND payment_method = 'boleto' AND status = 'pending'`,
       [input.orderId]
     );
@@ -228,14 +230,7 @@ export async function undoBaixa(
 
   if (!baixa) return { ok: false, status: 404, error: "Esta parcela não tem baixa." };
 
-  const [order] = await run(`SELECT status, fulfillment_status FROM orders WHERE id = $1`, [input.orderId]);
-
-  if (
-    order?.status === "paid" &&
-    !["paid_to_prepare", "awaiting_payment"].includes(String(order.fulfillment_status ?? ""))
-  ) {
-    return { ok: false, status: 409, error: "O pedido já avançou na separação/envio: não dá para desfazer a baixa." };
-  }
+  // Boleto a prazo: a separação não depende do pagamento, então desfazer a baixa vale em qualquer etapa (só o financeiro volta).
 
   // A comissão dessa parcela já paga ao vendedor trava o desfazer (desfaça o pagamento da comissão antes).
   const [payout] = await run(
@@ -254,11 +249,11 @@ export async function undoBaixa(
     [input.orderId, input.installment, baixa.paid_at, baixa.paid_cents, input.reason.trim()]
   );
 
-  // Pedido deixa de estar todo pago: volta a aguardar (só se ainda não foi para a separação).
+  // Pedido deixa de estar todo pago: o financeiro volta a 'pending'; a separação segue onde está.
   await run(
-    `UPDATE orders SET status = 'pending', fulfillment_status = 'awaiting_payment'
+    `UPDATE orders SET status = 'pending'
       WHERE id = $1 AND b2b_offer_id IS NOT NULL AND payment_method = 'boleto'
-        AND status = 'paid' AND fulfillment_status = 'paid_to_prepare'`,
+        AND status = 'paid'`,
     [input.orderId]
   );
 

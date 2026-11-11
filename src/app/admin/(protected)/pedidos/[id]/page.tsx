@@ -1,3 +1,5 @@
+import ReleaseBoletoButton from "@/components/admin/ReleaseBoletoButton";
+import { canFulfillOrder, isB2BBoleto } from "@/lib/b2b/boleto-release";
 import Link from "next/link";
 import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -213,9 +215,10 @@ export default async function PedidoDetalhePage({
     }
   }
 
-  const paymentApproved =
-    order.status === "paid" ||
-    order.status === "approved";
+  // Pago, ou boleto a prazo B2B liberado para separação (boleto-release.ts).
+  const paymentApproved = canFulfillOrder(order);
+  // Boleto a prazo B2B ainda parado esperando pagamento: botão "Liberar para separação".
+  const boletoWaiting = isB2BBoleto(order) && order.status === "pending" && (order.fulfillmentStatus ?? "awaiting_payment") === "awaiting_payment";
 
   return (
     <main className="min-h-screen bg-[#faf8f3] px-4 py-8 sm:px-6 lg:px-10">
@@ -566,6 +569,8 @@ export default async function PedidoDetalhePage({
           </div>
 
           <ArchiveOrderButton orderId={order.id} />
+
+          {boletoWaiting && <ReleaseBoletoButton orderId={order.id} />}
 
           <FulfillmentControls
             orderId={order.id}
