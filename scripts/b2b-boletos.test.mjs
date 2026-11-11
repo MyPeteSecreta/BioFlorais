@@ -263,6 +263,7 @@ test("fiação: solicitação do boleto libera; Central, avanço e admin aceitam
   const page = src("src/app/admin/(protected)/pedidos/[id]/page.tsx");
   assert.ok(page.includes("{boletoWaiting && <ReleaseBoletoButton orderId={order.id} />}"));
   assert.ok(src("src/app/api/admin/orders/[id]/release-boleto/route.ts").includes("isAdminRequest(request)"));
+  assert.ok(src("src/app/api/admin/orders/[id]/shipment/route.ts").includes("!canFulfillOrder(order)"), "expedição aceita o boleto liberado");
 });
 
 test("pedido parado antigo (fulfillment vazio) também é liberado pelo botão; Pix/B2C não", async () => {

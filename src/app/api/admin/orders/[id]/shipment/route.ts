@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin/session";
 import { db } from "@/lib/db/client";
+import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { orders } from "@/lib/db/schema";
 
 export async function PATCH(
@@ -44,6 +45,8 @@ export async function PATCH(
         id: orders.id,
         status: orders.status,
         fulfillmentStatus: orders.fulfillmentStatus,
+        b2bOfferId: orders.b2bOfferId,
+        paymentMethod: orders.paymentMethod,
       })
       .from(orders)
       .where(eq(orders.id, id))
@@ -58,8 +61,8 @@ export async function PATCH(
 
     if (
       markAsShipped &&
-      order.status !== "paid" &&
-      order.status !== "approved"
+      // Pago, ou boleto a prazo B2B liberado para separação (boleto-release.ts).
+      !canFulfillOrder(order)
     ) {
       return NextResponse.json(
         { error: "Pedido ainda não está pago." },
