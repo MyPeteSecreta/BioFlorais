@@ -1878,3 +1878,17 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - **Pacote `@angelblancdigital/payments`:** pacote único no GitHub Packages (0.1.1), usado hoje só pela Bio; My Pet e Secreta têm o próprio código de cartão.
 
 **Testes:** `tsc` sem erros; catálogo, demo e Offer Builder 21/21; cartão, recusa, lembrete e checkout 23/23; lint limpo nos arquivos novos (2 erros antigos em `DemoWelcome.tsx` e `MercadoPagoCardPayment.tsx`, de antes); `next build` OK.
+
+## 12/11 (mestre): rodada 2 de e-mails concluída (sem push; textos para o Luis aprovar)
+- `457c602` · pedido não pago: lembrete em 2 h (era 1 h) e, em 2 dias, cupom VOLTA de 10% com controle (/admin/recuperacao: liga/desliga, %, relatório). Vem desligado.
+- `a80e5bd` · boleto B2B: aviso 3 dias antes e no dia de cada parcela (cron diário 08:00 SP).
+- `f3492ec` · pedido de avaliação 7 dias depois de entregue (cron diário 10:00 SP; só com o link https no admin).
+- `0944969` · **carrinho abandonado (B2C), só com aceite:**
+  - No checkout, abaixo do e-mail, a caixa "Quero receber um lembrete da minha sacola por e-mail se eu não concluir a compra (no máximo 2 e-mails; dá para sair a qualquer momento)". Ela vem **desmarcada** e só aparece com o recurso ligado no admin, que vem desligado. Desmarcar apaga a sacola na hora.
+  - Guarda só e-mail, primeiro nome e itens, na tabela `cart_recoveries` (**SQL 56a conferência / 56b aditivo**). Sem o 56b, nada acontece.
+  - 2 h depois: lembrete sem desconto. 48–72 h: cupom VOLTA pessoal, só com a oferta de desconto ligada e com o mesmo %. No máximo 1 oferta a cada 30 dias por e-mail.
+  - Sai quem fez pedido depois de mexer na sacola. Todo e-mail tem "Não quero mais receber", com confirmação. A sacola é apagada em 30 dias.
+  - Limitação: a oferta do pedido não pago não confere se a pessoa já recebeu a oferta da sacola; só o contrário.
+- `aeea514` · gerador das prévias (`scripts/gerar-previas-emails-rodada2.mjs`). **Prévias:** `C:\Users\User\anuncios-angelblanc\previews_emails_bio\RODADA_2_INDICE.html` (e-mails 8 a 14, HTML e texto puro).
+- **Para ligar depois do push:** aplicar 56a e depois 56b; em /admin/recuperacao, ligar a oferta, o carrinho abandonado e o link de avaliação. Recomendado: acrescentar à política (/privacidade) a finalidade "lembrete da sacola, com aceite" (texto a aprovar).
+- **Testes:** tsc sem erros; `npm test` **571/571**; build OK.
