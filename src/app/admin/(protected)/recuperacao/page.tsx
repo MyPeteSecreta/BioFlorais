@@ -1,8 +1,10 @@
 /** ADMIN — Recuperação de pedidos não pagos: liga/desliga, % do cupom e relatório (src/lib/recovery-offer.ts). */
 
 import RecoverySettingsForm from "@/components/admin/RecoverySettingsForm";
+import ReviewSettingsForm from "@/components/admin/ReviewSettingsForm";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { brlCents, loadRecoveryReport, loadRecoverySettings } from "@/lib/recovery-offer";
+import { loadReviewSettings } from "@/lib/review-request";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,7 @@ const pct = (part: number, total: number) => (total > 0 ? `${((part / total) * 1
 
 export default async function RecuperacaoPage() {
   const run = getAppSqlRunner();
-  const [settings, report] = await Promise.all([loadRecoverySettings(run), loadRecoveryReport(run).catch(() => null)]);
+  const [settings, report, review] = await Promise.all([loadRecoverySettings(run), loadRecoveryReport(run).catch(() => null), loadReviewSettings(run)]);
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-5 py-8 text-[#342737]">
@@ -42,6 +44,10 @@ export default async function RecuperacaoPage() {
         ) : (
           <p className="text-sm text-[#6c5b69]">Relatório indisponível no momento.</p>
         )}
+      </section>
+      <section className="rounded-2xl border border-[#eadfd9] bg-white p-5">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-[0.12em] text-[#a0742b]">Pedido de avaliação</h2>
+        <ReviewSettingsForm enabled={review.enabled} url={review.url} />
       </section>
     </main>
   );
