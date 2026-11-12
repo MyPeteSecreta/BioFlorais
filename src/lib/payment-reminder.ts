@@ -1,5 +1,5 @@
 /**
- * LEMBRETE DE PEDIDO NÃO PAGO (B2C). Tarefa automática (cron a cada 15 min): pedido B2C em pending/checkout_pending há mais de 1 h e
+ * LEMBRETE DE PEDIDO NÃO PAGO (B2C). Tarefa automática (cron a cada 15 min): pedido B2C em pending/checkout_pending há mais de 2 h e
  * menos de 48 h, com e-mail e ainda sem lembrete, recebe UM e-mail transacional ("Seu pedido está separado"): itens, total e o link para
  * retomar o pagamento (/pagar/<token>: Pix novo se venceu; se o cartão foi recusado, a página sugere Pix). Sem propaganda.
  * Nunca: pedido pago ou cancelado, B2B, orçamento, arquivado, sem e-mail ou que já recebeu o lembrete (orders.payment_reminder_sent_at, SQL 55b).
@@ -11,7 +11,7 @@
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { signTrackingToken } from "@/lib/order-tracking";
 
-export const REMINDER_MIN_AGE_MS = 60 * 60 * 1000;
+export const REMINDER_MIN_AGE_MS = 2 * 60 * 60 * 1000;
 export const REMINDER_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 export const REMINDER_BATCH = 40;
 export const REMINDER_STATUSES = ["pending", "checkout_pending"] as const;
@@ -30,7 +30,7 @@ export type ReminderCandidate = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Pedidos elegíveis agora. B2C de verdade: sem oferta/cliente B2B; só os dois status de pagamento pendente; janela de 1 h a 48 h;
+ * Pedidos elegíveis agora. B2C de verdade: sem oferta/cliente B2B; só os dois status de pagamento pendente; janela de 2 h a 48 h (Luis, 12/11: era 1 h);
  * e-mail válido; sem lembrete anterior; sem pagamento já aprovado; não arquivado.
  */
 export async function findReminderCandidates(run: SqlRunner, now = new Date(), limit = REMINDER_BATCH): Promise<ReminderCandidate[]> {

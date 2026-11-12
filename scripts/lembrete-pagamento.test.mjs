@@ -49,9 +49,10 @@ async function makeDb() {
 
 test("seleção: só B2C pendente na janela de 1 h a 48 h, com e-mail, sem lembrete e sem pagamento aprovado", async () => {
   const { run, add } = await makeDb();
-  const ok1 = await add({ status: "pending", hours: 2 });
+  const ok1 = await add({ status: "pending", hours: 2.5 });
   const ok2 = await add({ status: "checkout_pending", hours: 47 });
   await add({ hours: 0.5 }); // recente demais
+  await add({ hours: 1.5 }); // ainda antes das 2 h (Luis, 12/11)
   await add({ hours: 49 }); // antigo demais
   await add({ status: "paid", hours: 3 });
   await add({ status: "cancelled", hours: 3 });

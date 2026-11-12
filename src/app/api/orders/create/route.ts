@@ -1,3 +1,4 @@
+import { recoveryCouponOwnerError } from "@/lib/recovery-offer";
 import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { activeCampaign, campaignUnitPriceCents, couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
@@ -106,8 +107,8 @@ function onlyDigits(
 
 // Cupom de 1 uso por e-mail ja usado: mensagem direta ao cliente (400), nao o erro generico.
 class CouponAlreadyUsedError extends Error {
-  constructor() {
-    super("Este cupom já foi usado neste e-mail.");
+  constructor(message = "Este cupom já foi usado neste e-mail.") {
+    super(message);
   }
 }
 
@@ -153,6 +154,13 @@ async function resolveCoupon(
     throw new Error(
       "O cupom informado nao e um cupom comercial."
     );
+  }
+
+  // Cupom de recuperação (VOLTA-…): pessoal, só para o e-mail que recebeu a oferta (src/lib/recovery-offer.ts).
+  const ownerError = await recoveryCouponOwnerError(getAppSqlRunner(), code, customerEmail);
+
+  if (ownerError) {
+    throw new CouponAlreadyUsedError(ownerError);
   }
 
   if (!coupon.active) {

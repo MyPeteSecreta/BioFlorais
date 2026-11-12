@@ -307,6 +307,20 @@ export default function CheckoutPage() {
     setPixRetryNonce,
   ] = useState(0);
 
+  // Link "Retomar com desconto" (/retomar): ?cupom=VOLTA-… preenche o campo do cupom; a cliente confere e clica em Aplicar.
+  useEffect(() => {
+    try {
+      const fromLink = new URLSearchParams(window.location.search).get("cupom");
+
+      if (fromLink && /^VOLTA-[A-Z0-9]{6}$/.test(fromLink.toUpperCase())) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCouponCode(fromLink.toUpperCase());
+      }
+    } catch {
+      // sem URL: nada
+    }
+  }, []);
+
   // BIO_CHECKOUT_DRAFT_RESTORE_V4
   useEffect(() => {
     let cancelled = false;
