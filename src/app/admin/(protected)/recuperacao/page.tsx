@@ -2,6 +2,8 @@
 
 import RecoverySettingsForm from "@/components/admin/RecoverySettingsForm";
 import ReviewSettingsForm from "@/components/admin/ReviewSettingsForm";
+import CartRecoveryForm from "@/components/admin/CartRecoveryForm";
+import { loadCartRecoveryEnabled, loadCartRecoveryReport } from "@/lib/cart-recovery";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { brlCents, loadRecoveryReport, loadRecoverySettings } from "@/lib/recovery-offer";
 import { loadReviewSettings } from "@/lib/review-request";
@@ -12,7 +14,13 @@ const pct = (part: number, total: number) => (total > 0 ? `${((part / total) * 1
 
 export default async function RecuperacaoPage() {
   const run = getAppSqlRunner();
-  const [settings, report, review] = await Promise.all([loadRecoverySettings(run), loadRecoveryReport(run).catch(() => null), loadReviewSettings(run)]);
+  const [settings, report, review, cartEnabled, cartReport] = await Promise.all([
+    loadRecoverySettings(run),
+    loadRecoveryReport(run).catch(() => null),
+    loadReviewSettings(run),
+    loadCartRecoveryEnabled(run),
+    loadCartRecoveryReport(run).catch(() => null),
+  ]);
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-5 py-8 text-[#342737]">
@@ -45,6 +53,29 @@ export default async function RecuperacaoPage() {
           <p className="text-sm text-[#6c5b69]">Relatório indisponível no momento.</p>
         )}
       </section>
+      <section className="rounded-2xl border border-[#eadfd9] bg-white p-5" data-testid="carrinho-abandonado-admin">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-[0.12em] text-[#a0742b]">Carrinho abandonado</h2>
+        <p className="mb-3 text-sm text-[#6c5b69]">
+          Só para quem marca, no checkout, que quer um lembrete da sacola (caixa desmarcada por padrão). 2 h depois: lembrete sem desconto.
+          Em 2 dias: o cupom pessoal, se a oferta de desconto acima estiver ligada (mesmo %). No máximo 1 oferta a cada 30 dias por e-mail.
+          A sacola é apagada em 30 dias ou quando a pessoa pede para sair. Precisa do SQL 56b.
+        </p>
+        <CartRecoveryForm enabled={cartEnabled} />
+        {cartReport ? (
+          <table className="mt-4 w-full text-sm">
+            <tbody>
+              <tr><td className="py-1">Sacolas guardadas agora</td><td className="text-right font-bold">{cartReport.active}</td></tr>
+              <tr><td className="py-1">Lembretes enviados (30 dias)</td><td className="text-right font-bold">{cartReport.reminders30}</td></tr>
+              <tr><td className="py-1">Ofertas enviadas (30 dias)</td><td className="text-right font-bold">{cartReport.offers30}</td></tr>
+              <tr><td className="py-1">Viraram pedido (30 dias)</td><td className="text-right font-bold">{cartReport.converted30}</td></tr>
+              <tr><td className="py-1">Cupons da sacola usados</td><td className="text-right font-bold">{cartReport.couponsUsed}</td></tr>
+            </tbody>
+          </table>
+        ) : (
+          <p className="mt-3 text-sm text-[#6c5b69]">Aplique o SQL 56b para ligar o carrinho abandonado.</p>
+        )}
+      </section>
+
       <section className="rounded-2xl border border-[#eadfd9] bg-white p-5">
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-[0.12em] text-[#a0742b]">Pedido de avaliação</h2>
         <ReviewSettingsForm enabled={review.enabled} url={review.url} />

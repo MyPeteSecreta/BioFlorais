@@ -15,6 +15,7 @@ import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
 import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
 import { trackCheckoutStep, trackEvent, type CheckoutStep } from "@/lib/analytics-events";
 import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
+import CartReminderOptIn from "@/components/cart/CartReminderOptIn";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMeta } from "@/lib/measurement-client";
@@ -151,6 +152,7 @@ export default function CheckoutPage() {
     hydrated,
   } = useCart();
   const cartImages = useCartImages(items.map((item) => item.productSlug));
+  const reminderItems = useMemo(() => items.map((item) => ({ productSlug: item.productSlug, qty: item.qty })), [items]);
 
   const [
     quote,
@@ -2101,6 +2103,9 @@ export default function CheckoutPage() {
                     placeholder="voce@email.com"
                   />
                 </label>
+
+                {/* Carrinho abandonado: aceite opcional, desmarcado (src/lib/cart-recovery.ts). */}
+                <CartReminderOptIn items={reminderItems} />
 
                 <label className="text-sm font-medium">
                   Telefone

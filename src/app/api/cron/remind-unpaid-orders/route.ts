@@ -8,6 +8,7 @@
  */
 
 import { runRecoveryOffers } from "@/lib/recovery-offer";
+import { runCartRecovery } from "@/lib/cart-recovery";
 import { timingSafeEqual } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -51,9 +52,15 @@ export async function GET(request: NextRequest) {
       return null;
     });
 
-    console.log("[cron/remind-unpaid-orders]", summary, recovery);
+    // Carrinho abandonado (só com aceite; SQL 56b): falha aqui nunca derruba os lembretes.
+    const carts = await runCartRecovery(run, { send: (mail) => sendEmail(mail), siteUrl: getSiteUrl() }).catch((error) => {
+      console.error("[cron/remind-unpaid-orders] sacola", error instanceof Error ? error.message : error);
+      return null;
+    });
 
-    return NextResponse.json({ ok: true, ...summary, recovery });
+    console.log("[cron/remind-unpaid-orders]", summary, recovery, carts);
+
+    return NextResponse.json({ ok: true, ...summary, recovery, carts });
   } catch (error) {
     console.error("[cron/remind-unpaid-orders] falha", error instanceof Error ? error.message : error);
 
