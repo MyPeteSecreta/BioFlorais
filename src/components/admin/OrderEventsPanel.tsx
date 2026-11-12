@@ -19,7 +19,18 @@ type EventRow = {
   created_at: string;
 };
 
-const LABEL: Record<string, string> = { separating: "Em separação", shipped: "Enviado", delivered: "Entregue" };
+const LABEL: Record<string, string> = {
+  separating: "Em separação",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  boleto_released: "Liberado para separação (boleto a prazo)",
+  email_received: "E-mail: pedido recebido",
+  email_paid: "E-mail: pagamento confirmado",
+  email_separating: "E-mail: em separação",
+  email_shipped: "E-mail: enviado",
+  email_delivered: "E-mail: entregue",
+  email_cancelled: "E-mail: cancelado",
+};
 const field = "w-full rounded-xl border border-[#e5dccf] bg-white px-3 py-2 text-sm";
 
 export default function OrderEventsPanel({
@@ -162,6 +173,7 @@ export default function OrderEventsPanel({
             {" · "}por {event.created_by ?? "admin"}
             {event.carrier ? ` · ${event.carrier}` : ""}
             {event.tracking_code ? ` · ${event.tracking_code}` : ""}
+            {event.event.startsWith("email_") && event.note ? ` · ${event.note}` : ""}
           </li>
         ))}
       </ul>

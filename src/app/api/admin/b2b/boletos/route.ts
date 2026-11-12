@@ -4,6 +4,7 @@
  * seguinte à data da baixa) e o status do pedido (todas baixadas = Pago).
  */
 
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin/session";
@@ -88,6 +89,9 @@ export async function POST(request: NextRequest) {
         paidCents: body.paidCents === null || body.paidCents === undefined ? null : Number(body.paidCents),
         note: body.note ? String(body.note).slice(0, 300) : null,
       });
+
+      // Todas as parcelas pagas: e-mail "pagamento confirmado" (só se o pedido ainda não avançou de etapa).
+      if (result.ok && result.orderPaid) scheduleOrderEmail(orderId);
 
       return result.ok
         ? NextResponse.json({ ok: true, orderPaid: result.orderPaid })

@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -80,6 +81,9 @@ export async function PATCH(
       .update(orders)
       .set({ fulfillmentStatus: status })
       .where(eq(orders.id, id));
+
+    // E-mail da etapa (em separação, enviado, entregue, cancelado).
+    scheduleOrderEmail(id);
 
     return NextResponse.json({ success: true, status });
   } catch (error) {

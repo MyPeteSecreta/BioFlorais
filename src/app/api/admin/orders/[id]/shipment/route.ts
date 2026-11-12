@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -80,6 +81,9 @@ export async function PATCH(
           : {}),
       })
       .where(eq(orders.id, id));
+
+    // E-mail "enviado" com o rastreio.
+    if (markAsShipped) scheduleOrderEmail(id);
 
     return NextResponse.json({
       success: true,

@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const { status, ...result } = await applyBrandProgress(getAppSqlRunner(), id, body);
+
+    // E-mail da etapa (em separação, enviado com rastreio, entregue).
+    if (result.ok) scheduleOrderEmail(id);
 
     return NextResponse.json(result, { status: result.ok ? 200 : (status ?? 400) });
   } catch (error) {

@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { eq, sql } from "drizzle-orm";
 
 import { Pool, neonConfig } from "@neondatabase/serverless";
@@ -248,6 +249,9 @@ export async function finalizeMercadoPagoPaid(
   // API de Conversões da Meta (Purchase pelo servidor, event_id = id do pedido): timeout curto, nunca lança, nunca
   // atrapalha o pagamento. Sem META_CAPI_TOKEN ou sem aceite de marketing no pedido, não envia nada.
   await sendMetaCapiPurchase(getAppSqlRunner(), input.orderId, { siteUrl: getSiteUrl() });
+
+  // E-mail "pagamento confirmado" (uma vez; nunca atrapalha a finalização).
+  scheduleOrderEmail(input.orderId);
 
   return result;
 }

@@ -8,6 +8,7 @@
  * em orders.total_cents junto com orders.payment_method (trava).
  */
 
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -474,6 +475,9 @@ export async function POST(request: NextRequest) {
         launched,
       });
     }
+
+    // E-mail "recebemos seu pedido" (boleto a prazo: sai na solicitação do boleto, com as parcelas).
+    scheduleOrderEmail(order.id);
 
     return NextResponse.json({
       success: true,

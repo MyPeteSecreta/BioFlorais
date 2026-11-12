@@ -3,6 +3,7 @@
   timingSafeEqual,
 } from "node:crypto";
 
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import {
   NextRequest,
   NextResponse,
@@ -409,6 +410,9 @@ export async function POST(
           )
         );
     }
+
+    // E-mail "pagamento confirmado" (Pix vencido não manda "cancelado": a cliente pode gerar outro).
+    if (event === "payment.completed") scheduleOrderEmail(localOrderId);
 
     console.log(
       "Webhook PixGo processado:",

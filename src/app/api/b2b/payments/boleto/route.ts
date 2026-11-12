@@ -12,6 +12,7 @@
  *   e índice único parcial em payments(order_id) WHERE method='boleto'.
  */
 
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { releaseBoletoForFulfillment } from "@/lib/b2b/boleto-release";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { NextRequest, NextResponse } from "next/server";
@@ -196,6 +197,8 @@ export async function POST(request: NextRequest) {
     // Boleto a prazo: a separação/faturamento não espera o pagamento (src/lib/b2b/boleto-release.ts).
     if (current) {
       await releaseBoletoForFulfillment(getAppSqlRunner(), order.id, "sistema", "Boleto a prazo: liberado para separação ao registrar a solicitação.").catch(() => false);
+      // E-mail "recebemos seu pedido" com as parcelas e os vencimentos.
+      scheduleOrderEmail(order.id);
     }
 
     return NextResponse.json({

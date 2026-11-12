@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import {
   createHmac,
   timingSafeEqual,
@@ -359,6 +360,9 @@ export async function POST(
           orderId
         )
       );
+
+    // E-mail "pagamento confirmado".
+    scheduleOrderEmail(orderId);
 
     await confirmPartnerPaid(
       orderId,

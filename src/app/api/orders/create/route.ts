@@ -1,3 +1,4 @@
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { activeCampaign, campaignUnitPriceCents, couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
 import { isValidCnpj, isValidCpf } from "@/lib/checkout/document";
@@ -1414,6 +1415,8 @@ const orderRows =
         );
     }
 
+    // E-mail "recebemos seu pedido" (depois da resposta; nunca atrapalha o pedido).
+    scheduleOrderEmail(order.id);
 
     return NextResponse.json({
       success: true,

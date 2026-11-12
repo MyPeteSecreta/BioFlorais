@@ -6,6 +6,7 @@
  * gravada (útil depois para a Academia/UGC; o envio não foi implementado).
  */
 
+import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -106,6 +107,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       // SQL 23b ainda não aplicado: o status mudou, mas sem histórico.
       console.error("[admin/orders/events] sem order_events", error);
     }
+
+    // E-mail da etapa (em separação, enviado com rastreio, entregue).
+    scheduleOrderEmail(id);
 
     return NextResponse.json({ ok: true, fulfillmentStatus: event });
   } catch (error) {
