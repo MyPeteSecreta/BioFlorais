@@ -9,6 +9,9 @@
  */
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
+import { PRODUCT_EMAIL_IMAGES } from "@/lib/catalog/product-email-images";
+import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
+import { BRAND } from "@/lib/order-emails";
 import { signTrackingToken } from "@/lib/order-tracking";
 
 export const REMINDER_MIN_AGE_MS = 2 * 60 * 60 * 1000;
@@ -24,7 +27,10 @@ export type ReminderCandidate = {
   totalCents: number;
   lastMethod: string | null;
   lastPaymentStatus: string | null;
-  items: Array<{ name: string; qty: number }>;
+  /** slug e valor da linha: foto e preço no e-mail (opcionais). */
+  items: Array<{ name: string; qty: number; slug?: string | null; lineCents?: number }>;
+  /** Frete cobrado no pedido (null = desconhecido). */
+  shippingCents?: number | null;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,7 +45,7 @@ export async function findReminderCandidates(run: SqlRunner, now = new Date(), l
   const oldest = new Date(now.getTime() - REMINDER_MAX_AGE_MS).toISOString().replace("Z", "");
 
   const rows = await run(
-    `SELECT o.id, o.status, o.total_cents, c.email, c.name,
+    `SELECT o.id, o.status, o.total_cents, to_jsonb(o) ->> 'shipping_cents' AS shipping_cents, c.email, c.name,
             lp.method AS last_method, lp.status AS last_payment_status
        FROM orders o
        JOIN customers c ON c.id = o.customer_id
@@ -64,7 +70,7 @@ export async function findReminderCandidates(run: SqlRunner, now = new Date(), l
     if (!EMAIL_RE.test(email)) continue;
 
     const items = await run(
-      `SELECT i.qty, COALESCE(to_jsonb(i) ->> 'product_name_snapshot', p.name, 'Produto') AS name
+      `SELECT i.qty, i.unit_price_cents, to_jsonb(p) ->> 'slug' AS slug, COALESCE(to_jsonb(i) ->> 'product_name_snapshot', p.name, 'Produto') AS name
          FROM order_items i LEFT JOIN products p ON p.id = i.product_id
         WHERE i.order_id = $1::uuid AND i.unit_price_cents > 0 ORDER BY i.unit_price_cents DESC, p.name`,
       [String(row.id)]
@@ -78,7 +84,13 @@ export async function findReminderCandidates(run: SqlRunner, now = new Date(), l
       totalCents: Number(row.total_cents ?? 0),
       lastMethod: (row.last_method as string | null) ?? null,
       lastPaymentStatus: (row.last_payment_status as string | null) ?? null,
-      items: items.map((item) => ({ name: String(item.name), qty: Number(item.qty ?? 0) })),
+      items: items.map((item) => ({
+        name: String(item.name),
+        qty: Number(item.qty ?? 0),
+        slug: (item.slug as string | null) ?? null,
+        lineCents: Number(item.unit_price_cents ?? 0) * Number(item.qty ?? 0),
+      })),
+      shippingCents: row.shipping_cents === null || row.shipping_cents === undefined ? null : Number(row.shipping_cents),
     });
   }
 
@@ -124,38 +136,90 @@ export function cardWasDeclined(candidate: Pick<ReminderCandidate, "lastMethod" 
   return (candidate.lastMethod === "card" || candidate.lastMethod === "credit_card") && (failed || candidate.status === "checkout_pending");
 }
 
+/** Foto do produto para o e-mail: versão pequena (128 px) pelo otimizador de imagens do próprio site. null sem foto. */
+export function emailImageUrl(origin: string, slug: string | null | undefined): string | null {
+  const path = slug ? PRODUCT_EMAIL_IMAGES[slug] : undefined;
+
+  return path ? `${origin}/_next/image?url=${encodeURIComponent(path)}&w=128&q=75` : null;
+}
+
+/** Frete no e-mail, só quando ajuda: grátis neste pedido, ou o aviso de grátis a partir de R$ 70 (sem pressão). */
+export function reminderShippingNote(candidate: Pick<ReminderCandidate, "items" | "shippingCents">): string | null {
+  const merchandise = candidate.items.reduce((sum, item) => sum + (item.lineCents ?? 0), 0);
+
+  if (candidate.shippingCents === 0 && merchandise > 0) return "O frete deste pedido é grátis.";
+  if (merchandise > 0 && merchandise < B2C_FREE_SHIPPING_THRESHOLD_CENTS) {
+    return `Frete grátis a partir de ${brl(B2C_FREE_SHIPPING_THRESHOLD_CENTS).replace(",00", "")} em produtos.`;
+  }
+
+  return null;
+}
+
+/**
+ * Lembrete 2 h depois (sem desconto). Visual no padrão dos e-mails de andamento (moldura bege, "Bio Florais" no topo): foto e nome
+ * dos itens, total, botão grande "Concluir meu pedido", frete grátis quando couber. Tom acolhedor, sem pressão (Luis, 12/11).
+ */
 export function buildReminderEmail(candidate: ReminderCandidate, link: string): { subject: string; text: string; html: string } {
   const number = candidate.orderId.slice(0, 8).toUpperCase();
   const greeting = firstName(candidate.name) ? `Olá, ${firstName(candidate.name)}.` : "Olá.";
   const lines = candidate.items.map((item) => `${item.qty}× ${item.name}`);
   const cardTip = cardWasDeclined(candidate) ? "O pagamento no cartão não foi concluído. Se preferir, o Pix costuma ser aprovado na hora." : "Se o Pix venceu, é só gerar outro na própria página.";
+  const shipping = reminderShippingNote(candidate);
+  let origin = "";
+
+  try {
+    origin = new URL(link).origin;
+  } catch {
+    origin = "";
+  }
 
   const subject = `Seu pedido #${number} está separado`;
   const text = [
     greeting,
     "",
-    `Seu pedido #${number} está separado e aguarda o pagamento.`,
+    `Seu pedido #${number} está separado e aguarda o pagamento. Guardamos tudo para você.`,
     "",
     ...lines,
     "",
     `Total: ${brl(candidate.totalCents)}`,
+    ...(shipping ? [shipping] : []),
     "",
-    `Para concluir o pagamento: ${link}`,
+    `Concluir meu pedido: ${link}`,
     cardTip,
     "",
     "Se você já pagou ou não quer mais o pedido, pode ignorar este e-mail.",
     "Bio Florais",
   ].join("\n");
 
-  const html = [
-    `<p>${escapeHtml(greeting)}</p>`,
-    `<p>Seu pedido <strong>#${number}</strong> está separado e aguarda o pagamento.</p>`,
-    `<ul>${candidate.items.map((item) => `<li>${item.qty}× ${escapeHtml(item.name)}</li>`).join("")}</ul>`,
-    `<p><strong>Total: ${brl(candidate.totalCents)}</strong></p>`,
-    `<p><a href="${escapeHtml(link)}">Concluir o pagamento</a></p>`,
-    `<p>${escapeHtml(cardTip)}</p>`,
-    `<p style="color:#6c5b69;font-size:12px">Se você já pagou ou não quer mais o pedido, pode ignorar este e-mail.<br>Bio Florais</p>`,
-  ].join("");
+  const cell = `font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:${BRAND.green}`;
+  const itemRows = candidate.items
+    .map((item) => {
+      const image = origin ? emailImageUrl(origin, item.slug) : null;
+      const photo = image
+        ? `<img src="${escapeHtml(image)}" width="64" height="64" alt="${escapeHtml(item.name)}" style="display:block;width:64px;height:64px;object-fit:contain;border-radius:12px;background:${BRAND.beige}">`
+        : `<div style="width:64px;height:64px;border-radius:12px;background:${BRAND.beige}"></div>`;
+      const price = `<td align="right" style="padding:10px 0;border-bottom:1px solid ${BRAND.line};${cell};white-space:nowrap;vertical-align:middle">${item.lineCents ? brl(item.lineCents) : ""}</td>`;
+
+      return `<tr><td width="76" style="padding:10px 12px 10px 0;border-bottom:1px solid ${BRAND.line};vertical-align:middle">${photo}</td><td style="padding:10px 0;border-bottom:1px solid ${BRAND.line};${cell};vertical-align:middle"><strong>${escapeHtml(item.name)}</strong><br><span style="color:${BRAND.muted};font-size:13px">Quantidade: ${item.qty}</span></td>${price}</tr>`;
+    })
+    .join("");
+
+  const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:0;background:${BRAND.beige}">
+<table role="presentation" width="100%" style="background:${BRAND.beige};padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid ${BRAND.line};border-radius:16px">
+<tr><td style="padding:22px 24px;border-bottom:1px solid ${BRAND.line};font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:bold;color:${BRAND.green}">${escapeHtml(BRAND.name)}</td></tr>
+<tr><td style="padding:22px 24px;${cell}">
+<p style="margin:0 0 6px;font-size:17px">${escapeHtml(greeting)}</p>
+<p style="margin:0 0 18px">Seu pedido <strong>#${number}</strong> está separado e aguarda o pagamento. Guardamos tudo para você.</p>
+<table role="presentation" width="100%" style="border-collapse:collapse;margin:0 0 12px">${itemRows}</table>
+<table role="presentation" width="100%" style="margin:0 0 6px"><tr><td style="${cell};font-size:17px"><strong>Total</strong></td><td align="right" style="${cell};font-size:20px"><strong>${brl(candidate.totalCents)}</strong></td></tr></table>
+${shipping ? `<p style="margin:0 0 18px;color:${BRAND.muted};font-size:13px">${escapeHtml(shipping)}</p>` : '<div style="height:12px"></div>'}
+<table role="presentation" width="100%" style="margin:6px 0 18px"><tr><td align="center" style="border-radius:999px;background:${BRAND.green}"><a href="${escapeHtml(link)}" style="display:block;padding:16px 24px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:999px">Concluir meu pedido</a></td></tr></table>
+<p style="margin:0 0 14px;font-size:14px">${escapeHtml(cardTip)}</p>
+<p style="margin:0;font-size:12px;color:${BRAND.muted}">Se você já pagou ou não quer mais o pedido, pode ignorar este e-mail.</p>
+</td></tr>
+<tr><td style="padding:16px 24px;border-top:1px solid ${BRAND.line};font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${BRAND.muted}">Este e-mail é sobre o seu pedido na ${escapeHtml(BRAND.name)}. Pedido #${number}.</td></tr>
+</table></td></tr></table></body></html>`;
 
   return { subject, text, html };
 }

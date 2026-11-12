@@ -70,7 +70,8 @@ test("seleção: só B2C pendente na janela de 1 h a 48 h, com e-mail, sem lembr
 
   assert.deepEqual(found.map((c) => c.orderId).sort(), [ok1, ok2].sort());
   const first = found.find((c) => c.orderId === ok1);
-  assert.deepEqual(first.items, [{ name: "Floral Stress", qty: 2 }], "o item bonificado (R$ 0) não entra no resumo");
+  assert.deepEqual(first.items.map(({ name, qty }) => ({ name, qty })), [{ name: "Floral Stress", qty: 2 }], "o item bonificado (R$ 0) não entra no resumo");
+  assert.equal(first.items[0].lineCents, 7180, "valor da linha para o e-mail");
   assert.equal(first.totalCents, 7180);
 });
 
@@ -171,4 +172,34 @@ test("55a: conferência antes e depois do 55b, em PGlite", async () => {
   await pg.exec(read("sql/b2b/55b_lembrete_pagamento.sql"));
   await pg.exec(read("sql/b2b/55b_lembrete_pagamento.sql"));
   assert.equal((await pg.query(conf)).rows[0].conferencia_lembrete_pagamento.coluna_payment_reminder_sent_at_existe, true);
+});
+
+test("visual do e-mail 8 (Luis, 12/11): foto e nome dos itens, total, botão grande \"Concluir meu pedido\", frete grátis quando couber, sem desconto", async () => {
+  const { PRODUCT_EMAIL_IMAGES } = await import("../src/lib/catalog/product-email-images.ts");
+  const { bioProducts } = await import("../src/lib/catalog/bio-products.ts");
+  const { getProductMainImage } = await import("../src/lib/catalog/product-images.server.ts");
+
+  // a tabela de fotos bate com public/products (rodar scripts/gerar-fotos-email.mjs quando mudar foto)
+  for (const product of bioProducts) {
+    const image = getProductMainImage(product);
+    assert.equal(PRODUCT_EMAIL_IMAGES[product.slug], image && image.startsWith("/products/") ? image : undefined, product.slug);
+  }
+
+  const base = {
+    orderId: id(1), status: "pending", email: "a@b.com", name: "Ana Paula", totalCents: 4579, lastMethod: "pix", lastPaymentStatus: "pending", shippingCents: 990,
+    items: [{ name: "Sono", qty: 1, slug: "adulto-floral-em-gotas-sono", lineCents: 3590 }],
+  };
+  const mail = lib.buildReminderEmail(base, "https://www.bioflorais.com.br/pagar/t");
+  assert.equal(mail.subject, `Seu pedido #${id(1).slice(0, 8).toUpperCase()} está separado`);
+  assert.ok(mail.html.includes(`https://www.bioflorais.com.br/_next/image?url=${encodeURIComponent(PRODUCT_EMAIL_IMAGES["adulto-floral-em-gotas-sono"])}&amp;w=128&amp;q=75`), "foto pequena pelo otimizador");
+  assert.ok(mail.html.includes("<strong>Sono</strong>") && mail.html.includes("R$ 35,90") && mail.html.includes("R$ 45,79"), "nome, preço e total");
+  assert.ok(mail.html.includes(">Concluir meu pedido</a>") && mail.html.includes("font-size:17px;font-weight:bold"), "botão grande");
+  assert.ok(mail.text.includes("Concluir meu pedido: https://www.bioflorais.com.br/pagar/t"));
+  assert.ok(mail.text.includes("Frete grátis a partir de R$ 70 em produtos."), "abaixo de R$ 70: o aviso, sem pressão");
+  assert.ok(!/desconto|cupom|VOLTA-|oferta|compre já|última chance|corra/i.test(mail.text + mail.html), "sem desconto e sem pressão");
+
+  const free = lib.buildReminderEmail({ ...base, shippingCents: 0, items: [{ ...base.items[0], qty: 2, lineCents: 7180 }] }, "https://www.bioflorais.com.br/pagar/t");
+  assert.ok(free.text.includes("O frete deste pedido é grátis."));
+  const unknown = lib.buildReminderEmail({ ...base, items: [{ name: "Brinde", qty: 1 }] }, "https://www.bioflorais.com.br/pagar/t");
+  assert.ok(!unknown.html.includes("_next/image") && !/Frete/.test(unknown.text), "sem foto e sem valor: sem quebrar");
 });
