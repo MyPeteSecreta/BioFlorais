@@ -9,6 +9,14 @@ Nada foi feito em `C:\Users\User\BioFlorais`: nenhum arquivo foi alterado ou des
 
 ---
 
+## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ E-mails de andamento do pedido pelo Resend (12/11/2026), `55442e8` + `abb753f` sobre `d99dd3d`
+
+- `55442e8`: a expedição do admin aceita o boleto a prazo liberado (marcar enviado com rastreio sem esperar o pagamento).
+- `abb753f`: e-mail para a cliente a cada etapa (recebido, pago, em separação, enviado com rastreio, entregue, cancelado); boleto B2B com parcelas e vencimentos.
+- Uma vez por etapa (registrado em `order_events`), só a etapa atual; falha ou falta da chave nunca atrapalha o pedido. Sem SQL.
+- Testes, tsc e build ok. Sem push (aguarda o Luis aprovar os textos).
+
+---
 ## ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ Boleto a prazo B2B vai para a separação ao ser criado (11/11/2026), `31ff419` sobre `be7555a`
 
 - Caso Gral Animal (pedido d9adc1f5): o boleto B2B ficava "aguardando pagamento" até todas as parcelas serem baixadas.
