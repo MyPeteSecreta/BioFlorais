@@ -280,3 +280,55 @@ test("pedido parado antigo (fulfillment vazio) também é liberado pelo botão; 
   await run(`UPDATE orders SET b2b_offer_id = NULL, fulfillment_status = 'awaiting_payment' WHERE id = $1`, [b2c]);
   assert.equal(await releaseBoletoForFulfillment(run, b2c, "admin", "teste"), false);
 });
+
+test("aviso de vencimento (12/11): 3 dias antes e no dia, uma vez por parcela; parcela paga ou pedido cancelado não recebe", async () => {
+  process.env.ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "segredo-de-teste";
+  const due = await import("../src/lib/boleto-due-reminder.ts");
+  await run(`CREATE TABLE IF NOT EXISTS order_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, event text, carrier text, tracking_code text, tracking_url text, note text, created_by text, created_at timestamp DEFAULT now())`);
+  await run(`CREATE TABLE IF NOT EXISTS customers (id uuid PRIMARY KEY, name text, email text)`);
+  await run(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id uuid`);
+
+  assert.equal(due.addDaysIso("2026-12-30", 3), "2027-01-02");
+  assert.equal(due.dueKindFor({ status: "aberto", dueDate: "2026-10-20" }, "2026-10-20"), "0d");
+  assert.equal(due.dueKindFor({ status: "aberto", dueDate: "2026-10-23" }, "2026-10-20"), "3d");
+  assert.equal(due.dueKindFor({ status: "aberto", dueDate: "2026-10-22" }, "2026-10-20"), null);
+  assert.equal(due.dueKindFor({ status: "pago", dueDate: "2026-10-20" }, "2026-10-20"), null);
+  assert.equal(due.dueKindFor({ status: "cancelado", dueDate: "2026-10-23" }, "2026-10-20"), null);
+
+  const schedule = JSON.stringify([
+    { installment: 1, dueDate: "2026-10-20", amountCents: 50000 },
+    { installment: 2, dueDate: "2026-10-23", amountCents: 50000 },
+    { installment: 3, dueDate: "2026-11-17", amountCents: 50000 },
+  ]);
+  const customer = "00000000-0000-4000-8000-00000000c001";
+  await run(`INSERT INTO customers VALUES ($1, 'Gral Animal', 'loja@example.com')`, [customer]);
+  const open = await boletoOrder({ schedule });
+  const paid = await boletoOrder({ schedule });
+  const cancelled = await boletoOrder({ schedule });
+  await run(`UPDATE orders SET customer_id = $1 WHERE id = ANY($2::uuid[])`, [customer, [open, paid, cancelled]]);
+  await giveBaixa(run, { orderId: paid, installment: 1, paidAt: "2026-10-19", paidCents: null, note: null }, NOW);
+  await giveBaixa(run, { orderId: paid, installment: 2, paidAt: "2026-10-19", paidCents: null, note: null }, NOW);
+  await run(`UPDATE orders SET fulfillment_status = 'cancelled' WHERE id = $1`, [cancelled]);
+
+  const sent = [];
+  const deps = { siteUrl: "https://www.bioflorais.com.br", now: NOW, send: async (mail) => (sent.push(mail), true) };
+  await due.runBoletoDueReminders(run, deps);
+  await due.runBoletoDueReminders(run, deps);
+
+  // os ids de teste começam todos com "00000000": confere pelo histórico de cada pedido
+  const dueEvents = async (orderId) => (await run(`SELECT event FROM order_events WHERE order_id = $1 AND event LIKE 'boleto_due%'`, [orderId])).length;
+  assert.equal(await dueEvents(paid), 0, "parcela paga não recebe");
+  assert.equal(await dueEvents(cancelled), 0, "pedido cancelado não recebe");
+  const mine = sent;
+  assert.deepEqual(mine.map((mail) => mail.subject.split(" · ")[0]).sort(), ["Seu boleto vence em 3 dias", "Seu boleto vence hoje"], "um de cada, sem repetir");
+
+  const today = mine.find((mail) => mail.subject.startsWith("Seu boleto vence hoje"));
+  assert.equal(today.to, "loja@example.com");
+  assert.ok(today.text.startsWith("Olá, Gral Animal."));
+  assert.ok(today.text.includes("a 1ª parcela de 3 do boleto do pedido"));
+  assert.ok(today.text.includes("Valor: R$ 500,00"));
+  assert.ok(today.text.includes("Vencimento: 20/10/2026"));
+  const events = await run(`SELECT event, note FROM order_events WHERE order_id = $1 AND event LIKE 'boleto_due%' ORDER BY event`, [open]);
+  assert.deepEqual(events, [{ event: "boleto_due_0d_1", note: "enviado" }, { event: "boleto_due_3d_2", note: "enviado" }]);
+  assert.ok(readFileSync(new URL("../vercel.json", import.meta.url), "utf8").includes('"/api/cron/boleto-due-reminders"'));
+});
