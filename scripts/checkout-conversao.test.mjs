@@ -86,13 +86,15 @@ test("sacola vazia piscando (06/11): /checkout e /carrinho mostram esqueleto enq
   assert.ok(ANALYTICS_EVENTS.includes("checkout_visto"));
 });
 
-test("aviso de cookies no /checkout (decisão do Luis 06/11): no celular e no tablet vai para o TOPO, sem tampar a barra do botão de pagar nem o CPF; botões iguais; fora do checkout, o lugar de sempre", () => {
+test("aviso de cookies (Luis 14/11): compacto e NO FLUXO do topo no celular/tablet (nunca cobre a barra fixa de compra nem botões); no computador, cartão no canto; Aceitar e Recusar iguais; Configurar link", () => {
   const norm = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
   const banner = norm("src/components/consent/CookieBanner.tsx");
-  assert.ok(banner.includes('=== "/checkout";'));
-  assert.ok(banner.includes('? "top-2 sm:inset-x-auto sm:left-4 sm:top-4 lg:top-auto lg:bottom-4"'), "checkout: topo até o lg (onde a barra fixa existe)");
-  assert.ok(banner.includes(': "bottom-2 sm:inset-x-auto sm:bottom-4 sm:left-4";'), "demais páginas: rodapé, como antes");
+  assert.ok(banner.includes('data-position="topo-no-fluxo"'));
+  assert.ok(banner.includes('className="relative z-[60] border-b') && banner.includes("lg:fixed lg:bottom-4 lg:left-4"), "relativo (no fluxo) até o lg; fixo só no computador");
+  assert.ok(!/\bfixed inset-x-2\b/.test(banner), "nada fixo por cima no celular");
   for (const label of ["Aceitar", "Recusar", "Configurar"]) assert.ok(banner.includes(label), label);
+  const layout = norm("src/app/layout.tsx");
+  assert.ok(layout.indexOf("<CookieBanner />") < layout.indexOf("<CampaignStrip />"), "o aviso vem antes da faixa, no topo do body");
 
   const checkout = norm("src/app/checkout/page.tsx");
   assert.ok(checkout.includes('className="fixed inset-x-0 bottom-0 z-[65]') && checkout.includes("lg:hidden"), "a barra fixa só existe abaixo do lg");
@@ -117,4 +119,15 @@ test("14/11: calcular frete na sacola (mesma cotação e regra do checkout; CEP 
   assert.ok(/name="number"\s*\n\s*inputMode="numeric"/.test(checkout), "teclado numérico");
   assert.ok(checkout.includes('data-testid="sem-numero"') && checkout.includes('input.value = "S/N";'), "S/N continua possível");
   assert.ok(checkout.indexOf('name="name"') < checkout.indexOf('name="postalCode"'), "ordem dos campos do checkout igual");
+});
+
+test("aviso aberto no celular: a sacola flutuante desce para baixo do cabeçalho (não cobre a faixa nem o Voltar para…) (Luis, 14/11)", () => {
+  const norm = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const banner = norm("src/components/consent/CookieBanner.tsx");
+  assert.ok(banner.includes('root.dataset.cookieBanner = "aberto"') && banner.includes('new Event("bio:cookie-banner")'));
+  assert.ok(banner.indexOf("useEffect(() => {\n    const root") < banner.indexOf("if (!visible) return null;"), "hook antes do retorno");
+  const cart = norm("src/components/cart/GlobalCartButton.tsx");
+  assert.ok(cart.includes('document.documentElement.dataset.cookieBanner === "aberto"') && cart.includes("window.innerWidth >= 1024"));
+  assert.ok(cart.includes("header.getBoundingClientRect().bottom + 8") && cart.includes("style={belowHeaderTop !== null ? { top: belowHeaderTop } : undefined}"));
+  assert.ok(cart.indexOf("useEffect(") < cart.indexOf("if (itemCount <= 0"), "hook antes do retorno");
 });

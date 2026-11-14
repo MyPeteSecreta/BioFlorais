@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   useCart,
@@ -14,6 +15,35 @@ export default function GlobalCartButton() {
 
   // As páginas de campanha (/para/*) têm o ícone da sacola no próprio cabeçalho.
   const pathname = usePathname();
+
+  // Com o aviso de cookies aberto no celular (ele fica no fluxo do topo), a sacola desce para logo abaixo do cabeçalho da página:
+  // não cobre a faixa da campanha nem o "Voltar para…" (Luis, 14/11). Sem o aviso, no lugar de sempre (top-24).
+  const [belowHeaderTop, setBelowHeaderTop] = useState<number | null>(null);
+
+  useEffect(() => {
+    const update = () => {
+      const open = document.documentElement.dataset.cookieBanner === "aberto";
+      const header = document.querySelector("header");
+
+      if (!open || window.innerWidth >= 1024 || !header) {
+        setBelowHeaderTop(null);
+        return;
+      }
+
+      setBelowHeaderTop(Math.max(96, Math.round(header.getBoundingClientRect().bottom + 8)));
+    };
+
+    update();
+    window.addEventListener("bio:cookie-banner", update);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+
+    return () => {
+      window.removeEventListener("bio:cookie-banner", update);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [pathname, itemCount]);
 
   if (itemCount <= 0 || pathname?.startsWith("/para/")) {
     return null;
@@ -28,6 +58,8 @@ export default function GlobalCartButton() {
           : "itens"
       }`}
       title="Ver carrinho"
+      data-testid="sacola-flutuante"
+      style={belowHeaderTop !== null ? { top: belowHeaderTop } : undefined}
       className="fixed right-6 top-24 z-[70] flex h-14 min-w-14 items-center justify-center gap-2 rounded-full border border-[#eadfd9] bg-white px-4 text-[#4b2354] shadow-[0_10px_35px_rgba(60,35,45,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_40px_rgba(60,35,45,0.18)]"
     >
       <svg

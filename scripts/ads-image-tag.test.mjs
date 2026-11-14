@@ -238,7 +238,7 @@ test("3.2/4) fiação: <img> 1x1 oculto só com consentimento; onde carrega; ban
   for (const path of ["/", "/linha/adulto", "/checkout", "/acompanhe/x", "/parceiros", "/b2b/oferta/t", "/b2b/carrinho", "/b2b/checkout", "/b2b/pagar"]) assert.equal(ads.isPixelPath(path), true, path);
   // banner: 3 botões com o mesmo destaque; categorias; padrão recusado
   const banner = read("src/components/consent/CookieBanner.tsx");
-  assert.ok((banner.match(/<button type="button" className=\{button\}/g) ?? []).length >= 6);
+  assert.ok((banner.match(/<button type="button" className=\{button\}/g) ?? []).length >= 5);
   for (const label of ["Aceitar", "Recusar", "Configurar", "Necessários", "Análise", "Marketing"]) assert.ok(banner.includes(label), label);
   // políticas: texto da v3
   for (const file of ["src/app/privacidade/page.tsx", "src/app/cookies/page.tsx"]) {

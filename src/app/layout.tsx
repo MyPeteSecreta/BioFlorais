@@ -43,6 +43,8 @@ export default function RootLayout({
         {/* Organization + WebSite (schema.org) em todas as páginas; sameAs só com os perfis publicados no rodapé. */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(organizationJsonLd(getSiteUrl())) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(websiteJsonLd(getSiteUrl())) }} />
+        {/* Aviso de cookies (Aceitar/Recusar + Configurar): no celular, no fluxo do topo da página; não cobre nada (14/11). */}
+        <CookieBanner />
         <CartProvider>
           {/* Esquenta Black / Black Friday: só no B2C e só dentro das datas (src/lib/campaign/esquenta-black.ts). */}
           <CampaignStrip />
@@ -57,8 +59,7 @@ export default function RootLayout({
           </HideOnB2B>
         </CartProvider>
         <WebAnalytics />
-        {/* Cookies: banner (Aceitar/Recusar/Configurar) e captura do oppref (ChatGPT Ads) só com aceite de marketing. */}
-        <CookieBanner />
+        {/* Captura do oppref (ChatGPT Ads) só com aceite de marketing (o aviso de cookies fica no topo do body). */}
         <OppRefCapture />
         {/* Origem da venda (utm_* e domínio do referrer, first-touch, 30 dias): dado de atribuição sem dado pessoal. */}
         <AttributionCapture />
