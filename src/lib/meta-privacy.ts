@@ -11,7 +11,7 @@
  */
 
 import { isPixelPath } from "@/lib/ads-tag";
-import { FEED_AD_EXCLUDED_SLUGS } from "@/lib/feeds/products";
+import { FEED_AD_EXCLUDED_SLUGS } from "@/lib/feeds/ad-exclusions";
 import { META_CONTENT_IDS } from "@/lib/feeds/meta-content-ids";
 
 export function isMetaSensitiveProductSlug(slug: string | null | undefined): boolean {

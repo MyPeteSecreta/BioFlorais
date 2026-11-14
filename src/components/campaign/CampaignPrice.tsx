@@ -7,7 +7,7 @@
  */
 
 import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
-import { formatBRL } from "@/lib/catalog/bio-products";
+import { formatBRL } from "@/lib/format-brl";
 import { pixPrice } from "@/lib/product-conversion";
 
 import { useCampaign } from "./useCampaign";

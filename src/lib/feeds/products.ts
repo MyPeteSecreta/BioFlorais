@@ -33,8 +33,9 @@ export const FEED_GTIN: Readonly<Record<string, string>> = GTIN_BY_SLUG;
 export const FEED_AD_LABEL_EXCLUDED = "excluir_anuncios";
 export const FEED_AD_LABEL_ALLOWED = "liberado";
 
-/** Comparado com o slug (sem acento): peso, alimentação, lambedura/automutilação, pânico, parar de fumar e vícios. */
-export const FEED_AD_EXCLUDED_SLUGS: readonly RegExp[] = [/reducao-de-peso/, /perda-de-peso/, /reequilibrio-alimentar/, /controle-alimentar/, /lambedura/, /automutilacao/, /panico/, /parar-de-fumar/, /vicios/];
+/** A lista fica em ad-exclusions.ts (o navegador carrega só ela); aqui é re-exportada. */
+import { FEED_AD_EXCLUDED_SLUGS } from "@/lib/feeds/ad-exclusions";
+export { FEED_AD_EXCLUDED_SLUGS };
 
 export const feedAdLabel = (slug: string) => (FEED_AD_EXCLUDED_SLUGS.some((pattern) => pattern.test(slug)) ? FEED_AD_LABEL_EXCLUDED : FEED_AD_LABEL_ALLOWED);
 

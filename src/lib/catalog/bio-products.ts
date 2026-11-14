@@ -2621,14 +2621,7 @@ export function getProduct(slug: string) {
   return bioProducts.find((product) => product.slug === slug);
 }
 
-export function formatBRL(cents: number | null) {
-  if (cents === null) return "Preço em atualização";
-
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(cents / 100);
-}
+export { formatBRL } from "@/lib/format-brl";
 
 
 
