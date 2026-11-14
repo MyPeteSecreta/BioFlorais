@@ -1892,3 +1892,13 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - `aeea514` · gerador das prévias (`scripts/gerar-previas-emails-rodada2.mjs`). **Prévias:** `C:\Users\User\anuncios-angelblanc\previews_emails_bio\RODADA_2_INDICE.html` (e-mails 8 a 14, HTML e texto puro).
 - **Para ligar depois do push:** aplicar 56a e depois 56b; em /admin/recuperacao, ligar a oferta, o carrinho abandonado e o link de avaliação. Recomendado: acrescentar à política (/privacidade) a finalidade "lembrete da sacola, com aceite" (texto a aprovar).
 - **Testes:** tsc sem erros; `npm test` **571/571**; build OK.
+
+## 13–14/11 (mestre): item 40 na tela de pedidos (sem push)
+- `39c8894` · /admin/pedidos:
+  - Botões **Todos / Só pagos / Só não pagos**. "Só pagos" inclui o boleto a prazo B2B liberado para separação; cancelado aparece só em "Todos".
+  - Em "Só pagos", a linha **Etapa** filtra por A preparar, Em separação, Pronto para envio, Enviado e Concluído.
+  - Lote: marcar os pedidos ("Selecionar todos da página") → escolher em **Mover para** (A preparar, Em separação ou Pronto para envio) → **Mover selecionados (N)** → confirmação "Mover N pedidos para Em separação?" → relatório "X de N movidos… Não foram: #… (motivo)".
+  - Usa a mesma rota da tela de cada pedido, um pedido por vez: mesmas travas (só pago ou liberado; enviado ou concluído não volta), mesmos e-mails de etapa. O Omie/Central lê o pedido como hoje. "Enviado" continua na tela do pedido, porque pede o rastreio; "Cancelado" não vai em lote.
+- Menu do admin: o botão **Recuperação** já existia desde `457c602` (em produção).
+- Regra nova (B2B sem oferta de 10%): conferido no código. A oferta só busca pedidos com `b2b_offer_id` e `b2b_client_id` vazios, e o carrinho abandonado só existe no checkout B2C.
+- **Testes:** tsc sem erros; `npm test` **576/576**; build OK. Sem print do admin: a tela exige login e banco reais; a descrição está acima.
