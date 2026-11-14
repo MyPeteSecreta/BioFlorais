@@ -9,6 +9,9 @@
 
 import { runRecoveryOffers } from "@/lib/recovery-offer";
 import { runCartRecovery } from "@/lib/cart-recovery";
+import { readActiveOfferLink } from "@/lib/b2b/offer-link";
+import { b2bPayLinkUrl } from "@/lib/b2b/pay-link";
+import { runB2BUnpaidReminders } from "@/lib/b2b/unpaid-reminder";
 import { timingSafeEqual } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -58,9 +61,23 @@ export async function GET(request: NextRequest) {
       return null;
     });
 
-    console.log("[cron/remind-unpaid-orders]", summary, recovery, carts);
+    // B2B não pago (item 41): preço cheio, botão para o link de pagamento; desligado até ligar em /admin/recuperacao.
+    const b2b = await runB2BUnpaidReminders(run, {
+      send: (mail) => sendEmail(mail),
+      payUrlFor: async (candidate) => {
+        const link = await readActiveOfferLink(candidate.offerId, { clientName: candidate.name || "cliente", clientPhone: null, responsibleName: "Bio Florais" });
+        const token = link ? link.path.split("/").filter(Boolean).pop() : null;
 
-    return NextResponse.json({ ok: true, ...summary, recovery, carts });
+        return token ? b2bPayLinkUrl(getSiteUrl(), candidate.orderId, token) : null;
+      },
+    }).catch((error) => {
+      console.error("[cron/remind-unpaid-orders] b2b", error instanceof Error ? error.message : error);
+      return null;
+    });
+
+    console.log("[cron/remind-unpaid-orders]", summary, recovery, carts, b2b);
+
+    return NextResponse.json({ ok: true, ...summary, recovery, carts, b2b });
   } catch (error) {
     console.error("[cron/remind-unpaid-orders] falha", error instanceof Error ? error.message : error);
 

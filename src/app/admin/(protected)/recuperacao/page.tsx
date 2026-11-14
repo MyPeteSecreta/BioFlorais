@@ -3,6 +3,8 @@
 import RecoverySettingsForm from "@/components/admin/RecoverySettingsForm";
 import ReviewSettingsForm from "@/components/admin/ReviewSettingsForm";
 import CartRecoveryForm from "@/components/admin/CartRecoveryForm";
+import B2BReminderForm from "@/components/admin/B2BReminderForm";
+import { loadB2BReminderEnabled } from "@/lib/b2b/unpaid-reminder";
 import { loadCartRecoveryEnabled, loadCartRecoveryReport } from "@/lib/cart-recovery";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
 import { brlCents, loadRecoveryReport, loadRecoverySettings } from "@/lib/recovery-offer";
@@ -21,6 +23,7 @@ export default async function RecuperacaoPage() {
     loadCartRecoveryEnabled(run),
     loadCartRecoveryReport(run).catch(() => null),
   ]);
+  const b2bReminderEnabled = await loadB2BReminderEnabled(run);
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-5 py-8 text-[#342737]">
@@ -74,6 +77,15 @@ export default async function RecuperacaoPage() {
         ) : (
           <p className="mt-3 text-sm text-[#6c5b69]">Aplique o SQL 56b para ligar o carrinho abandonado.</p>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-[#eadfd9] bg-white p-5" data-testid="lembrete-b2b-admin">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-[0.12em] text-[#a0742b]">Pedido B2B não pago</h2>
+        <p className="mb-3 text-sm text-[#6c5b69]">
+          Lojista (oferta) ou pedido lançado pelo vendedor, em Pix ou cartão: lembrete 2 h depois e outro em 2 dias, SEMPRE com o valor do pedido
+          (sem cupom nem oferta de desconto), com o botão para o link de pagamento. Boleto a prazo e mostruário não entram.
+        </p>
+        <B2BReminderForm enabled={b2bReminderEnabled} />
       </section>
 
       <section className="rounded-2xl border border-[#eadfd9] bg-white p-5">

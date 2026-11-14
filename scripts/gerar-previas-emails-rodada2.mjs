@@ -14,6 +14,7 @@ const { buildRecoveryEmail } = await import("../src/lib/recovery-offer.ts");
 const { buildDueEmail } = await import("../src/lib/boleto-due-reminder.ts");
 const { buildReviewEmail } = await import("../src/lib/review-request.ts");
 const { buildCartReminderEmail, buildCartOfferEmail } = await import("../src/lib/cart-recovery.ts");
+const { buildB2BReminderEmail } = await import("../src/lib/b2b/unpaid-reminder.ts");
 
 const SITE = "https://www.bioflorais.com.br";
 const ORDER = "5f3a9c21-0000-4000-8000-000000000001";
@@ -32,6 +33,8 @@ const mails = [
   ["12_boleto_b2b_vence_em_3_dias", "Boleto B2B · 3 dias antes do vencimento (cada parcela)", buildDueEmail({ orderId: ORDER, installment: 1, installments: 3, amountCents: 50000, dueDate: "2026-11-27" }, "3d", { name: "Loja Exemplo [TESTE]", trackUrl: `${SITE}/acompanhe/TOKEN-EXEMPLO`, supportUrl: `${SITE}/atendimento` })],
   ["13_boleto_b2b_vence_hoje", "Boleto B2B · no dia do vencimento", buildDueEmail({ orderId: ORDER, installment: 1, installments: 3, amountCents: 50000, dueDate: "2026-11-27" }, "0d", { name: "Loja Exemplo [TESTE]", trackUrl: `${SITE}/acompanhe/TOKEN-EXEMPLO`, supportUrl: `${SITE}/atendimento` })],
   ["14_avaliacao_7_dias", "Pedido de avaliação · 7 dias depois de entregue (só com o link configurado no admin)", buildReviewEmail({ orderId: ORDER, name: "Maria Silva [TESTE]" }, { reviewUrl: "https://g.page/r/EXEMPLO/review", supportUrl: `${SITE}/atendimento` })],
+  ["15_b2b_nao_pago_lembrete_2h", "B2B (lojista) · pedido não pago, 2 h depois · PREÇO CHEIO, sem cupom (só com o liga/desliga do admin)", buildB2BReminderEmail({ orderId: ORDER, name: "Pet Shop Exemplo [TESTE]", totalCents: 59800, paymentMethod: "pix", items: [{ name: "Floral Sono · Adulto · 31 ml", qty: 20 }, { name: "Floral Ansiedade · Pet · 31 ml", qty: 10 }] }, "first", `${SITE}/b2b/pagar?pedido=EXEMPLO&b2b=TOKEN-EXEMPLO`)],
+  ["16_b2b_nao_pago_lembrete_2_dias", "B2B (lojista) · pedido não pago, 2 dias depois · PREÇO CHEIO, sem cupom", buildB2BReminderEmail({ orderId: ORDER, name: "Pet Shop Exemplo [TESTE]", totalCents: 59800, paymentMethod: "pix", items: [{ name: "Floral Sono · Adulto · 31 ml", qty: 20 }, { name: "Floral Ansiedade · Pet · 31 ml", qty: 10 }] }, "second", `${SITE}/b2b/pagar?pedido=EXEMPLO&b2b=TOKEN-EXEMPLO`)],
 ];
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
