@@ -1902,3 +1902,18 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - Menu do admin: o botão **Recuperação** já existia desde `457c602` (em produção).
 - Regra nova (B2B sem oferta de 10%): conferido no código. A oferta só busca pedidos com `b2b_offer_id` e `b2b_client_id` vazios, e o carrinho abandonado só existe no checkout B2C.
 - **Testes:** tsc sem erros; `npm test` **576/576**; build OK. Sem print do admin: a tela exige login e banco reais; a descrição está acima.
+
+## 14/11 (mestre): origem perdida, propostas A–D aprovadas (sem push), e relatório da compra no celular
+- **A (SQL só leitura, fora do repo):** `C:\Users\User\PROMPTS_B2B\sql_bio_origem_vendas_30d_por_tipo.sql`. Separa os pedidos por tipo: B2C (site), B2B · mostruário, B2B · lançado pelo vendedor, B2B · loja do lojista, B2B · link do vendedor e teste (arquivado). Substitui o `sql_bio_origem_vendas_30d_resumo.sql` na análise de origem. O `sql_bio_direto_30d_diagnostico.sql` também passou a separar mostruário, vendedor e parceiros. As duas consultas foram conferidas no PGlite.
+- **B e C (`b031acb`):**
+  - **B:** sem UTM, os identificadores de clique viram a origem: gclid/gbraid/wbraid/gad_source → google / cpc; fbclid → facebook / social; msclkid → bing / cpc; ttclid → tiktok / cpc. O valor do identificador nunca é guardado, só a plataforma.
+  - **C:** o middleware grava o mesmo `bio_origem` na resposta da página. Vale só para pedido GET de página do B2C e do lojista (nunca no /v/), com o mesmo primeiro toque e a mesma base legal de hoje, e assim dura os 30 dias também no Safari.
+  - Nada do que a cliente vê muda.
+- **D (auditoria de UTM nos nossos links):**
+  - **Com UTM:** os 38 links curtos /v/ (Facebook e Story).
+  - **Sem UTM, o que falta:**
+    1. Os links dos e-mails de lembrete da sacola (`/sacola/…`) e da oferta (`/retomar/…`). A origem da 1ª visita costuma estar no cookie, mas some depois de 30 dias. Sugestão: `utm_source=email&utm_medium=lembrete&utm_campaign=sacola|pedido`.
+    2. O link do produto no feed da Meta (`/feeds/meta.csv`) e no Google Merchant. O clique de anúncio já entra pelo fbclid/gclid (B); para orgânico do catálogo, sugerimos `utm_source=meta&utm_medium=catalogo` só no CSV da Meta.
+    3. Fora do código, conferir com o Luis: bio do Instagram, WhatsApp do atendimento, Perfil da Empresa no Google e os destinos dos anúncios do ChatGPT (/para/*). Todos devem usar /v/ ou UTM.
+- **Relatório da compra no celular:** `C:\Users\User\PROMPTS_B2B\RELATORIO_COMPRA_CELULAR_BIO_2026-11-14.md`, com os prints em `PROMPTS_B2B\prints_compra_celular\`. Nada mudado.
+- **Testes:** tsc sem erros; `npm test` **580/580**; build OK.
