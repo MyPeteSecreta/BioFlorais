@@ -1917,3 +1917,21 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
     3. Fora do código, conferir com o Luis: bio do Instagram, WhatsApp do atendimento, Perfil da Empresa no Google e os destinos dos anúncios do ChatGPT (/para/*). Todos devem usar /v/ ou UTM.
 - **Relatório da compra no celular:** `C:\Users\User\PROMPTS_B2B\RELATORIO_COMPRA_CELULAR_BIO_2026-11-14.md`, com os prints em `PROMPTS_B2B\prints_compra_celular\`. Nada mudado.
 - **Testes:** tsc sem erros; `npm test` **580/580**; build OK.
+
+## 14/11 (noite, mestre): compra no celular — o que o Luis aprovou (sem push)
+- `6f69ee7` · **Página de produto mais leve**, mesmo visual. JS 600 → 538 KB (167 → 160 KB pela rede), 13 → 11 arquivos, medido no teste local da mesma página.
+  - O preço da campanha não carrega mais o catálogo inteiro no navegador (o `formatBRL` foi para um arquivo próprio).
+  - A lista de produtos sensíveis do pixel ficou num arquivo pequeno (`feeds/ad-exclusions.ts`, re-exportada pelos feeds).
+  - O resto (~376 KB) é o React/Next.
+- `b2d29ab` · **Frete na sacola e campo Número:**
+  - Na sacola, CEP + "Calcular" mostra a Entrega (valor ou "Grátis", com o prazo) e o "Total com frete". Usa a mesma cotação e a mesma regra do checkout.
+  - O CEP vai para o rascunho do checkout, que abre com CEP, endereço e frete prontos.
+  - A ordem dos campos do checkout não mudou.
+  - "Número" abre o teclado numérico, e o link "Sem número" preenche S/N.
+- `ede419e` · **Aviso de cookies compacto:**
+  - No celular fica no fluxo do topo (71 px, antes 112 px por cima do rodapé). Nunca cobre a barra "Adicionar à sacola".
+  - Aceitar e Recusar com o mesmo destaque; "Configurar" como link. Mesmo texto e mesma regra legal.
+  - No computador, cartão pequeno no canto.
+  - Com o aviso aberto, a sacola flutuante desce para baixo do cabeçalho: não cobre a faixa nem o "Voltar para…".
+- Prints a 375 px: `PROMPTS_B2B\prints_compra_celular\10_NOVO_*` a `14_NOVO_*`. O 12 é com cotação simulada [TESTE].
+- **Testes:** tsc sem erros; `npm test` 578/579 na suíte completa, com 1 falha intermitente do PGlite em `b2b-mostruario`, que passou sozinha (25/25 junto com `checkout-conversao`); `next build` OK.
