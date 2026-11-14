@@ -1,5 +1,6 @@
 import Link from "next/link";
 import OrderBatchSelection from "@/components/admin/OrderBatchSelection";
+import { PAYMENT_FILTERS, STAGE_FILTERS, filterOrders, ordersFilterHref, parsePaymentFilter, parseStageFilter } from "@/lib/admin/order-filters";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { notArchivedCondition } from "@/lib/b2b/archive";
@@ -86,13 +87,21 @@ function fulfillmentLabel(status: string) {
   }
 }
 
-export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<{ cliente?: string | string[] }> }) {
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cliente?: string | string[]; pagamento?: string | string[]; etapa?: string | string[] }>;
+}) {
+  const query = await searchParams;
   // ?cliente=<e-mail>: pedidos de um comprador do site (aba "Clientes do site (B2C)" do B2B).
-  const clienteParam = (await searchParams).cliente;
+  const clienteParam = query.cliente;
+  // Item 40: Todos / Só pagos / Só não pagos e, nos pagos, a etapa (src/lib/admin/order-filters.ts).
+  const paymentFilter = parsePaymentFilter(query.pagamento);
+  const stageFilter = paymentFilter === "pagos" ? parseStageFilter(query.etapa) : null;
   const clienteEmail = String(Array.isArray(clienteParam) ? clienteParam[0] : clienteParam ?? "").trim().toLowerCase().slice(0, 254);
   // V5: pedidos arquivados (dados de teste) não aparecem na Central/Omie.
   const notArchivedOrders = await notArchivedCondition(getAppSqlRunner(), "orders");
-  const orderRows = await db
+  const allOrderRows = await db
     .select({
       id: orders.id,
       createdAt: orders.createdAt,
@@ -176,6 +185,10 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       desc(orders.createdAt)
     );
 
+  const orderRows = filterOrders(allOrderRows, paymentFilter, stageFilter);
+  const chip = (active: boolean) =>
+    `rounded-full border px-4 py-2 text-sm font-extrabold transition ${active ? "border-[#422347] bg-[#422347] text-white" : "border-[#d9cac2] bg-white text-[#422347] hover:bg-[#f8f3ef]"}`;
+
   // Pedidos de MOSTRUÁRIO do vendedor: selo bem visível (a Central separa e envia, sem comissão).
   const showcaseIds = await loadShowcaseOrderIds(getAppSqlRunner());
 
@@ -203,8 +216,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           <p className="mt-3 text-sm text-[#756674]">
             {orderRows.length}{" "}
             {orderRows.length === 1
-              ? "pedido cadastrado"
-              : "pedidos cadastrados"}
+              ? "pedido"
+              : "pedidos"}
+            {paymentFilter === "todos" ? " cadastrados" : ` neste filtro (de ${allOrderRows.length})`}
           </p>
         </div>
 
@@ -216,6 +230,29 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           Exportar pedidos com origem (CSV)
         </a>
       </div>
+
+      <nav className="mt-6 space-y-3" data-testid="filtros-pedidos" aria-label="Filtros de pedidos">
+        <div className="flex flex-wrap gap-2">
+          {PAYMENT_FILTERS.map((filter) => (
+            <Link key={filter.key} href={ordersFilterHref({ payment: filter.key, cliente: clienteEmail })} className={chip(paymentFilter === filter.key)}>
+              {filter.label}
+            </Link>
+          ))}
+        </div>
+        {paymentFilter === "pagos" && (
+          <div className="flex flex-wrap items-center gap-2" data-testid="filtro-etapa">
+            <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#a0742b]">Etapa</span>
+            <Link href={ordersFilterHref({ payment: "pagos", cliente: clienteEmail })} className={chip(!stageFilter)}>
+              Todas
+            </Link>
+            {STAGE_FILTERS.map((stage) => (
+              <Link key={stage.key} href={ordersFilterHref({ payment: "pagos", stage: stage.key, cliente: clienteEmail })} className={chip(stageFilter === stage.key)}>
+                {stage.label}
+              </Link>
+            ))}
+          </div>
+        )}
+      </nav>
 
       {orderRows.length === 0 ? (
         <div className="mt-8 rounded-[28px] border border-[#eadfd9] bg-white p-8 text-center shadow-sm">

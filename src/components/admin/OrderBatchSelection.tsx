@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 
+import { BATCH_STAGES, batchReport } from "@/lib/admin/order-filters";
+
 import { archiveOrdersAsTest } from "./archive-orders";
 
 type Props = {
@@ -24,6 +26,9 @@ export default function OrderBatchSelection({
   const router = useRouter();
   const [archiving, setArchiving] = useState(false);
   const [archiveMessage, setArchiveMessage] = useState("");
+  // Item 40: mover vários pedidos de etapa de uma vez, pela MESMA rota da tela de cada pedido (mesmas regras, eventos e e-mails).
+  const [batchStage, setBatchStage] = useState(BATCH_STAGES[1]?.key ?? "");
+  const [moving, setMoving] = useState(false);
 
   function getCheckboxes() {
     if (!formRef.current) return [];
@@ -78,6 +83,52 @@ export default function OrderBatchSelection({
     }
   }
 
+  async function moveSelected() {
+    const ids = getCheckboxes()
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => checkbox.value);
+    const stage = BATCH_STAGES.find((item) => item.key === batchStage);
+
+    if (!stage || ids.length === 0) return;
+
+    const noun = ids.length === 1 ? "1 pedido" : `${ids.length} pedidos`;
+    if (!window.confirm(`Mover ${noun} para ${stage.label}?`)) return;
+
+    setMoving(true);
+    setArchiveMessage("");
+
+    const failures: Array<{ number: string; error: string }> = [];
+
+    try {
+      // Um por vez, pela rota individual: cada pedido passa pelas mesmas travas (pago/liberado, não volta de enviado).
+      for (const id of ids) {
+        try {
+          const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/fulfillment`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: stage.key }),
+          });
+
+          if (!response.ok) {
+            const data = (await response.json().catch(() => ({}))) as { error?: string };
+            failures.push({ number: id.slice(0, 8).toUpperCase(), error: data.error ?? `erro ${response.status}` });
+          }
+        } catch {
+          failures.push({ number: id.slice(0, 8).toUpperCase(), error: "falha de conexão" });
+        }
+      }
+
+      setArchiveMessage(batchReport(stage.label, ids.length, failures));
+
+      if (failures.length < ids.length) {
+        clearAll();
+        router.refresh();
+      }
+    } finally {
+      setMoving(false);
+    }
+  }
+
   function clearAll() {
     for (const checkbox of getCheckboxes()) {
       checkbox.checked = false;
@@ -100,7 +151,7 @@ export default function OrderBatchSelection({
           onClick={selectAll}
           className="rounded-full border border-[#d9cac2] px-4 py-2 text-sm font-extrabold text-[#422347] transition hover:bg-[#f8f3ef]"
         >
-          Selecionar todos
+          Selecionar todos da página
         </button>
 
         <button
@@ -119,6 +170,31 @@ export default function OrderBatchSelection({
         >
           {archiving ? "Arquivando…" : `Marcar como teste e arquivar (${selectedCount})`}
         </button>
+
+        <span className="inline-flex flex-wrap items-center gap-2" data-testid="mover-etapa-lote">
+          <label className="text-sm font-extrabold text-[#422347]">
+            Mover para
+            <select
+              value={batchStage}
+              onChange={(event) => setBatchStage(event.target.value)}
+              className="ml-2 rounded-full border border-[#d9cac2] bg-white px-3 py-2 text-sm font-bold"
+            >
+              {BATCH_STAGES.map((stage) => (
+                <option key={stage.key} value={stage.key}>
+                  {stage.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={selectedCount === 0 || moving}
+            onClick={moveSelected}
+            className="rounded-full border-2 border-[#422347] px-5 py-2 text-sm font-extrabold text-[#422347] transition hover:bg-[#f6eef7] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {moving ? "Movendo…" : `Mover selecionados (${selectedCount})`}
+          </button>
+        </span>
 
         <button
           type="submit"
