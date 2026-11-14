@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * BIO FLORAIS B2B — LINK DE PAGAMENTO do pedido no cartão (pedido lançado pelo vendedor).
+ * BIO FLORAIS B2B — LINK DE PAGAMENTO do pedido, no CARTÃO ou no PIX (item 42, 14/11: Pix vencido gera Pix novo aqui).
  * O vendedor nunca digita o cartão do cliente: envia este link e o cliente paga no próprio celular.
  * Autorização = token da oferta do cliente conferido no servidor contra o pedido (pay-info e rota do cartão).
  */
@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
+import B2BPixPayment from "@/components/payments/B2BPixPayment";
 import { formatB2BCents } from "@/lib/b2b/format";
 
 type PayInfo = { id: string; number: string; paid: boolean; status: string; totalCents: number; paymentMethod: string | null; payerEmail: string };
@@ -69,6 +70,14 @@ export default function PayLinkContent() {
               <p role="status" className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-900" data-testid="pagamento-confirmado">
                 {done?.text ?? "Este pedido já está pago. Obrigado!"}
               </p>
+            ) : info.status === "pending" && info.paymentMethod === "pix" ? (
+              <div className="mt-5">
+                <B2BPixPayment
+                  orderId={info.id}
+                  b2bToken={token}
+                  onPaid={() => setDone({ ok: true, text: "Pagamento Pix confirmado. Obrigado pelo pedido!" })}
+                />
+              </div>
             ) : info.paymentMethod !== "card" || info.status !== "pending" ? (
               <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-950">
                 Este pedido não aceita pagamento por este link. Fale com o seu representante.

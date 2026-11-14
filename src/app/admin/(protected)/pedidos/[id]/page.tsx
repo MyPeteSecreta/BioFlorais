@@ -1,4 +1,7 @@
 import ReleaseBoletoButton from "@/components/admin/ReleaseBoletoButton";
+import PayLinkButton from "@/components/admin/PayLinkButton";
+import { b2bPayLinkEligible, b2bPayLinkMessage, b2bPayLinkUrl } from "@/lib/b2b/pay-link";
+import { getSiteUrl } from "@/lib/seo/site-url";
 import { canFulfillOrder, isB2BBoleto } from "@/lib/b2b/boleto-release";
 import Link from "next/link";
 import { eq, sql } from "drizzle-orm";
@@ -212,6 +215,33 @@ export default async function PedidoDetalhePage({
       });
       const token = link ? link.path.split("/").filter(Boolean).pop() : null;
       quoteContinueHref = token ? continueQuotePath(token, order.id, false) : null;
+    }
+  }
+
+  // Item 42: link de pagamento (Pix ou cartão) do pedido B2B de oferta pendente, com o texto pronto para o WhatsApp.
+  let payLink: { url: string; message: string } | null = null;
+
+  if (order.b2bOfferId && b2bPayLinkEligible({ status: order.status, paymentMethod: order.paymentMethod, b2bOfferId: order.b2bOfferId })) {
+    const link = await readActiveOfferLink(order.b2bOfferId, {
+      clientName: customer?.name ?? "cliente",
+      clientPhone: customer?.phone ?? null,
+      responsibleName: order.b2bResponsibleName ?? "Bio Florais",
+    });
+    const token = link ? link.path.split("/").filter(Boolean).pop() : null;
+
+    if (token) {
+      const url = b2bPayLinkUrl(getSiteUrl(), order.id, token);
+      payLink = {
+        url,
+        message: b2bPayLinkMessage({
+          clientName: customer?.name ?? "",
+          responsibleName: order.b2bResponsibleName ?? "Bio Florais",
+          orderNumber: order.id.slice(0, 8).toUpperCase(),
+          totalCents: order.totalCents,
+          paymentMethod: order.paymentMethod,
+          url,
+        }),
+      };
     }
   }
 
@@ -571,6 +601,8 @@ export default async function PedidoDetalhePage({
           <ArchiveOrderButton orderId={order.id} />
 
           {boletoWaiting && <ReleaseBoletoButton orderId={order.id} />}
+
+          {payLink && <PayLinkButton url={payLink.url} message={payLink.message} phone={customer?.phone ?? null} />}
 
           <FulfillmentControls
             orderId={order.id}
