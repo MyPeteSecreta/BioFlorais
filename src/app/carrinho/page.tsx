@@ -5,6 +5,7 @@ import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
+import CartShippingEstimate, { type ShippingEstimate } from "@/components/cart/CartShippingEstimate";
 import {
   useCallback,
   useEffect,
@@ -190,6 +191,9 @@ export default function CartPage() {
         ]
       ) ?? []
     );
+
+  // Calcular frete na sacola (14/11): mesma cotação e mesma regra do checkout.
+  const [shippingEstimate, setShippingEstimate] = useState<ShippingEstimate | null>(null);
 
   const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
   const freeShippingBaseCents =
@@ -462,28 +466,45 @@ export default function CartPage() {
                   </div>
                 ) : null}
 
-                <div className="flex justify-between gap-5 text-[#26352c]/55">
-                  <span>
+                <div className="flex justify-between gap-5" data-testid="frete-sacola">
+                  <span className={shippingEstimate ? "" : "text-[#26352c]/55"}>
                     Entrega
                   </span>
 
-                  <span>
-                    Calculada na próxima etapa
-                  </span>
+                  {shippingEstimate ? (
+                    <strong className={`font-medium ${shippingEstimate.free ? "text-[#46644f]" : ""}`}>
+                      {shippingEstimate.free ? "Grátis" : formatMoney(shippingEstimate.customerCents)}
+                      {shippingEstimate.etaDays ? (
+                        <span className="block text-right text-xs font-normal text-[#26352c]/55">
+                          até {shippingEstimate.etaDays} {shippingEstimate.etaDays === 1 ? "dia útil" : "dias úteis"}
+                        </span>
+                      ) : null}
+                    </strong>
+                  ) : (
+                    <span className="text-[#26352c]/55">Calcule com o seu CEP</span>
+                  )}
                 </div>
+
+                {quote ? (
+                  <CartShippingEstimate
+                    items={items.map((item) => ({ productSlug: item.productSlug, qty: item.qty }))}
+                    baseCents={freeShippingBaseCents}
+                    onEstimate={setShippingEstimate}
+                  />
+                ) : null}
               </div>
 
               <div className="my-6 h-px bg-[#26352c]/10" />
 
               <div className="flex items-end justify-between gap-5">
                 <span className="font-medium">
-                  Total parcial
+                  {shippingEstimate ? "Total com frete" : "Total parcial"}
                 </span>
 
                 <strong className="text-2xl font-medium">
                   {quote
                     ? formatMoney(
-                        quote.totalCents
+                        quote.totalCents + (shippingEstimate?.customerCents ?? 0)
                       )
                     : loading
                       ? "..."
@@ -492,7 +513,9 @@ export default function CartPage() {
               </div>
 
               <p className="mt-3 text-xs leading-5 text-[#26352c]/50">
-                Frete, cupons e demais benefícios serão calculados antes do pagamento.
+                {shippingEstimate
+                  ? "Cupons e o desconto do Pix aparecem no checkout. O CEP já vai preenchido."
+                  : "Frete, cupons e demais benefícios serão calculados antes do pagamento."}
               </p>
 
               <Gpt10CartNote />

@@ -2224,9 +2224,26 @@ export default function CheckoutPage() {
                 </label>
 
                 <label className="text-sm font-medium">
-                  Número
+                  <span className="flex items-center justify-between gap-2">
+                    Número
+                    {/* Teclado numérico no celular (14/11); "Sem número" preenche S/N (o campo aceita letras). */}
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-[#26352c]/60 underline"
+                      data-testid="sem-numero"
+                      onClick={(event) => {
+                        const input = event.currentTarget.closest("label")?.querySelector<HTMLInputElement>('input[name="number"]');
+                        if (!input) return;
+                        input.value = "S/N";
+                        input.dispatchEvent(new Event("input", { bubbles: true }));
+                      }}
+                    >
+                      Sem número
+                    </button>
+                  </span>
                   <input
                     name="number"
+                    inputMode="numeric"
                     onBlur={() => {
                       window.setTimeout(() => {
                         window.scrollBy({

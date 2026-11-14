@@ -98,3 +98,23 @@ test("aviso de cookies no /checkout (decisão do Luis 06/11): no celular e no ta
   assert.ok(checkout.includes('className="fixed inset-x-0 bottom-0 z-[65]') && checkout.includes("lg:hidden"), "a barra fixa só existe abaixo do lg");
   assert.ok(!checkout.includes("usado na nota fiscal"), "CPF sem mudança");
 });
+
+test("14/11: calcular frete na sacola (mesma cotação e regra do checkout; CEP vai para o rascunho do checkout) e campo Número com teclado numérico + Sem número", async () => {
+  const norm = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const { saveCepToCheckoutDraft, readCepFromCheckoutDraft } = await import("../src/lib/checkout-draft-cep.ts");
+  const store = new Map([["bio-checkout-draft", JSON.stringify({ fields: { name: "Maria" }, paymentMethod: "pix" })]]);
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  saveCepToCheckoutDraft(storage, "01310100");
+  assert.deepEqual(JSON.parse(store.get("bio-checkout-draft")), { fields: { name: "Maria", postalCode: "01310-100" }, paymentMethod: "pix" }, "não apaga o rascunho");
+  assert.equal(readCepFromCheckoutDraft(storage), "01310100");
+
+  const estimate = norm("src/components/cart/CartShippingEstimate.tsx");
+  assert.ok(estimate.includes('fetch("/api/shipping/quote"') && estimate.includes("computeB2CShipping({"), "mesma cotação e mesma regra");
+  const cart = norm("src/app/carrinho/page.tsx");
+  assert.ok(cart.includes("<CartShippingEstimate") && cart.includes("quote.totalCents + (shippingEstimate?.customerCents ?? 0)") && cart.includes('"Total com frete"'));
+
+  const checkout = norm("src/app/checkout/page.tsx");
+  assert.ok(/name="number"\s*\n\s*inputMode="numeric"/.test(checkout), "teclado numérico");
+  assert.ok(checkout.includes('data-testid="sem-numero"') && checkout.includes('input.value = "S/N";'), "S/N continua possível");
+  assert.ok(checkout.indexOf('name="name"') < checkout.indexOf('name="postalCode"'), "ordem dos campos do checkout igual");
+});
