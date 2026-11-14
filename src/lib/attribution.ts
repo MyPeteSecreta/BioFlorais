@@ -72,7 +72,18 @@ export function referrerDomain(referrer: string | null | undefined, ownHostname?
   }
 }
 
-/** Lê utm_* da query (sem alterar a URL) e o domínio do referrer. */
+/**
+ * Identificadores de clique que as plataformas põem no link (14/11, aprovado pelo Luis): sem UTM nenhuma, viram a origem.
+ * O valor do identificador NUNCA é guardado (só a plataforma). fbclid vem tanto de anúncio quanto de post: "facebook / social".
+ */
+export const CLICK_ID_SOURCES: ReadonlyArray<{ params: readonly string[]; source: string; medium: string }> = [
+  { params: ["gclid", "gbraid", "wbraid", "gad_source"], source: "google", medium: "cpc" },
+  { params: ["fbclid"], source: "facebook", medium: "social" },
+  { params: ["msclkid"], source: "bing", medium: "cpc" },
+  { params: ["ttclid"], source: "tiktok", medium: "cpc" },
+];
+
+/** Lê utm_* da query (sem alterar a URL) e o domínio do referrer; sem UTM, reconhece os identificadores de clique. */
 export function parseAttribution(search: string | null | undefined, referrer: string | null | undefined, ownHostname?: string | null): Attribution {
   let params: URLSearchParams;
 
@@ -82,12 +93,23 @@ export function parseAttribution(search: string | null | undefined, referrer: st
     params = new URLSearchParams();
   }
 
-  return {
+  const attribution: Attribution = {
     utm_source: cleanField(params.get("utm_source")),
     utm_medium: cleanField(params.get("utm_medium")),
     utm_campaign: cleanField(params.get("utm_campaign")),
     referrer_domain: referrerDomain(referrer, ownHostname),
   };
+
+  if (!attribution.utm_source && !attribution.utm_medium && !attribution.utm_campaign) {
+    const click = CLICK_ID_SOURCES.find((entry) => entry.params.some((name) => (params.get(name) ?? "").trim() !== ""));
+
+    if (click) {
+      attribution.utm_source = click.source;
+      attribution.utm_medium = click.medium;
+    }
+  }
+
+  return attribution;
 }
 
 export function buildAttributionCookie(attribution: Attribution, secure: boolean): string {
@@ -148,6 +170,25 @@ export function captureAttribution(env: AttributionEnv): "kept" | "set" | "none"
   env.doc.cookie = buildAttributionCookie(attribution, env.secure);
 
   return "set";
+}
+
+/**
+ * A MESMA captura de primeiro toque, pelo servidor (middleware, na resposta da página; 14/11, aprovado pelo Luis): cookie gravado pela
+ * resposta HTTP vale os 30 dias também no Safari (o gravado por JavaScript dura no máximo 7 dias). Mesmo conteúdo e mesma base legal
+ * (análise de origem, sem aceite de marketing, sem dado pessoal). Devolve o Set-Cookie, ou null (já tem origem / visita sem informação).
+ */
+export function serverAttributionCookie(input: {
+  existingCookie: string | null | undefined;
+  search: string;
+  referer: string | null | undefined;
+  hostname: string;
+  secure: boolean;
+}): string | null {
+  if (readAttributionCookie(input.existingCookie, false)) return null;
+
+  const attribution = parseAttribution(input.search, input.referer, input.hostname);
+
+  return hasAttribution(attribution) ? buildAttributionCookie(attribution, input.secure) : null;
 }
 
 /** "instagram / organic / 2110_rotina" (campos ausentes viram "—"); sem nada = "Direto". */
