@@ -1935,3 +1935,19 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
   - Com o aviso aberto, a sacola flutuante desce para baixo do cabeçalho: não cobre a faixa nem o "Voltar para…".
 - Prints a 375 px: `PROMPTS_B2B\prints_compra_celular\10_NOVO_*` a `14_NOVO_*`. O 12 é com cotação simulada [TESTE].
 - **Testes:** tsc sem erros; `npm test` 578/579 na suíte completa, com 1 falha intermitente do PGlite em `b2b-mostruario`, que passou sozinha (25/25 junto com `checkout-conversao`); `next build` OK.
+
+## 14/11 (noite, mestre): itens 42 e 41 do B2B (sem push)
+- `5ca3edf` · **Item 42, link de pagamento do pedido B2B:**
+  - `/b2b/pagar?pedido=…&b2b=<token da oferta>` passa a aceitar **Pix**, além do cartão: QR + copia e cola, botão "Copiar código Pix", "O Pix venceu? Gerar um novo" e confirmação automática a cada 5 s.
+  - Usa a mesma rota do checkout B2B (`/api/b2b/payments/mercadopago/pix`, ou lunium), que exige o token da oferta e reaproveita o Pix válido ou cria um novo.
+  - No admin do pedido B2B, o botão **"Gerar / copiar link de pagamento"** mostra o link e o texto pronto para o WhatsApp, com "Copiar link", "Copiar texto" e "Abrir no WhatsApp".
+  - Vale só para pedido de oferta pendente em Pix ou cartão. Boleto a prazo tem os avisos próprios; mostruário o vendedor paga na própria área.
+  - Pedido real 28080133: não tenho acesso ao Neon. Para conferir se o link serve, rodar `PROMPTS_B2B\sql_bio_b2b_pedido_28080133_conferencia.sql` (só leitura): precisa estar pendente, em Pix, com oferta e link da oferta ativo.
+- `b6f7f87` · **Item 41, lembrete do B2B não pago:**
+  - Para pedido de oferta, lojista ou vendedor, em Pix ou cartão: 1º e-mail 2–48 h depois do pedido, 2º em 48–72 h.
+  - **Sempre o valor do pedido, sem cupom.** O botão "Pagar o pedido" leva ao link do item 42.
+  - Boleto a prazo, mostruário, pedido pago, cancelado ou arquivado não recebem. Cada e-mail sai uma vez só (`order_events` b2b_unpaid_1/2).
+  - **Desligado** até ligar em /admin/recuperacao ("Pedido B2B não pago").
+  - Prévias: `anuncios-angelblanc\previews_emails_bio\15_b2b_nao_pago_lembrete_2h` e `16_b2b_nao_pago_lembrete_2_dias` (.html/.txt), também no índice `RODADA_2_INDICE.html`.
+- Anotado, sem mexer: na página do Medo de Fogos o site diz "31 ml" e o rótulo da foto diz "37ml" (a mestre pergunta ao Luis).
+- **Testes:** tsc sem erros; `npm test` **586/586**; build OK.
