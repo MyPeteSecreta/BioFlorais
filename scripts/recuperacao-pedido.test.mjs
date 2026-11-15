@@ -127,7 +127,8 @@ test("envio: uma vez por pedido; cupom VOLTA de uso único, 48 h, B2C, preso ao 
   assert.ok(mail.text.includes("Vale até 14/11 às 12:00 (48 horas)"), mail.text);
   assert.ok(mail.html.includes(code) && mail.html.includes("dashed"));
 
-  assert.deepEqual(await lib.loadRecoveryForOrder(run, orderId), { code, percent: 10, valid: true });
+  // a validade é conferida na data do teste (antes dependia do relógio real e passou a falhar depois de 14/11)
+  assert.deepEqual(await lib.loadRecoveryForOrder(run, orderId, NOW), { code, percent: 10, valid: true });
   assert.deepEqual(await lib.loadOrderCartItems(run, orderId), [{ productSlug: "floral-stress", name: "Floral Stress", qty: 2 }]);
 
   // relatório: 1 enviada, 1 usada, 1 paga

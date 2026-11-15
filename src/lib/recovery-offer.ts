@@ -257,7 +257,7 @@ export async function runRecoveryOffers(
 }
 
 /** Cupom VOLTA do pedido (para a página /retomar). */
-export async function loadRecoveryForOrder(run: SqlRunner, orderId: string) {
+export async function loadRecoveryForOrder(run: SqlRunner, orderId: string, now: Date = new Date()) {
   const [event] = await run(`SELECT note FROM order_events WHERE order_id = $1 AND event = '${RECOVERY_EVENT}' LIMIT 1`, [orderId]);
   const code = String(event?.note ?? "").split(" ")[0];
 
@@ -270,7 +270,7 @@ export async function loadRecoveryForOrder(run: SqlRunner, orderId: string) {
 
   if (!coupon) return null;
 
-  const expired = coupon.expires_at ? new Date(String(coupon.expires_at)).getTime() < Date.now() : false;
+  const expired = coupon.expires_at ? new Date(String(coupon.expires_at)).getTime() < now.getTime() : false;
   const used = Number(coupon.used_count ?? 0) >= Number(coupon.max_uses ?? 1);
 
   return { code, percent: Number(coupon.discount_value), valid: Boolean(coupon.active) && !expired && !used };
