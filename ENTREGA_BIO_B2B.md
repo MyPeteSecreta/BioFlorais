@@ -1951,3 +1951,33 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
   - Prévias: `anuncios-angelblanc\previews_emails_bio\15_b2b_nao_pago_lembrete_2h` e `16_b2b_nao_pago_lembrete_2_dias` (.html/.txt), também no índice `RODADA_2_INDICE.html`.
 - Anotado, sem mexer: na página do Medo de Fogos o site diz "31 ml" e o rótulo da foto diz "37ml" (a mestre pergunta ao Luis).
 - **Testes:** tsc sem erros; `npm test` **586/586**; build OK.
+
+## 15/11 (mestre): investigação das cobranças do Mercado Pago e Black por produto (sem push)
+
+### Investigação (só leitura, nada mudado)
+- **Onde fica o id numérico do pagamento do MP:**
+  - **Pix:** `payments.external_id` guarda o id da ORDEM do MP ("ORD…"). O número do pagamento só existe dentro de `payments.raw_payload` (a resposta inteira do MP).
+  - **Cartão:** o `raw_payload` guarda só parcelas, bandeira, status e motivo (e o id da ordem nas recusas). O número do pagamento do cartão NÃO é gravado.
+  - O webhook não guarda nada bruto.
+- **SQL só leitura:** `PROMPTS_B2B\sql_bio_mp_canceladas_recusadas_conferencia.sql`, conferido no PGlite.
+  - (A) procura cada número do painel no texto do `raw_payload` (pedido, método, status, nº de tentativas);
+  - (B) lista tudo o que foi criado no MP nos dias do painel, por pedido (casa o cartão pelo horário e mostra Pix gerado várias vezes).
+- **Leitura do código (falta o Luis rodar o SQL para confirmar pedido por pedido):**
+  - O nosso sistema **não cancela** nada no Mercado Pago: não há nenhuma chamada de cancelamento. "Cancelada R$ 0" é Pix que expirou sem pagamento: o Pix vale 30 min e o MP fecha a cobrança com R$ 0 recebido.
+  - **12 canceladas entre 09/11 17:04 e 17:10:** é o padrão de **Pix gerado várias vezes para o mesmo pedido**, como o 9e1b89a6. Até `e94dca9` (10/11 16:34), cada "Tentar novamente" ou recarga criava um Pix novo; desde então o mesmo Pix é reaproveitado por até 25 min.
+  - **11/11, 12/11 (2) e 14/11 (2):** isoladas, ou seja, um Pix por pedido não pago. Comportamento normal.
+  - **4 recusados:** tentativas de cartão recusadas pelo MP (antifraude `high_risk` ou o banco). Ficam em `payments` como `failed`, com o motivo; o SQL (B) mostra quantas por pedido. Muitas tentativas seguidas no mesmo pedido indicariam teste de cartão.
+- **Propostas (não feitas):**
+  1. Gravar o número do pagamento do MP no cartão também, no `raw_payload`, para conferências futuras pelo número.
+  2. Limitar as tentativas de cartão por pedido (ex.: 5 por hora), contra teste de cartão.
+  3. Nada a mudar no Pix: o reaproveitamento já está no ar desde 10/11.
+
+### Black por produto (`1d0740e`)
+- **Percentuais:**
+  - Black (27/11 00:00 a 30/11 23:59): 25% em tudo; linha **Virtudes Divinas 35%** (36 produtos); **Flormed 30%**. A regra está pronta, mas hoje não há Flormed no catálogo da Bio (Flormed Pet é da My Pet).
+  - Esquenta: 10% em tudo, sem exceção.
+- **Combo/kit × campanha:** vale o MAIOR desconto, nunca os dois (regra da My Pet `f215d8d`). O combo shampoo + condicionador (10%) não soma na campanha: o kit mostra a soma do site riscada e a soma dos preços da campanha.
+- **Onde vale:** a mesma conta no pedido, na cotação da sacola, nas telas (produto, kits, /para, quiz, sugestões, barra fixa) e no `sale_price` dos feeds.
+- **Texto:** nenhum percentual da campanha aparece no site; faixa e selos dizem só "Black Friday" ou "Esquenta Black", e o preço riscado mostra o desconto. Cupons (GPT10, convite UGC) sem mudança.
+- `ed9f74c` · teste do cupom VOLTA conferido na data do teste: ele usava o relógio real e começou a falhar depois de 14/11; o envio não mudou.
+- **Testes:** tsc sem erros; `npm test` **587/587**; build OK.
