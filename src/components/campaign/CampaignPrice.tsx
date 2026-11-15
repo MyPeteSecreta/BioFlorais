@@ -6,7 +6,7 @@
  * já com desconto). Nunca usar no B2B.
  */
 
-import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
+import { campaignUnitPriceCents, offerBeatsCampaign } from "@/lib/campaign/esquenta-black";
 import { formatBRL } from "@/lib/format-brl";
 import { pixPrice } from "@/lib/product-conversion";
 
@@ -18,14 +18,16 @@ type Props = {
   className?: string;
   withPix?: boolean;
   testId?: string;
+  /** Produto (a Black tem % maior em algumas linhas). */
+  slug?: string | null;
 };
 
-export default function CampaignPrice({ priceCents, className = "", withPix = false, testId }: Props) {
+export default function CampaignPrice({ priceCents, className = "", withPix = false, testId, slug = null }: Props) {
   const phase = useCampaign();
 
   if (!priceCents) return null;
 
-  const price = campaignUnitPriceCents(priceCents, phase);
+  const price = campaignUnitPriceCents(priceCents, phase, slug);
   const pix = withPix ? pixPrice(price) : null;
 
   return (
@@ -50,17 +52,53 @@ export default function CampaignPrice({ priceCents, className = "", withPix = fa
 }
 
 /** Preço compacto (listas, sugestões, barra fixa): riscado pequeno + preço da campanha numa linha. */
-export function CampaignPriceInline({ priceCents, className = "" }: { priceCents: number | null | undefined; className?: string }) {
+export function CampaignPriceInline({ priceCents, className = "", slug = null }: { priceCents: number | null | undefined; className?: string; slug?: string | null }) {
   const phase = useCampaign();
 
   if (!priceCents) return null;
 
-  const price = campaignUnitPriceCents(priceCents, phase);
+  const price = campaignUnitPriceCents(priceCents, phase, slug);
 
   return (
     <span className={className}>
       {phase && <s className="mr-1.5 text-[0.8em] font-bold text-[#8d7789]">{formatBRL(priceCents)}</s>}
       {formatBRL(price)}
+    </span>
+  );
+}
+
+/**
+ * Preço do KIT (combo) com a campanha (Luis, 15/11): vale o MAIOR desconto, nunca os dois. Fora da campanha: o preço do combo.
+ * Na campanha, se o combo não vence (offerBeatsCampaign), o kit sai pela soma dos preços da campanha de cada item, com a soma do site riscada.
+ */
+export function CampaignKitPriceInline({
+  items,
+  comboCents,
+  comboPercent,
+  className = "",
+}: {
+  items: Array<{ slug: string; priceCents: number }>;
+  comboCents: number | null | undefined;
+  comboPercent: number;
+  className?: string;
+}) {
+  const phase = useCampaign();
+
+  if (!comboCents) return null;
+
+  const slugs = items.map((item) => item.slug);
+
+  if (!phase || offerBeatsCampaign(comboPercent, phase, slugs)) {
+    return <span className={className}>{formatBRL(comboCents)}</span>;
+  }
+
+  const siteSum = items.reduce((sum, item) => sum + item.priceCents, 0);
+  const campaignSum = items.reduce((sum, item) => sum + campaignUnitPriceCents(item.priceCents, phase, item.slug), 0);
+
+  return (
+    <span className={className} data-testid="preco-kit-campanha">
+      <s className="mr-1.5 text-[0.8em] font-bold text-[#8d7789]">{formatBRL(siteSum)}</s>
+      {formatBRL(campaignSum)}
     </span>
   );
 }

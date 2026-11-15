@@ -113,7 +113,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
                   <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a0742b]">{page.lineLabel}</p>
                   <h2 className="mt-0.5 text-[15px] font-extrabold leading-tight text-[#422347]">{name}</h2>
                   <p className="mt-1 text-[11px] text-[#8a7886]">Floral em gotas · 31 ml</p>
-                  <p className="mt-2 text-[17px] font-extrabold text-[#2f2231]"><CampaignPriceInline priceCents={product.priceCents} /></p>
+                  <p className="mt-2 text-[17px] font-extrabold text-[#2f2231]"><CampaignPriceInline priceCents={product.priceCents} slug={product.slug} /></p>
                   <div className="mt-auto">
                     <CampaignBuyButton productSlug={product.slug} name={name} image={image} />
                   </div>

@@ -65,7 +65,7 @@ export default function CartShippingSuggestions({ baseCents, variant = "full" }:
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#26352c]/45">{suggestion.kind}</p>
               <p className={`${compact ? "truncate text-xs" : "text-sm leading-tight"} font-medium text-[#26352c]`}>{suggestion.name}</p>
-              <p className="text-xs font-semibold text-[#55245f]"><CampaignPriceInline priceCents={suggestion.priceCents} /></p>
+              <p className="text-xs font-semibold text-[#55245f]"><CampaignPriceInline priceCents={suggestion.priceCents} slug={suggestion.slug} /></p>
             </div>
             <button
               type="button"

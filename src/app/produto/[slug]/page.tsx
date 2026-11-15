@@ -10,7 +10,8 @@ import Image from "next/image";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchaseActions from "@/components/product/ProductPurchaseActions";
-import CampaignPrice, { CampaignPriceInline } from "@/components/campaign/CampaignPrice";
+import CampaignPrice, { CampaignKitPriceInline, CampaignPriceInline } from "@/components/campaign/CampaignPrice";
+import { bioOffers } from "@/lib/commerce/offers";
 import { shortHowToUse, trustBadges } from "@/lib/product-conversion";
 import ViewContentEvent from "@/components/measurement/ViewContentEvent";
 import { getProductEditorialContent } from "@/lib/content/product-content";
@@ -613,6 +614,14 @@ export default async function ProductPage({
         ])
       : null;
 
+  // Itens dos kits (para o preço do kit na campanha: vale o maior desconto).
+  const kitItems500 = shampoo500 && conditioner500 && shampoo500.priceCents && conditioner500.priceCents
+    ? [{ slug: shampoo500.slug, priceCents: shampoo500.priceCents }, { slug: conditioner500.slug, priceCents: conditioner500.priceCents }]
+    : [];
+  const kitItems5l = shampoo5l && conditioner5l && shampoo5l.priceCents && conditioner5l.priceCents
+    ? [{ slug: shampoo5l.slug, priceCents: shampoo5l.priceCents }, { slug: conditioner5l.slug, priceCents: conditioner5l.priceCents }]
+    : [];
+
   const kitPrice5l =
     shampoo5l &&
     conditioner5l
@@ -865,6 +874,7 @@ export default async function ProductPage({
 
               <CampaignPrice
                 priceCents={product.priceCents}
+                slug={product.slug}
                 withPix
                 testId="preco-produto"
                 className="mt-3 text-4xl font-extrabold text-[#55245f] lg:mt-7"
@@ -894,7 +904,7 @@ export default async function ProductPage({
 
                   {row.item ? (
                     <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                      <p className="text-xl font-extrabold text-[#55245f]"><CampaignPriceInline priceCents={row.item.priceCents} /></p>
+                      <p className="text-xl font-extrabold text-[#55245f]"><CampaignPriceInline priceCents={row.item.priceCents} slug={row.item.slug} /></p>
 
                       <AddToCartButton
                         mode="product"
@@ -924,7 +934,7 @@ export default async function ProductPage({
 
                 {(
                   <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                    <p className="text-xl font-extrabold text-[#55245f]"><CampaignPriceInline priceCents={kitPrice500} /></p>
+                    <p className="text-xl font-extrabold text-[#55245f]"><CampaignKitPriceInline comboCents={kitPrice500} comboPercent={bioOffers.BIO_SHAMPOO_CONDICIONADOR_10.discountPercent} items={kitItems500} /></p>
 
                     <AddToCartButton
                       mode="combo"
@@ -1064,7 +1074,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={shampoo500.priceCents} />
+                          <CampaignPriceInline priceCents={shampoo500.priceCents} slug={shampoo500.slug} />
                         </p>
 
                         <AddToCartButton
@@ -1120,7 +1130,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={shampoo5l.priceCents} />
+                          <CampaignPriceInline priceCents={shampoo5l.priceCents} slug={shampoo5l.slug} />
                         </p>
 
                         <AddToCartButton
@@ -1202,7 +1212,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={conditioner500.priceCents} />
+                          <CampaignPriceInline priceCents={conditioner500.priceCents} slug={conditioner500.slug} />
                         </p>
 
                         <AddToCartButton
@@ -1258,7 +1268,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={conditioner5l.priceCents} />
+                          <CampaignPriceInline priceCents={conditioner5l.priceCents} slug={conditioner5l.slug} />
                         </p>
 
                         <AddToCartButton
@@ -1365,7 +1375,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={kitPrice500} />
+                          <CampaignKitPriceInline comboCents={kitPrice500} comboPercent={bioOffers.BIO_SHAMPOO_CONDICIONADOR_10.discountPercent} items={kitItems500} />
                         </p>
 
                         <AddToCartButton
@@ -1430,7 +1440,7 @@ export default async function ProductPage({
                             text-[#55245f]
                           "
                         >
-                          <CampaignPriceInline priceCents={kitPrice5l} />
+                          <CampaignKitPriceInline comboCents={kitPrice5l} comboPercent={bioOffers.BIO_SHAMPOO_CONDICIONADOR_10.discountPercent} items={kitItems5l} />
                         </p>
 
                         <AddToCartButton
@@ -1514,7 +1524,7 @@ export default async function ProductPage({
                     text-[#55245f]
                   "
                 >
-                  <CampaignPriceInline priceCents={product.priceCents} />
+                  <CampaignPriceInline priceCents={product.priceCents} slug={product.slug} />
                 </p>
 
                 <AddToCartButton
@@ -1574,7 +1584,7 @@ export default async function ProductPage({
                     text-[#55245f]
                   "
                 >
-                  <CampaignPriceInline priceCents={perfume500.priceCents} />
+                  <CampaignPriceInline priceCents={perfume500.priceCents} slug={perfume500.slug} />
                 </p>
 
                 <AddToCartButton
@@ -2006,7 +2016,7 @@ export default async function ProductPage({
                             text-[#63326d]
                           "
                         >
-                          <CampaignPriceInline priceCents={item.priceCents} />
+                          <CampaignPriceInline priceCents={item.priceCents} slug={item.slug} />
                         </p>
                       </div>
                     </Link>

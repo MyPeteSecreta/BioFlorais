@@ -165,7 +165,7 @@ test("tela: faixa no topo só no B2C; preço com riscado na página do produto, 
 
   const page = read("src/app/produto/[slug]/page.tsx");
   assert.ok(page.includes("<CampaignPrice") && page.includes("withPix") && !page.includes("formatBRL("), "todos os preços da página pela campanha");
-  assert.ok(read("src/components/product/ProductPurchaseActions.tsx").includes("campaignUnitPriceCents(priceCents, phase)"));
+  assert.ok(read("src/components/product/ProductPurchaseActions.tsx").includes("campaignUnitPriceCents(priceCents, phase, product.productSlug)"));
   assert.ok(read("src/app/carrinho/page.tsx").includes('data-testid="desconto-campanha"'));
   for (const file of ["src/components/cart/CartShippingSuggestions.tsx", "src/app/para/[slug]/page.tsx", "src/app/quiz/BioQuizClient.tsx"]) assert.ok(read(file).includes("<CampaignPriceInline"), file);
 });
@@ -264,4 +264,44 @@ test("Omie: a Central calcula o desconto por subtotal + frete − total; o pedid
   assert.ok(route.includes("const totalCents = Math.max(0, merchandiseAfterDiscountsCents - paymentMethodDiscountCents + shippingCents);"));
   assert.equal((route.match(/\.insert\(orders\)/g) ?? []).length, 1);
   assert.ok(/\.insert\(orders\)[\s\S]*?subtotalCents,\s*discountCents,/.test(route));
+});
+
+test("Black por produto (Luis, 15/11): 25% em tudo, Virtudes Divinas 35%, Flormed 30%; Esquenta 10% em tudo; preço riscado sem % no texto", async () => {
+  const { campaignPercentFor, offerBeatsCampaign } = await import("../src/lib/campaign/esquenta-black.ts");
+  const { campaignSelectedOffers } = await import("../src/lib/campaign/campaign-offers.ts");
+  const virtudes = bioProducts.find((p) => p.lineSlug === "virtudes-divinas");
+  const adulto = bioProducts.find((p) => p.slug === "adulto-floral-em-gotas-sono");
+
+  assert.equal(campaignPercentFor(black, virtudes.slug), 35);
+  assert.equal(campaignPercentFor(black, adulto.slug), 25);
+  assert.equal(campaignPercentFor(black, "flormed-exemplo-30ml"), 30, "regra pronta para Flormed (hoje sem produto na Bio)");
+  assert.equal(campaignPercentFor(black, null), 25);
+  assert.equal(campaignPercentFor(esquenta, virtudes.slug), 10, "Esquenta: 10% em tudo, sem exceção");
+  assert.equal(campaignUnitPriceCents(virtudes.priceCents, black, virtudes.slug), Math.round((virtudes.priceCents * 65) / 100));
+  assert.equal(campaignUnitPriceCents(3590, black, adulto.slug), 2693);
+  for (const p of bioProducts.filter((p) => p.lineSlug === "virtudes-divinas")) assert.equal(campaignPercentFor(black, p.slug), 35, p.slug);
+  assert.equal(bioProducts.filter((p) => p.lineSlug !== "virtudes-divinas" && campaignPercentFor(black, p.slug) !== 25).length, 0, "o resto: 25%");
+
+  // combo × campanha: vale o maior, nunca os dois (combo de 10% não soma na campanha; empate fica com a campanha)
+  assert.equal(offerBeatsCampaign(10, esquenta, ["cosmeticos-shampoo-x"]), false);
+  assert.equal(offerBeatsCampaign(10, black, ["cosmeticos-shampoo-x"]), false);
+  assert.equal(offerBeatsCampaign(30, black, ["cosmeticos-shampoo-x"]), true);
+  assert.equal(offerBeatsCampaign(30, black, [virtudes.slug]), false, "35% da Virtudes vence 30%");
+  assert.equal(offerBeatsCampaign(10, null), true, "fora da campanha o combo vale");
+  const combo = [{ code: "BIO_SHAMPOO_CONDICIONADOR_10", qty: 1, productSlugs: ["a", "b"] }];
+  assert.deepEqual(campaignSelectedOffers(combo, esquenta), []);
+  assert.deepEqual(campaignSelectedOffers(combo, null), combo);
+
+  // nenhum % de Black/Esquenta em texto do site
+  for (const phase of CAMPAIGN_PHASES) for (const text of [phase.strip, phase.priceLabel]) assert.ok(!/%/.test(text), text);
+  const price = read("src/components/campaign/CampaignPrice.tsx");
+  assert.ok(!/phase\.percent|campaignPercentFor/.test(price), "a tela não mostra o percentual da campanha");
+
+  // servidor, sacola, telas e feeds usam o percentual do produto
+  assert.ok(read("src/app/api/orders/create/route.ts").includes("campaignUnitPriceCents(product.priceCents, campaign, product.slug)"));
+  assert.ok(read("src/app/api/orders/create/route.ts").includes("campaignSelectedOffers(selectedOffers, campaign)"));
+  assert.ok(read("src/app/api/cart/quote/route.ts").includes("campaignUnitPriceCents(product.priceCents, campaign, product.slug)"));
+  assert.ok(read("src/app/api/cart/quote/route.ts").includes("campaignSelectedOffers(requestedOffers, campaign)"));
+  assert.ok(read("src/lib/feeds/products.ts").includes("campaignUnitPriceCents(product.priceCents as number, phase, product.slug)"));
+  assert.ok(read("src/app/produto/[slug]/page.tsx").includes("<CampaignKitPriceInline"));
 });

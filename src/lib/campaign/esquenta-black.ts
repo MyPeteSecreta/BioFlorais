@@ -17,6 +17,8 @@ export type CampaignPhase = {
   strip: string;
   startsAtMs: number;
   endsAtMs: number;
+  /** Percentual MAIOR para alguns produtos (pelo começo do slug, que na Bio é a linha). Sem regra: `percent`. */
+  overrides?: ReadonlyArray<{ slug: RegExp; percent: number }>;
 };
 
 export const CAMPAIGN_PHASES: readonly CampaignPhase[] = [
@@ -33,8 +35,13 @@ export const CAMPAIGN_PHASES: readonly CampaignPhase[] = [
     key: "black",
     percent: 25,
     priceLabel: "Preço Black",
-    // Sem percentual até o Luis definir o "até X%".
+    // Sem percentual na faixa (Luis, 15/11): só "Black Friday"; o desconto aparece no preço riscado.
     strip: "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70",
+    // Black por produto (Luis, 15/11): 25% em tudo; linha Virtudes Divinas 35%; Flormed 30% (hoje não há Flormed no catálogo da Bio).
+    overrides: [
+      { slug: /^virtudes-divinas-/, percent: 35 },
+      { slug: /(^|-)flormed(-|$)/, percent: 30 },
+    ],
     startsAtMs: Date.parse("2026-11-27T00:00:00-03:00"),
     endsAtMs: Date.parse("2026-11-30T23:59:59.999-03:00"),
   },
@@ -61,11 +68,31 @@ export function saleEffectiveDate(phase: CampaignPhase): string {
   return `${sp(phase.startsAtMs)}/${sp(phase.endsAtMs)}`;
 }
 
-/** Preço de um item na campanha (percentual sobre o preço do site, arredondado ao centavo). Sem campanha: o próprio preço. */
-export function campaignUnitPriceCents(sitePriceCents: number, phase: CampaignPhase | null): number {
+/** Percentual da campanha para um produto: o da regra do produto (só a Black tem) ou o geral da fase. */
+export function campaignPercentFor(phase: Pick<CampaignPhase, "percent" | "overrides">, slug?: string | null): number {
+  const rule = slug ? phase.overrides?.find((override) => override.slug.test(slug)) : undefined;
+
+  return rule ? rule.percent : phase.percent;
+}
+
+/** Preço de um item na campanha (percentual do produto sobre o preço do site, arredondado ao centavo). Sem campanha: o próprio preço. */
+export function campaignUnitPriceCents(sitePriceCents: number, phase: CampaignPhase | null, slug?: string | null): number {
   if (!phase) return sitePriceCents;
 
-  return Math.round((sitePriceCents * (100 - phase.percent)) / 100);
+  return Math.round((sitePriceCents * (100 - campaignPercentFor(phase, slug))) / 100);
+}
+
+/**
+ * Kits/combos × campanha (Luis, 15/11, regra da My Pet f215d8d): vale o MAIOR desconto, nunca os dois. O combo só entra na campanha
+ * se o % dele for maior que o da campanha em TODOS os produtos dele (empate: campanha). Hoje o único combo é 10% (shampoo +
+ * condicionador): na campanha (10% ou mais) ele não soma.
+ */
+export function offerBeatsCampaign(offerPercent: number, phase: CampaignPhase | null, slugs: readonly string[] = []): boolean {
+  if (!phase) return true;
+
+  const campaignPercents = slugs.length ? slugs.map((slug) => campaignPercentFor(phase, slug)) : [phase.percent];
+
+  return campaignPercents.every((percent) => offerPercent > percent);
 }
 
 /** Regra de um cupom comercial (a mesma conta de /api/orders/create e de /api/coupons/validate). */

@@ -118,7 +118,7 @@ test("sem cloaking: página estática, igual para todos (nada lê cabeçalho, co
 
 test("estrutura da página: título, faixa GPT10, produtos com preço e Comprar, confiança, 3 perguntas, ver a linha completa", () => {
   const page = read("src/app/para/[slug]/page.tsx");
-  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "<CampaignPriceInline priceCents={product.priceCents} />", "<CampaignBuyButton", "<LineMiniCards />", 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
+  const order = ["{page.title}", "<Gpt10Banner />", 'aria-label="Produtos"', "<CampaignPriceInline priceCents={product.priceCents} slug={product.slug} />", "<CampaignBuyButton", "<LineMiniCards />", 'data-testid="campanha-faq"', 'data-testid="campanha-ver-linha"'].map((part) => page.indexOf(part));
   assert.ok(order.every((index) => index > 0) && [...order].sort((a, b) => a - b).join() === order.join(), "ordem das seções");
   assert.ok(!page.includes("campanha-confianca") && !page.includes("Compre com tranquilidade"), "o bloco de confiança saiu: minicards das linhas no lugar");
   assert.equal(page.split('aria-label="Perguntas frequentes"').length - 1, 1, "um bloco só de perguntas");

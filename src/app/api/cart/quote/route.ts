@@ -8,6 +8,7 @@ import {
   calculateSelectedOffers,
 } from "@/lib/commerce/offers";
 import { activeCampaign, campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
+import { campaignSelectedOffers } from "@/lib/campaign/campaign-offers";
 
 interface RequestItem {
   productSlug: string;
@@ -127,7 +128,7 @@ export async function POST(
             sitePriceCents:
               product.priceCents,
             unitPriceCents:
-              campaignUnitPriceCents(product.priceCents, campaign),
+              campaignUnitPriceCents(product.priceCents, campaign, product.slug),
             image:
               product.image ?? null,
           };
@@ -168,7 +169,8 @@ export async function POST(
               item.unitPriceCents,
           })
         ),
-        requestedOffers
+        // Combo × campanha: vale o maior (o combo que não vence não soma com o preço da campanha).
+        campaignSelectedOffers(requestedOffers, campaign)
       );
 
     const offerDiscountCents =

@@ -34,7 +34,7 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
 
   // Esquenta/Black: preço com desconto na tela; a quantidade do kit segue o preço do site (o frete grátis usa o preço do site).
   const phase = useCampaign();
-  const salePriceCents = priceCents ? campaignUnitPriceCents(priceCents, phase) : null;
+  const salePriceCents = priceCents ? campaignUnitPriceCents(priceCents, phase, product.productSlug) : null;
   const siteKit = freeShippingKit(priceCents);
   const kit = siteKit && salePriceCents ? { ...siteKit, totalCents: siteKit.qty * salePriceCents, eachCents: salePriceCents } : siteKit;
   const pix = pixPrice(salePriceCents);

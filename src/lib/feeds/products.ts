@@ -138,7 +138,7 @@ export function buildFeedItem(product: BioProduct, siteUrl: string, imageFor: (p
     gtin: FEED_GTIN[product.slug] ?? null,
     productType: `${FEED_BRAND} > ${LINE_NAMES[product.lineSlug] ?? product.lineSlug}`,
     adLabel: feedAdLabel(product.slug),
-    salePrice: phase ? feedPrice(campaignUnitPriceCents(product.priceCents as number, phase)) : null,
+    salePrice: phase ? feedPrice(campaignUnitPriceCents(product.priceCents as number, phase, product.slug)) : null,
     salePriceEffectiveDate: phase ? saleEffectiveDate(phase) : null,
   };
 }

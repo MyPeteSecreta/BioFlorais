@@ -75,7 +75,7 @@ function ProductCard({
           </h2>
 
           <p className="mt-2 text-lg font-semibold text-[#63326d]">
-            <CampaignPriceInline priceCents={product.priceCents} />
+            <CampaignPriceInline priceCents={product.priceCents} slug={product.slug} />
           </p>
 
           <Link

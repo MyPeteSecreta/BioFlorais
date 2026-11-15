@@ -1,6 +1,7 @@
 import { recoveryCouponOwnerError } from "@/lib/recovery-offer";
 import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { activeCampaign, campaignUnitPriceCents, couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
+import { campaignSelectedOffers } from "@/lib/campaign/campaign-offers";
 import { pixDiscountCents } from "@/lib/checkout/benefits";
 import { isValidCnpj, isValidCpf } from "@/lib/checkout/document";
 import {
@@ -639,7 +640,7 @@ export async function POST(
         name: product.name,
         category: product.category,
         qty,
-        unitPriceCents: withCampaign ? campaignUnitPriceCents(product.priceCents, campaign) : product.priceCents,
+        unitPriceCents: withCampaign ? campaignUnitPriceCents(product.priceCents, campaign, product.slug) : product.priceCents,
       }));
 
     const offerResult =
@@ -649,7 +650,8 @@ export async function POST(
         selectedOffers
       );
 
-    const campaignOfferResult = campaign ? calculateSelectedOffers(offerLines(true), selectedOffers) : null;
+    // Combo × campanha: vale o maior (offerBeatsCampaign); o combo que não vence fica de fora do preço da campanha.
+    const campaignOfferResult = campaign ? calculateSelectedOffers(offerLines(true), campaignSelectedOffers(selectedOffers, campaign)) : null;
 
     /*
      * SUBTOTAL Ã‰ SEMPRE BRUTO.
