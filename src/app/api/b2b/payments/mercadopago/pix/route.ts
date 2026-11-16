@@ -21,6 +21,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { customers, orders, payments } from "@/lib/db/schema";
 import { verifyB2BOrderPaymentAccess } from "@/lib/b2b/order-payment-access";
+import { mercadoPagoPaymentId } from "@/lib/payments/card-decline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
       externalId: data.id,
       method: "pix",
       status,
-      rawPayload: data,
+      rawPayload: { ...data, mpPaymentId: mercadoPagoPaymentId(data) }, // + número do pagamento do MP (Luis, 16/11)
     });
 
     return NextResponse.json({

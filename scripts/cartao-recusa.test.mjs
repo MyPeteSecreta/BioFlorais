@@ -28,7 +28,7 @@ test("recusa do MP (402 high_risk, como a de 09/11): status, motivo e HTTP lidos
     transactions: { payments: [{ id: "PAY01", status: "failed", status_detail: "high_risk" }] },
   };
   const outcome = outcomeFromAdapterError(new Error(`Mercado Pago request failed (402): ${JSON.stringify(body)}`));
-  assert.deepEqual(outcome, { httpStatus: 402, mpOrderId: "ORD01ABC", mpStatus: "failed", mpStatusDetail: "high_risk", mpErrorCodes: [] });
+  assert.deepEqual(outcome, { httpStatus: 402, mpOrderId: "ORD01ABC", mpPaymentId: "PAY01", mpStatus: "failed", mpStatusDetail: "high_risk", mpErrorCodes: [] });
 
   // formato de erro com "errors" (sem transactions)
   const errors = outcomeFromAdapterError(new Error(`Mercado Pago request failed (400): ${JSON.stringify({ errors: [{ code: "invalid_card_token", details: ["card token invalid"] }] })}`));
@@ -41,7 +41,7 @@ test("recusa do MP (402 high_risk, como a de 09/11): status, motivo e HTTP lidos
   assert.equal(outcomeFromAdapterError(new Error("Mercado Pago request failed (502): <html>")).httpStatus, 502);
 
   assert.deepEqual(outcomeFromPayload({ id: "X", status: "processed", transactions: { payments: [{ status: "processed", status_detail: "accredited" }] } }), {
-    httpStatus: null, mpOrderId: "X", mpStatus: "processed", mpStatusDetail: "accredited", mpErrorCodes: [],
+    httpStatus: null, mpOrderId: "X", mpPaymentId: null, mpStatus: "processed", mpStatusDetail: "accredited", mpErrorCodes: [],
   });
 });
 

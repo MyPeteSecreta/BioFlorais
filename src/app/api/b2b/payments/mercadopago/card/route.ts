@@ -20,6 +20,8 @@ import { customers, orders, payments } from "@/lib/db/schema";
 import { verifyB2BOrderPaymentAccess } from "@/lib/b2b/order-payment-access";
 import { isB2BInstallmentCountValid } from "@/lib/b2b/pricing";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
+import { CARD_TOO_MANY_ATTEMPTS_MESSAGE, cardAttemptsExceeded, mercadoPagoPaymentId } from "@/lib/payments/card-decline";
+import { countRecentCardAttempts } from "@/lib/payments/card-attempt-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,6 +131,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Contra teste de cartão (Luis, 16/11): no máximo 5 tentativas de cartão por hora neste pedido.
+    if (cardAttemptsExceeded(await countRecentCardAttempts(order.id))) {
+      console.warn("[b2b/mercadopago/card] limite de tentativas", { orderId: order.id });
+      return NextResponse.json({ error: CARD_TOO_MANY_ATTEMPTS_MESSAGE }, { status: 429 });
+    }
+
     // O card token é de uso único: mesma chave para reenvio do mesmo
     // token (duplo clique/F5), chave nova para nova tentativa com outro cartão.
     const idempotencyKey = `bio-b2b-card-${order.id}-${createHash("sha256")
@@ -159,6 +167,8 @@ export async function POST(request: NextRequest) {
         paymentMethodId,
         amountCents: order.totalCents,
         b2b: true,
+        // Número do pagamento no MP, para conferências (Luis, 16/11).
+        mpPaymentId: mercadoPagoPaymentId(result.rawPayload),
       },
     });
 

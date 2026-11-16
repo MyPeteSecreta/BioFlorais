@@ -17,6 +17,8 @@ export function cardAttemptIdempotencyKey(orderId: string, cardToken: string): s
 export type MercadoPagoOutcome = {
   httpStatus: number | null;
   mpOrderId: string | null;
+  /** Número do PAGAMENTO no Mercado Pago (o que aparece no painel), para conferências futuras (Luis, 16/11). */
+  mpPaymentId: string | null;
   mpStatus: string | null;
   mpStatusDetail: string | null;
   mpErrorCodes: string[];
@@ -26,13 +28,22 @@ type OrderPayload = {
   id?: unknown;
   status?: unknown;
   status_detail?: unknown;
-  transactions?: { payments?: Array<{ status?: unknown; status_detail?: unknown }> };
+  transactions?: { payments?: Array<{ id?: unknown; status?: unknown; status_detail?: unknown }> };
   errors?: Array<{ code?: unknown; details?: unknown }>;
   /** No erro 402 ("pedido criado, mas a transação falhou") o pedido do MP pode vir dentro de "data". */
   data?: unknown;
 };
 
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+const idText = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? String(value) : text(value));
+
+/** Número do pagamento (transactions.payments[0].id) de uma resposta da API /v1/orders do MP; também dentro de "data" (402). */
+export function mercadoPagoPaymentId(payload: unknown): string | null {
+  const root = (payload && typeof payload === "object" ? payload : {}) as OrderPayload;
+  const order = (root.data && typeof root.data === "object" ? root.data : root) as OrderPayload;
+
+  return idText(order.transactions?.payments?.[0]?.id);
+}
 
 /** Status e motivo de uma resposta do MP (o do pagamento vale mais que o do pedido). */
 export function outcomeFromPayload(payload: unknown, httpStatus: number | null = null): MercadoPagoOutcome {
@@ -48,6 +59,7 @@ export function outcomeFromPayload(payload: unknown, httpStatus: number | null =
   return {
     httpStatus,
     mpOrderId: text(order.id) ?? text(root.id),
+    mpPaymentId: mercadoPagoPaymentId(payload),
     mpStatus: text(payment?.status) ?? text(order.status),
     mpStatusDetail: text(payment?.status_detail) ?? detailFromCodes(codes) ?? text(order.status_detail) ?? null,
     mpErrorCodes: codes.slice(0, 10),
@@ -86,6 +98,19 @@ export function outcomeFromAdapterError(error: unknown): MercadoPagoOutcome | nu
 }
 
 const PIX_HINT = "Tente outro cartão ou pague no Pix com desconto.";
+
+/**
+ * Limite de tentativas de cartão POR PEDIDO (Luis, 16/11, contra teste de cartão): 5 na última hora. Conta as tentativas
+ * gravadas em payments (método cartão, aprovadas ou recusadas); a 6ª é barrada antes de chamar o Mercado Pago.
+ */
+export const CARD_ATTEMPTS_PER_HOUR = 5;
+export const CARD_ATTEMPT_WINDOW_MS = 60 * 60 * 1000;
+export const CARD_TOO_MANY_ATTEMPTS_MESSAGE =
+  "Este pedido já teve muitas tentativas no cartão. Para sua segurança, aguarde 1 hora para tentar de novo ou pague agora no Pix.";
+
+export function cardAttemptsExceeded(attemptsInWindow: number): boolean {
+  return attemptsInWindow >= CARD_ATTEMPTS_PER_HOUR;
+}
 
 /** Mensagem para o cliente conforme o motivo (status_detail) do MP. Nunca mostra o código nem o JSON. */
 export function cardDeclineMessage(statusDetail: string | null | undefined): string {

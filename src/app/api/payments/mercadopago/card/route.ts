@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { finalizeMercadoPagoPaid } from "@/lib/payments/finalize-mercadopago-paid";
-import { cardAttemptIdempotencyKey, cardDeclineMessage, outcomeFromAdapterError, outcomeFromPayload } from "@/lib/payments/card-decline";
+import { CARD_TOO_MANY_ATTEMPTS_MESSAGE, cardAttemptIdempotencyKey, cardAttemptsExceeded, cardDeclineMessage, outcomeFromAdapterError, outcomeFromPayload } from "@/lib/payments/card-decline";
+import { countRecentCardAttempts } from "@/lib/payments/card-attempt-limit";
 import { addresses, customers, orders, payments } from "@/lib/db/schema";
 import { buildMercadoPagoPayer, createMercadoPagoCardOrder, sanitizeDeviceSessionId, type CardPayerInput } from "@/lib/payments/mercadopago-card-order";
 
@@ -178,6 +179,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // Contra teste de cartão (Luis, 16/11): no máximo 5 tentativas de cartão por hora neste pedido; a 6ª nem chega ao MP.
+    if (cardAttemptsExceeded(await countRecentCardAttempts(order.id))) {
+      console.warn("[mercadopago/card] limite de tentativas", { orderId: order.id });
+      return NextResponse.json({ error: CARD_TOO_MANY_ATTEMPTS_MESSAGE, statusDetail: "too_many_attempts" }, { status: 429 });
+    }
+
     // BIO_MP_SERVER_IDEMPOTENCY_V2 (09/11): a chave é POR TENTATIVA (pedido + token do cartão). O duplo envio do mesmo
     // cartão reaproveita a chave; outra tentativa ou outro cartão não herda a recusa da anterior.
     const idempotencyKey = cardAttemptIdempotencyKey(order.id, cardToken);
@@ -231,6 +238,7 @@ export async function POST(request: Request) {
       rawPayload: {
         installments,
         paymentMethodId,
+        mpPaymentId: outcome.mpPaymentId,
         mpStatus: outcome.mpStatus,
         mpStatusDetail: outcome.mpStatusDetail,
       },

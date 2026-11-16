@@ -9,6 +9,7 @@ import {
   payments,
 } from "@/lib/db/schema";
 import { PIX_NO_CODE_MESSAGE, PIX_REUSE_MAX_AGE_MINUTES, PIX_VALIDITY_MINUTES, pixResponseFromOrder, reusablePix } from "@/lib/payments/pix-reuse";
+import { mercadoPagoPaymentId } from "@/lib/payments/card-decline";
 
 type RequestBody = {
   orderId?: string;
@@ -390,8 +391,9 @@ export async function POST(
           data.status ??
           "pending",
 
+        // A resposta inteira do MP + o número do PAGAMENTO em campo próprio, para conferências (Luis, 16/11).
         rawPayload:
-          data,
+          { ...data, mpPaymentId: mercadoPagoPaymentId(data) },
       });
 
     // Sem o código do Pix não dá para pagar: a tentativa fica registrada acima, e a tela recebe um erro claro (antes: 200 sem
