@@ -2052,3 +2052,46 @@ Conferi os rótulos das fotos principais de todas as linhas de florais:
 - Aparecem nas linhas Adulto e Baby.
 - Preço: R$ 32,90 do banco, com a Esquenta R$ 29,61 e R$ 28,43 no Pix, sem "indisponível".
 - A mestre falou em **7** Flormed no banco, mas o 57b cadastra 6. Para ver o 7º: `PROMPTS_B2B\sql_bio_flormed_conferencia.sql` (só leitura).
+
+## 16/11 fim da tarde (mestre): Meta fase 2 — API de Conversões, catálogo e remarketing (sem push)
+
+### `be15a1f` · API de Conversões para ViewContent, AddToCart e InitiateCheckout
+- **Fluxo:** o navegador dispara o pixel com um `eventID` aleatório e, só se o pixel disparou (aceite de marketing e página permitida), manda o MESMO evento e id para `/api/meta/events`. A rota reenvia à Graph API (`/{pixel}/events`) depois da resposta (`after()`); a Meta deduplica.
+- **custom_data refeito no servidor por lista branca:**
+  - códigos BF… do catálogo, menos os sensíveis;
+  - valor (0 a 100 mil), BRL e quantidade;
+  - ViewContent e AddToCart com um produto só;
+  - nunca nome, slug, categoria ou e-mail.
+- **user_data:**
+  - só `_fbp`, `_fbc` (ou o `fbclid` do endereço da página → `fb.1.<ms>.<fbclid>`), IP e navegador;
+  - endereço da página sem query;
+  - **sem e-mail, telefone, nome ou CEP** nestes eventos.
+- **Purchase** segue como antes (pedido pago, hash de e-mail e telefone).
+- **Sem `META_CAPI_TOKEN` (Purchase e os novos):** não envia e registra uma vez `[meta-capi] não configurado`.
+- **CEP em hash: NÃO.** A /privacidade 9.3 diz que não enviamos endereço. Fica para quando o Luis aprovar a mudança do texto.
+- **Checkout não afetado:**
+  - envio "dispara e esquece" (`keepalive`, erro engolido); rota sempre 204 (7 a 40 ms local, inclusive com corpo inválido);
+  - teste com fetch rejeitado ou ausente: o checkout segue;
+  - no navegador [TESTE], produto → sacola → checkout: os 3 eventos saíram com o mesmo id no pixel e no servidor, e o checkout carregou os 14 campos sem erro.
+- **Testes:**
+  - `scripts/meta-capi-eventos.test.mjs` (6) + fiação ajustada em `medicao-google-meta`;
+  - tsc sem erros; `npm test` **597/597**; build OK (rota `ƒ /api/meta/events`).
+
+### Feed /feeds/meta.csv (produção `7b030a7`, conferido em 16/11)
+- **Conteúdo:**
+  - 210 itens, 14 colunas, ids únicos, `in stock`, preço em BRL;
+  - Esquenta com data de fim 26/11;
+  - sem "%" e sem nome de terceiros;
+  - 14 itens marcados `excluir_anuncios`;
+  - 6 Flormed presentes.
+- **Imagens:** as 210 abrem (200), mas **66 são menores que 500×500** (Baby 9, Kids 9, Teen 9, Dose Única 4, cosméticos 15, cosméticos pet 20).
+  - Proposta (não feita): versões quadradas de 800×800 só para os feeds.
+
+### Documentação para o Luis
+- `PROMPTS_B2B\META_FASE2_BIO.md`, com:
+  - token da API de Conversões na Vercel e teste em Eventos de teste;
+  - catálogo com busca diária e conjunto "Anunciáveis (sem sensíveis)";
+  - 4 públicos (produto, sacola e checkout de 14 dias; compradores de 180 dias para excluir);
+  - anúncio dinâmico de catálogo;
+  - porte para Secreta e My Pet.
+- **Porte:** Secreta e My Pet não têm API de Conversões nenhuma, e a Secreta não tem feed.
