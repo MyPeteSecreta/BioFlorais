@@ -18,7 +18,7 @@ import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
 import CartReminderOptIn from "@/components/cart/CartReminderOptIn";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
-import { trackMeta } from "@/lib/measurement-client";
+import { trackMetaWithServer } from "@/lib/measurement-client";
 import { couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
 import { documentError } from "@/lib/checkout/document";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
@@ -1031,7 +1031,7 @@ export default function CheckoutPage() {
 
     const event = metaInitiateCheckoutEvent({ valueCents: quote.totalCents, items: items.map((item) => ({ slug: item.productSlug, qty: item.qty })) });
 
-    if (trackMeta(event.name, event.params)) initiateCheckoutSent.current = true;
+    if (trackMetaWithServer(event.name, event.params)) initiateCheckoutSent.current = true;
   }, [quote, items]);
 
   // Cupons aplicados (do rascunho ou de antes de mudar a sacola) valem sobre o valor ATUAL dos produtos: quando o total muda,

@@ -388,7 +388,7 @@ test("Meta (fiação): sem content_name no código; pixel sem leitura automátic
   assert.ok(pixel.includes('isMetaPixelPath(pathname)) trackMeta("PageView", {});'), "PageView nas trocas de página, menos a sensível");
   assert.ok(pixel.includes("consent && isPixelPath(pathRef.current)"), "instala nas mesmas páginas de antes (depois do aceite)");
 
-  assert.ok(read("src/components/cart/CartProvider.tsx").includes("if (event) trackMeta(event.name, event.params);"));
+  assert.ok(read("src/components/cart/CartProvider.tsx").includes("if (event) trackMetaWithServer(event.name, event.params);"), "AddToCart pelo pixel + servidor (16/11)");
   assert.ok(read("src/components/measurement/ViewContentEvent.tsx").includes("metaViewContentEvent({ slug, priceCents })"));
   assert.ok(read("src/app/produto/[slug]/page.tsx").includes("<ViewContentEvent slug={product.slug} priceCents={product.priceCents} />"));
 });

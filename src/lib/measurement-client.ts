@@ -99,3 +99,36 @@ export function trackMeta(name: string, params: Record<string, unknown>, eventId
 
   return true;
 }
+
+/** Id do evento para deduplicar pixel × servidor (aleatório; nunca dado do visitante). */
+function newMetaEventId(): string {
+  try {
+    return window.crypto.randomUUID();
+  } catch {
+    return `ev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
+
+/**
+ * ViewContent, AddToCart e InitiateCheckout (fase 2 da Meta, 16/11): dispara o pixel com um event_id e, SÓ se o pixel disparou
+ * (aceite de marketing + página permitida), manda o mesmo evento para /api/meta/events (API de Conversões). O envio ao servidor
+ * é "dispara e esquece" (keepalive, erro engolido): nunca atrasa nem quebra a sacola ou o checkout.
+ */
+export function trackMetaWithServer(name: "ViewContent" | "AddToCart" | "InitiateCheckout", params: Record<string, unknown>): boolean {
+  const eventId = newMetaEventId();
+
+  if (!trackMeta(name, params, eventId)) return false;
+
+  try {
+    void fetch("/api/meta/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: name, eventId, params, pageUrl: window.location.href, consent: true }),
+      keepalive: true,
+    }).catch(() => undefined);
+  } catch {
+    // sem rede/fetch: o pixel já foi
+  }
+
+  return true;
+}

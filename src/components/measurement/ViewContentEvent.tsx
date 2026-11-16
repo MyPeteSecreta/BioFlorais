@@ -9,7 +9,7 @@ import { useEffect } from "react";
 
 import { CONSENT_EVENT } from "@/lib/consent";
 import { metaViewContentEvent } from "@/lib/measurement";
-import { trackMeta } from "@/lib/measurement-client";
+import { trackMetaWithServer } from "@/lib/measurement-client";
 
 export default function ViewContentEvent({ slug, priceCents }: { slug: string; priceCents: number | null }) {
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function ViewContentEvent({ slug, priceCents }: { slug: string; p
         return;
       }
 
-      sent = trackMeta(event.name, event.params);
+      sent = trackMetaWithServer(event.name, event.params);
     };
 
     // o pixel pode ainda estar carregando (consentimento dado nesta visita)

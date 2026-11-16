@@ -2,7 +2,7 @@
 
 import { trackEvent } from "@/lib/analytics-events";
 import { metaAddToCartEvent } from "@/lib/measurement";
-import { trackMeta } from "@/lib/measurement-client";
+import { trackMetaWithServer } from "@/lib/measurement-client";
 import {
   createContext,
   useCallback,
@@ -302,7 +302,7 @@ export function CartProvider({
         {
           // Meta AddToCart (só com o pixel carregado e o aceite de marketing; produto sensível não envia nada)
           const event = metaAddToCartEvent(product.productSlug);
-          if (event) trackMeta(event.name, event.params);
+          if (event) trackMetaWithServer(event.name, event.params);
         }
         setState(
           (current) =>

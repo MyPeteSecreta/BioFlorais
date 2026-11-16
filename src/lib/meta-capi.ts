@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { metaPixelId, metaPurchaseEvent, type PurchasePayload } from "@/lib/measurement";
 import { loadPurchasePayload } from "@/lib/purchase-event-server";
+import { logMetaCapiNotConfigured } from "@/lib/meta-capi-events";
 
 export const META_GRAPH_VERSION = "v21.0";
 export const META_CAPI_TIMEOUT_MS = 3000;
@@ -133,8 +134,10 @@ export async function sendMetaCapiPurchase(
   const token = env.META_CAPI_TOKEN?.trim();
   const pixel = metaPixelId(env.NEXT_PUBLIC_META_PIXEL_ID);
 
-  if (!token) return "no_token";
-  if (!pixel) return "no_pixel";
+  if (!token || !pixel) {
+    logMetaCapiNotConfigured();
+    return token ? "no_pixel" : "no_token";
+  }
 
   try {
     const [row] = await run(
