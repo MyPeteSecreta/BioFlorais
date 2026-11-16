@@ -63,6 +63,7 @@ test('"N mais vendidos" segue a ordem dos cards da linha no B2C (lida na hora)',
   assert.deepEqual(displays.rankedLineSlugs("adulto").slice(0, 30), bioCommercialOrder.adulto.slugs.slice(0, 30));
   assert.deepEqual(displays.rankedLineSlugs("pet").slice(0, 25), bioCommercialOrder.pet.slugs.filter((slug) => getProduct(slug)).slice(0, 25));
   assert.ok(!displays.rankedLineSlugs("pet").some((slug) => /snack/.test(slug)), "snack não é floral");
+  for (const line of ["adulto", "baby"]) assert.ok(!displays.rankedLineSlugs(line).some((slug) => /flormed/.test(slug)), `Flormed (bisnaga) fora do display de ${line}`);
 
   const medio = displays.composeKit(displays.displayByKey("adulto-medio"));
   assert.equal(medio.length, 24);
@@ -264,7 +265,7 @@ test("41b: aditivo e idempotente; 14 produtos internos, 3 colunas e 2 grupos; 41
   assert.equal(pre41.length, 1, "uma linha JSON");
   assert.equal(pre41[0].conferencia_displays.mostruario_39b_existe, false, "sem o 39b avisa, sem erro");
   assert.equal(pre41[0].conferencia_displays.kit_compacto_skus_encontrados, 8);
-  assert.equal(pre41[0].conferencia_displays.florais_adulto, 33);
+  assert.equal(pre41[0].conferencia_displays.florais_adulto, 36, "33 florais + 3 Flormed Adulto (15/11)");
 
   await pg.exec(read("sql/b2b/39b_mostruario.sql"));
   await pg.exec(read("sql/b2b/40b_mostruario_tabela_final.sql"));
@@ -399,8 +400,8 @@ test("Kit Provador It's Blossom é do AROMATIZADOR (Home Care); 42a/42b renomeia
   assert.equal(before.length, 1);
   assert.equal(before[0].conferencia_ajuste_displays.kit_provador_itsblossom_ok, false);
   assert.equal(before[0].conferencia_ajuste_displays.kit_compacto_skus_encontrados, 8);
-  assert.equal(before[0].conferencia_ajuste_displays.florais_adulto_slug_adulto, 33);
-  assert.equal(before[0].conferencia_ajuste_displays.baby_skus_encontrados, 11);
+  assert.equal(before[0].conferencia_ajuste_displays.florais_adulto_slug_adulto, 36, "33 florais + 3 Flormed Adulto (15/11)");
+  assert.equal(before[0].conferencia_ajuste_displays.baby_skus_encontrados, 14, "11 florais + 3 Flormed Baby (15/11)");
   assert.equal(before[0].conferencia_ajuste_displays.dose_unica_skus_encontrados, 6);
 
   const sql = read("sql/b2b/42b_ajuste_displays.sql");

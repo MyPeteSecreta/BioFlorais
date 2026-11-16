@@ -244,4 +244,10 @@ export const PRODUCT_EMAIL_IMAGES: Readonly<Record<string, string>> = {
   "pet-snack-floral-agressividade": "/products/snack-flowers/agressividade/Agressividade 1.png",
   "pet-snack-floral-hiperatividade": "/products/snack-flowers/hiperatividade/Hiper 1F.png",
   "pet-snack-floral-lambedura": "/products/snack-flowers/lambedura/Lambedura 1.png",
+  "adulto-flormed-ansiedade": "/products/floral-adulto/flormed-ansiedade/01-flormed-ansiedade.jpg",
+  "adulto-flormed-sono": "/products/floral-adulto/flormed-sono/01-flormed-sono.jpg",
+  "adulto-flormed-stress": "/products/floral-adulto/flormed-stress/01-flormed-stress.jpg",
+  "baby-flormed-ninar": "/products/floral-baby/flormed-ninar/01-flormed-ninar.jpg",
+  "baby-flormed-ninni-chorim": "/products/floral-baby/flormed-ninni-chorim/01-flormed-ninni-chorim.jpg",
+  "baby-flormed-kolin-k": "/products/floral-baby/flormed-kolin-k/01-flormed-kolin-k.jpg",
 };

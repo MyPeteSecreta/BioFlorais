@@ -30,7 +30,7 @@ test("Baby: Sono primeiro; os demais na ordem do catálogo", () => {
 });
 
 test("B2B intocado: o mostruário continua com Baby na ordem do catálogo", () => {
-  assert.deepEqual(rankedLineSlugs("baby"), getProductsByLine("baby").filter((p) => !/snack/i.test(p.category)).map((p) => p.slug));
+  assert.deepEqual(rankedLineSlugs("baby"), getProductsByLine("baby").filter((p) => !/snack/i.test(p.category) && !/flormed/.test(p.slug)).map((p) => p.slug));
 });
 
 test("home e barra de linhas do celular: Baby antes de Infantil e Kids (Luis, 07/11)", () => {

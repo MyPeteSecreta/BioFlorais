@@ -255,4 +255,11 @@ export const META_CONTENT_IDS: Readonly<Record<string, string>> = {
   "pet-snack-floral-agressividade": "BF0248",
   "pet-snack-floral-hiperatividade": "BF0249",
   "pet-snack-floral-lambedura": "BF0250",
+  // 15/11: Flormed Bio Florais (produto novo entra no fim com o próximo número)
+  "adulto-flormed-ansiedade": "BF0251",
+  "adulto-flormed-sono": "BF0252",
+  "adulto-flormed-stress": "BF0253",
+  "baby-flormed-ninar": "BF0254",
+  "baby-flormed-ninni-chorim": "BF0255",
+  "baby-flormed-kolin-k": "BF0256",
 };

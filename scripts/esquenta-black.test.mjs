@@ -280,7 +280,11 @@ test("Black por produto (Luis, 15/11): 25% em tudo, Virtudes Divinas 35%, Florme
   assert.equal(campaignUnitPriceCents(virtudes.priceCents, black, virtudes.slug), Math.round((virtudes.priceCents * 65) / 100));
   assert.equal(campaignUnitPriceCents(3590, black, adulto.slug), 2693);
   for (const p of bioProducts.filter((p) => p.lineSlug === "virtudes-divinas")) assert.equal(campaignPercentFor(black, p.slug), 35, p.slug);
-  assert.equal(bioProducts.filter((p) => p.lineSlug !== "virtudes-divinas" && campaignPercentFor(black, p.slug) !== 25).length, 0, "o resto: 25%");
+  const flormed = bioProducts.filter((p) => /(^|-)flormed(-|$)/.test(p.slug));
+  assert.equal(flormed.length, 6, "Flormed Adulto (3) e Baby (3) no catálogo (15/11)");
+  for (const p of flormed) assert.equal(campaignPercentFor(black, p.slug), 30, p.slug);
+  assert.equal(campaignUnitPriceCents(3290, black, "adulto-flormed-sono"), 2303);
+  assert.equal(bioProducts.filter((p) => p.lineSlug !== "virtudes-divinas" && !flormed.includes(p) && campaignPercentFor(black, p.slug) !== 25).length, 0, "o resto: 25%");
 
   // combo × campanha: vale o maior, nunca os dois (combo de 10% não soma na campanha; empate fica com a campanha)
   assert.equal(offerBeatsCampaign(10, esquenta, ["cosmeticos-shampoo-x"]), false);

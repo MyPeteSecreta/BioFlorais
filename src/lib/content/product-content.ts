@@ -13,6 +13,97 @@ export const productEditorialContent:
   > = {
 
   /*
+   * FLORMED Bio Florais (Luis, 15/11): textos das embalagens, sem promessa de saúde.
+   */
+  "adulto-flormed-ansiedade": {
+    about:
+      "Flormed Bio Florais Adulto Ansiedade: as essências florais Bio Florais Ansiedade em bisnaga de 31 g, com sabor suave de baunilha e sem álcool. Um cuidado floral para o dia a dia, suave e natural.",
+
+    howToUse:
+      "Tomar 4 gotas 3 vezes ao dia. O uso pode ser sublingual ou diluído em água, se desejar.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de baunilha e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Ansiedade). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+  "adulto-flormed-sono": {
+    about:
+      "Flormed Bio Florais Adulto Sono: as essências florais Bio Florais Sono em bisnaga de 31 g, com sabor suave de baunilha e sem álcool. Um cuidado floral para a rotina da noite, suave e natural.",
+
+    howToUse:
+      "Tomar 4 gotas 3 vezes ao dia. O uso pode ser sublingual ou diluído em água, se desejar.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de baunilha e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Sono). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+  "adulto-flormed-stress": {
+    about:
+      "Flormed Bio Florais Adulto Stress: as essências florais Bio Florais Stress em bisnaga de 31 g, com sabor suave de baunilha e sem álcool. Um cuidado floral para os dias corridos, suave e natural.",
+
+    howToUse:
+      "Tomar 4 gotas 3 vezes ao dia. O uso pode ser sublingual ou diluído em água, se desejar.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de baunilha e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Stress). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+  "baby-flormed-ninar": {
+    about:
+      "Flormed Bio Florais Baby Ninar, da linha Primeiros Sentires: essência floral infantil desenvolvida para apoiar o relaxamento e a transição para o sono, com suavidade e acolhimento. Bisnaga de 31 g, sabor morango, sem álcool.",
+
+    indication:
+      "Agitação antes de dormir, dificuldade de desacelerar e mudanças na rotina do sono.",
+
+    howToUse:
+      "Pode ser oferecido puro ou diluído em água. Duas gotinhas, três vezes ao dia.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de morango e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Ninar). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+  "baby-flormed-ninni-chorim": {
+    about:
+      "Flormed Bio Florais Baby Ninnì Chorim, da linha Primeiros Sentires: essência floral infantil desenvolvida para acolher o choro e trazer a emoção de volta ao colo. Bisnaga de 31 g, sabor morango, sem álcool.",
+
+    indication:
+      "Choros frequentes, irritabilidade e sensibilidade aumentada.",
+
+    howToUse:
+      "Pode ser oferecido puro ou diluído em água. Duas gotinhas, três vezes ao dia.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de morango e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Ninnì Chorim). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+  "baby-flormed-kolin-k": {
+    about:
+      "Flormed Bio Florais Baby Kolin K, da linha Primeiros Sentires: essência floral infantil desenvolvida para harmonizar a energia nos momentos de desconforto, quando o corpinho pede colo e acalento. Bisnaga de 31 g, sabor morango, sem álcool.",
+
+    indication:
+      "Momentos de maior desconforto e necessidade extra de colo e acalento.",
+
+    howToUse:
+      "Pode ser oferecido puro ou diluído em água. Duas gotinhas, três vezes ao dia.",
+
+    ingredients:
+      "Água purificada, vitamina C (ácido ascórbico), sorbitol (adoçante de baixa caloria), benzoato de sódio (antimicrobiano e antifúngico), flavorizante de morango e essências florais Bio Florais (nesta versão, Essência Floral Bio Florais Kolin K). Não contém álcool.",
+
+    importantNote:
+      "Florais são terapias integrativas e complementares. Este produto não é um medicamento e não substitui os cuidados médicos ou psicológicos; consulte sempre seu médico.",
+  },
+
+  /*
    * ========================================================
    * FLORAL ADULTO
    * ========================================================

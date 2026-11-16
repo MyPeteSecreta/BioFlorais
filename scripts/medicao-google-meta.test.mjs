@@ -144,6 +144,7 @@ test("feeds: itens do catálogo, sem Rescue e sem Depressão, sem promessa de sa
   const items = loadFeedItems();
   assert.ok(items.length >= 150, `itens: ${items.length}`);
   assert.equal(new Set(items.map((item) => item.id)).size, items.length, "ids únicos");
+  assert.equal(items.filter((item) => /flormed/.test(item.id + JSON.stringify(item))).length >= 6, true, "os 6 Flormed (15/11) vão ao feed com a foto da bisnaga");
 
   const everything = JSON.stringify(items);
   assert.ok(!/rescue/i.test(everything) && !/depress/i.test(everything), "nada de Rescue nem Depressão");
@@ -158,7 +159,7 @@ test("feeds: itens do catálogo, sem Rescue e sem Depressão, sem promessa de sa
 
     const file = decodeURI(new URL(item.imageLink).pathname);
     assert.ok(existsSync(new URL(`../public${file}`, import.meta.url)), `imagem: ${file}`);
-    assert.ok(!file.startsWith("/products/floral-adulto/"), "Adulto usa o recorte limpo do frasco, não a cena com frases");
+    assert.ok(!file.startsWith("/products/floral-adulto/") || file.startsWith("/products/floral-adulto/flormed-"), "Adulto usa o recorte limpo do frasco, não a cena com frases (Flormed: foto da bisnaga)");
     assert.ok(!file.startsWith("/cardprodutos/"), "sem artes de marketing");
   }
 

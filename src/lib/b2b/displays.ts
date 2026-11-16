@@ -122,10 +122,11 @@ export const showcaseDisplaySlug = (display: Pick<DisplayDef, "code">) => displa
 
 /**
  * Slugs da linha na ORDEM dos cards do site (mais vendido primeiro). Adulto e Pet seguem bioCommercialOrder; as
- * demais, a ordem do catálogo. Só florais (sem Snack Floral).
+ * demais, a ordem do catálogo. Só florais em frasco (sem Snack Floral e sem Flormed).
  */
 export function rankedLineSlugs(lineSlug: string): string[] {
-  const inLine = getProductsByLine(lineSlug).filter((product) => !/snack/i.test(product.category));
+  // Flormed (bisnaga, 15/11) não entra nos displays de frascos.
+  const inLine = getProductsByLine(lineSlug).filter((product) => !/snack/i.test(product.category) && !/(^|-)flormed(-|$)/.test(product.slug));
   const exists = new Set(inLine.map((product) => product.slug));
   const commercial: readonly string[] | null =
     lineSlug === "adulto" ? bioCommercialOrder.adulto.slugs : lineSlug === "pet" ? bioCommercialOrder.pet.slugs : null;

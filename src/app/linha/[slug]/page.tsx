@@ -404,6 +404,13 @@ function normalizeCardFileName(value: string) {
 }
 
 const explicitProductCards: Record<string, string> = {
+  // FLORMED Bio Florais (15/11): foto da embalagem (cartucho) no formato dos cards.
+  "adulto-flormed-ansiedade": "/cardprodutos/floraladulto/flormed-ansiedade.jpg",
+  "adulto-flormed-sono": "/cardprodutos/floraladulto/flormed-sono.jpg",
+  "adulto-flormed-stress": "/cardprodutos/floraladulto/flormed-stress.jpg",
+  "baby-flormed-ninar": "/cardprodutos/baby/flormed-ninar.jpg",
+  "baby-flormed-ninni-chorim": "/cardprodutos/baby/flormed-ninni-chorim.jpg",
+  "baby-flormed-kolin-k": "/cardprodutos/baby/flormed-kolin-k.jpg",
   // ADULTO
   "adulto-floral-em-gotas-fase-da-adolescencia": "/cardprodutos/floraladulto/adolescencia.png",
   "adulto-floral-em-gotas-autoestima": "/cardprodutos/floraladulto/autoestima.png",
@@ -2011,7 +2018,8 @@ export default async function LinePage({
                     />
                   )}
 
-                  <div
+                  {/* Flormed (15/11): arte clara com o nome; sem o escurecido de baixo. */}
+                  {!/flormed/.test(card.href) && <div
                     className="
                       absolute
                       inset-0
@@ -2020,7 +2028,7 @@ export default async function LinePage({
                       via-black/5
                       to-transparent
                     "
-                  />
+                  />}
 
                   {!hasImage && (
                     <div

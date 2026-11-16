@@ -37,7 +37,7 @@ export const CAMPAIGN_PHASES: readonly CampaignPhase[] = [
     priceLabel: "Preço Black",
     // Sem percentual na faixa (Luis, 15/11): só "Black Friday"; o desconto aparece no preço riscado.
     strip: "Black Friday em tudo até 30/11 · Frete grátis a partir de R$ 70",
-    // Black por produto (Luis, 15/11): 25% em tudo; linha Virtudes Divinas 35%; Flormed 30% (hoje não há Flormed no catálogo da Bio).
+    // Black por produto (Luis, 15/11): 25% em tudo; linha Virtudes Divinas 35%; Flormed 30% (Flormed Adulto e Baby, 15/11).
     overrides: [
       { slug: /^virtudes-divinas-/, percent: 35 },
       { slug: /(^|-)flormed(-|$)/, percent: 30 },

@@ -44,7 +44,8 @@ export function feedImageFor(product: BioProduct): string | null {
     if (image) return image;
   }
 
-  if (product.lineSlug === "adulto") {
+  // Florais Adulto: foto limpa própria do feed. O Flormed (bisnaga, 15/11) usa a foto principal da embalagem.
+  if (product.lineSlug === "adulto" && product.slug.startsWith("adulto-floral-em-gotas-")) {
     const publicPath = `/feeds/adulto/${product.slug.replace(/^adulto-floral-em-gotas-/, "")}.jpg`;
 
     return fs.existsSync(path.join(process.cwd(), "public", publicPath)) ? publicPath : null;
