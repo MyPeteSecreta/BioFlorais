@@ -1981,3 +1981,51 @@ Dígito verificador no navegador (aviso ao sair do campo e bloqueio antes de env
 - **Texto:** nenhum percentual da campanha aparece no site; faixa e selos dizem só "Black Friday" ou "Esquenta Black", e o preço riscado mostra o desconto. Cupons (GPT10, convite UGC) sem mudança.
 - `ed9f74c` · teste do cupom VOLTA conferido na data do teste: ele usava o relógio real e começou a falhar depois de 14/11; o envio não mudou.
 - **Testes:** tsc sem erros; `npm test` **587/587**; build OK.
+
+## 15/11 noite (mestre): Flormed na Bio, rótulos de 37ml e plano do Mercado Pago (sem push)
+
+### 1. Flormed Adulto e Baby (`c7441d4`)
+- **O que tem nas pastas** (`C:\2026\Flormed Bio Florais`):
+  - **Adulto:** o documento da embalagem lista 8 fórmulas: Ansiedade, Rescue, Sono, Stress, Depressão, Peso, Medo e uma 8ª sem nome. Ele diz "Ansiedade, Sono, Stress serão feitos agora". O folheto e as fotos reais (bisnaga + cartucho) existem só para essas 3.
+  - **Baby "Primeiros Sentires"** (sabor morango): 5 fórmulas: Ninar, Ninnì Chorim, Kolin K, Descobrir, Primeiras Asas. Foto real só de Ninar, Ninnì Chorim e Kolin K. Descobrir e Primeiras Asas só têm mockup de IA com "30ml" no rótulo.
+- **Cadastrados: os 6 com foto real.** Os outros 7 ficam para quando houver foto e produto:
+  - Adulto: Rescue, Depressão, Peso, Medo e a 8ª sem nome;
+  - Baby: Descobrir e Primeiras Asas.
+  - Atenção: Rescue e Depressão ficam fora dos feeds de anúncio por regra.
+- **Preços e conteúdo:**
+  - Ficha: R$ 32,90 cada, igual ao Flormed Pet da My Pet.
+  - Conteúdo **"31 g"**: o rótulo da bisnaga diz "31g · Suave e Natural", não ml.
+  - Sem álcool. Textos da embalagem sem promessa de saúde, com o aviso "não é medicamento".
+  - Categoria "Floral em gotas": no B2B vale o preço fixo dos florais, **R$ 19,90** (pela regra de 55% seria R$ 18,90; o Luis decide se prefere).
+  - Black 30% (regra já pronta); Esquenta 10%.
+- **Fotos:**
+  - `01` = bisnaga, `02` = cartucho, em fundo branco, 900 px. 12 arquivos, 488 KB.
+  - Cards da linha (960×540) com o nome e "31 g · sem álcool", 6 arquivos, cerca de 210 KB.
+  - Os cards Flormed não levam o escurecido de baixo que os outros cards têm.
+- **Também:**
+  - BF0251–BF0256 (Meta);
+  - fotos dos e-mails;
+  - feed com a foto da bisnaga (os florais Adulto continuam com o recorte próprio);
+  - **fora dos displays de frascos** (`rankedLineSlugs`): o kit Baby segue com os 11 florais;
+  - testes ajustados: contagem Adulto 36 e Baby 14 nas conferências 41a/42a, Flormed 30% na Black.
+- **SQL:** `sql/b2b/57a_flormed_conferencia_one_shot.sql` (só leitura, compara com o floral Sono) e depois `57b_flormed.sql` (INSERT aditivo, WHERE NOT EXISTS, transação única).
+  - **Peso e medidas são provisórios [CONFERIR]:** 60 g, 4×4×13 cm. Ajustar no 57b antes de rodar.
+  - Sem o 57b, o pedido com Flormed não fecha: o preço e o peso vêm do banco.
+- **EAN** (não entraram no `gtin-data`; anotados para o Merchant):
+  - Adulto Ansiedade 7898552637040, Sono 7898552636975, Stress 7898552636678;
+  - Baby Ninar 7898552630546, Ninnì Chorim 7898552630539, Kolin K 7898552630552.
+- **Prints em 375 px:** linhas Adulto e Baby (3 cards cada, com nome) e página do produto (Flormed Sono: R$ 32,90 riscado, R$ 29,61 na Esquenta e R$ 28,43 no Pix [TESTE], com o banco fictício). Conferidos.
+
+### 2. Rótulo "37ml" nas fotos (só relatório)
+Conferi os rótulos das fotos principais de todas as linhas de florais:
+- **Mostram 37ml:** Pet **Medo de Fogos** (rótulo verde, com a bandeira) e Pet **S.O.S** (rótulo vermelho). O site diz 31 ml nos dois.
+- Os outros Pet, Adulto, Baby, Kids, Teen e Infantil mostram 31ml.
+- Virtudes Divinas: o rótulo diz "CONT. 15 ml", igual ao site.
+- Dose Única: 7 ml, igual ao site.
+
+### 3. Mercado Pago: plano das propostas (NÃO feito, aguarda o Luis)
+1. Gravar o número do pagamento do cartão: em `/api/payments/mercadopago/card`, guardar `transactions.payments[0].id` (e o status) no `raw_payload` do pagamento, aprovado ou recusado. Sem SQL.
+2. Limitar a 5 tentativas de cartão por hora por pedido, na mesma rota: contar em `payments` (pedido, método cartão, últimos 60 min) antes de chamar o MP. Na 6ª, responder 429 "Muitas tentativas; tente Pix ou aguarde".
+3. Testes no PGlite: id gravado e 6ª tentativa recusada. Pix sem mudança.
+
+- **Testes:** tsc sem erros; `npm test` **587/587**; build OK.
