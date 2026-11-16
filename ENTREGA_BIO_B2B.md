@@ -2029,3 +2029,26 @@ Conferi os rótulos das fotos principais de todas as linhas de florais:
 3. Testes no PGlite: id gravado e 6ª tentativa recusada. Pix sem mudança.
 
 - **Testes:** tsc sem erros; `npm test` **587/587**; build OK.
+
+## 16/11 (mestre): propostas do Mercado Pago aprovadas pelo Luis (sem push)
+
+### `65635c0` · número do pagamento e limite de tentativas no cartão
+- **(a) Número do PAGAMENTO do MP** (o que aparece no painel, `transactions.payments[0].id`), gravado em `payments.raw_payload ->> 'mpPaymentId'`:
+  - cartão B2C, aprovado e recusado (inclusive a recusa 402);
+  - cartão B2B;
+  - Pix B2C e B2B (a resposta inteira do MP continua lá, agora com o campo próprio).
+  - **Sem SQL:** fica no JSON que já existe. Consulta: `WHERE raw_payload ->> 'mpPaymentId' = '188708392850'`. Os pagamentos antigos não têm o campo; o Pix antigo segue achável pelo texto do `raw_payload`.
+- **(b) No máximo 5 tentativas de cartão por hora por pedido** (B2C e B2B):
+  - antes de chamar o MP, a rota conta em `payments` as tentativas de cartão do pedido na última hora;
+  - na 6ª, responde 429 com: "Este pedido já teve muitas tentativas no cartão. Para sua segurança, aguarde 1 hora para tentar de novo ou pague agora no Pix." (a tela já mostra o `error` da resposta).
+  - Pix sem limite novo.
+  - Erros de rede ou configuração (sem linha em `payments`) não contam.
+- **Testes:** `scripts/mp-numero-e-limite.test.mjs` (4) + `cartao-recusa` ajustado.
+  - tsc sem erros; `npm test` 589/590, e a única falha (`pedido-observacoes`, lentidão em paralelo, 32 s) passa sozinha 6/6;
+  - build OK.
+
+### Flormed no site (só leitura, sem login, produção `7426d19`)
+- As 6 páginas respondem 200: Adulto Ansiedade, Sono e Stress; Baby Ninar, Ninnì Chorim e Kolin K.
+- Aparecem nas linhas Adulto e Baby.
+- Preço: R$ 32,90 do banco, com a Esquenta R$ 29,61 e R$ 28,43 no Pix, sem "indisponível".
+- A mestre falou em **7** Flormed no banco, mas o 57b cadastra 6. Para ver o 7º: `PROMPTS_B2B\sql_bio_flormed_conferencia.sql` (só leitura).
