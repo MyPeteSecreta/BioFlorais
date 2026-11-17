@@ -2,8 +2,8 @@
  * API DE CONVERSÕES DA META (item 5 da mestre, 10/11): o Purchase também sai pelo SERVIDOR (Graph API /{pixel}/events) quando o
  * pedido B2C vira pago, com event_id = id do pedido (o MESMO do pixel do navegador: a Meta deduplica).
  *  - Só com o aceite de marketing do banner, registrado no pedido no checkout (política de privacidade, 03/11). Sem aceite: nada.
- *  - user_data: e-mail e telefone em SHA-256, IP, navegador e os cookies _fbp/_fbc. A política publicada diz que NÃO enviamos
- *    nome nem endereço: nome, cidade e CEP ficam de fora até a política mudar.
+ *  - user_data: e-mail, telefone e CEP de entrega em SHA-256 (Luis aprovou o CEP e o texto novo da política em 16/11), IP,
+ *    navegador e os cookies _fbp/_fbc. Nome, rua, número, bairro e cidade continuam de fora (política).
  *  - custom_data: o MESMO do pixel (metaPurchaseEvent: valor, BRL, códigos BF..., itens sensíveis não identificados).
  *  - Token só em META_CAPI_TOKEN (Vercel); sem ele, não envia. META_TEST_EVENT_CODE opcional (Eventos de teste).
  *  - Falha da Meta nunca atrapalha o pagamento (timeout curto, erro engolido) e nada pessoal vai para log.
@@ -60,6 +60,18 @@ export function hashEmail(email: string | null | undefined): string | null {
   return value.includes("@") ? sha256(value) : null;
 }
 
+/**
+ * Quantos dígitos do CEP vão (em hash). A mestre pediu 5 (16/11); a Meta compara o código postal inteiro fora dos EUA, então 8
+ * casa mais. O Luis decide; trocar só esta constante.
+ */
+export const META_ZIP_DIGITS = 5;
+
+/** CEP só com dígitos (8), cortado em META_ZIP_DIGITS, em hash; incompleto = não vai. */
+export function hashZip(cep: string | null | undefined, digits: number = META_ZIP_DIGITS): string | null {
+  const value = String(cep ?? "").replace(/\D/g, "");
+  return value.length === 8 ? sha256(value.slice(0, digits)) : null;
+}
+
 /** Telefone só com dígitos e o 55 do Brasil, em hash; curto demais = não vai. */
 export function hashPhone(phone: string | null | undefined): string | null {
   let digits = String(phone ?? "").replace(/\D/g, "");
@@ -72,6 +84,8 @@ export function buildMetaCapiPurchaseBody(input: {
   capture: MetaCapiCapture;
   email: string | null;
   phone: string | null;
+  /** CEP de entrega do pedido (vai só em hash). */
+  cep?: string | null;
   eventTimeSec: number;
   sourceUrl: string;
   testEventCode?: string | null;
@@ -79,6 +93,7 @@ export function buildMetaCapiPurchaseBody(input: {
   const event = metaPurchaseEvent(input.payload);
   const em = hashEmail(input.email);
   const ph = hashPhone(input.phone);
+  const zp = hashZip(input.cep);
 
   return {
     data: [
@@ -91,6 +106,7 @@ export function buildMetaCapiPurchaseBody(input: {
         user_data: {
           ...(em ? { em: [em] } : {}),
           ...(ph ? { ph: [ph] } : {}),
+          ...(zp ? { zp: [zp] } : {}),
           ...(input.capture.ip ? { client_ip_address: input.capture.ip } : {}),
           ...(input.capture.ua ? { client_user_agent: input.capture.ua } : {}),
           ...(input.capture.fbp ? { fbp: input.capture.fbp } : {}),
@@ -141,8 +157,8 @@ export async function sendMetaCapiPurchase(
 
   try {
     const [row] = await run(
-      `SELECT o.b2b_offer_id, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, c.email, c.phone
-         FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+      `SELECT o.b2b_offer_id, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, c.email, c.phone, a.cep
+         FROM orders o LEFT JOIN customers c ON c.id = o.customer_id LEFT JOIN addresses a ON a.id = o.shipping_address_id
         WHERE o.id = $1::uuid LIMIT 1`,
       [orderId]
     );
@@ -160,6 +176,7 @@ export async function sendMetaCapiPurchase(
       capture,
       email: row.email ? String(row.email) : null,
       phone: row.phone ? String(row.phone) : null,
+      cep: row.cep ? String(row.cep) : null,
       eventTimeSec: Math.floor((options.now ?? new Date()).getTime() / 1000),
       sourceUrl: `${(options.siteUrl ?? "https://www.bioflorais.com.br").replace(/\/+$/, "")}/checkout`,
       testEventCode: env.META_TEST_EVENT_CODE?.trim() || null,

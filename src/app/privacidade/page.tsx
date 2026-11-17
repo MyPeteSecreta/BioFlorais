@@ -21,7 +21,7 @@ export default function Page() {
 
         <div className="mt-8 space-y-8 text-base leading-8 text-[#665765]">
           <p>
-            Última atualização: 3 de novembro de 2026.
+            Última atualização: 16 de novembro de 2026.
           </p>
 
           <section>
@@ -204,18 +204,21 @@ export default function Page() {
               segue com os consentimentos negados.
             </p>
             <p className="mt-3">
-              <strong>O que enviamos, e só se você aceitar os cookies de marketing.</strong> Quando você aceita os cookies de marketing e faz
-              uma compra, podemos enviar ao Google e à Meta, junto com o aviso da compra (tipo de ação, valor em reais, produtos e um código
-              interno do pedido), o <strong>e-mail e o telefone informados no pedido</strong>. Antes de serem enviados, esses dados passam por
-              uma criptografia de mão única (<strong>hash SHA-256</strong>): o Google e a Meta recebem um código, e não o seu e-mail ou telefone
-              em texto. Eles usam esse código apenas para verificar se a compra veio de alguém que viu ou clicou em um anúncio. Para nós,
-              devolvem somente números agregados, sem identificar ninguém. Mesmo em forma de código, a informação continua sendo um dado pessoal
-              protegido pela LGPD. <strong>Não enviamos</strong> nome, CPF ou CNPJ, endereço nem dados de pagamento, e os endereços das páginas
-              vão sem códigos pessoais.
+              <strong>O que enviamos, e só se você aceitar os cookies de marketing.</strong>
+              Com o seu aceite, a Meta recebe os eventos de visita a produto, sacola, início de compra e compra pelo navegador e também pelo
+              nosso servidor, junto com o endereço IP, os dados do navegador e os identificadores da própria Meta (cookies _fbp e _fbc). Quando
+              você faz uma compra, podemos enviar ao Google e à Meta, junto com o aviso da compra (tipo de ação, valor em reais, produtos e um
+              código interno do pedido), o <strong>e-mail e o telefone informados no pedido</strong> e, <strong>só para a Meta, o CEP de
+              entrega</strong>. Antes de serem enviados, esses dados passam por uma criptografia de mão única e irreversível
+              (<strong>hash SHA-256</strong>): o Google e a Meta recebem um código, e não o seu e-mail, telefone ou CEP em texto. Eles usam esse código apenas
+              para verificar se a compra veio de alguém que viu ou clicou em um anúncio. Para nós, devolvem somente números agregados, sem
+              identificar ninguém. Mesmo em forma de código, a informação continua sendo um dado pessoal protegido pela LGPD.
+              <strong> Não enviamos</strong> nome, CPF ou CNPJ, rua, número, bairro ou cidade, nem dados de pagamento, e os endereços das
+              páginas vão sem códigos pessoais.
             </p>
             <p className="mt-3">
               <strong>Se você não aceitar ou retirar o consentimento</strong>, nada disso é enviado: a Meta não recebe nenhum evento, e o Google
-              recebe apenas o aviso de compra sem e-mail, telefone ou cookies de anúncios, conforme o Consent Mode.
+              recebe apenas o aviso de compra sem e-mail, telefone, CEP ou cookies de anúncios, conforme o Consent Mode.
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-6">
               <li>

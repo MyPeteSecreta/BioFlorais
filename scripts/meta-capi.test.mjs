@@ -32,8 +32,8 @@ test("captura no checkout: sem aceite de marketing, nada; com aceite, _fbp, _fbc
   assert.deepEqual(captureMetaCapi(headers, true), { consent: true, fbp: "fb.1.17.99", fbc: "fb.1.17.Zz", ip: "203.0.113.7", ua: "Mozilla/5.0" });
 });
 
-test("corpo: mesmo event_id e custom_data do pixel; user_data em hash; sem nome nem endereço; test_event_code opcional", () => {
-  const body = buildMetaCapiPurchaseBody({ payload, capture, email: "cliente@teste.local", phone: "11912345678", eventTimeSec: 1762790400, sourceUrl: "https://www.bioflorais.com.br/checkout", testEventCode: "TEST123" });
+test("corpo: mesmo event_id e custom_data do pixel; e-mail, telefone e CEP só em hash; sem nome nem rua/cidade; test_event_code opcional", () => {
+  const body = buildMetaCapiPurchaseBody({ payload, capture, email: "cliente@teste.local", phone: "11912345678", cep: "01310-930", eventTimeSec: 1762790400, sourceUrl: "https://www.bioflorais.com.br/checkout", testEventCode: "TEST123" });
   const event = body.data[0];
   const pixel = metaPurchaseEvent(payload);
 
@@ -43,17 +43,19 @@ test("corpo: mesmo event_id e custom_data do pixel; user_data em hash; sem nome 
   assert.deepEqual(event.custom_data, pixel.params, "valor, BRL e códigos BF iguais aos do pixel");
   assert.equal(event.custom_data.currency, "BRL");
   assert.equal(event.action_source, "website");
-  assert.deepEqual(event.user_data, { em: [sha("cliente@teste.local")], ph: [sha("5511912345678")], client_ip_address: "203.0.113.7", client_user_agent: "Mozilla/5.0 (teste)", fbp: capture.fbp, fbc: capture.fbc });
+  assert.deepEqual(event.user_data, { em: [sha("cliente@teste.local")], ph: [sha("5511912345678")], zp: [sha("01310")], client_ip_address: "203.0.113.7", client_user_agent: "Mozilla/5.0 (teste)", fbp: capture.fbp, fbc: capture.fbc });
   assert.equal(body.test_event_code, "TEST123");
   const text = JSON.stringify(body);
   assert.ok(!text.includes("cliente@teste.local") && !text.includes("11912345678"), "nada em texto puro");
-  assert.ok(!/"fn"|"ln"|"ct"|"zp"|"st"|"country"/.test(text), "sem nome, cidade, CEP (política)");
+  assert.ok(!/01310|930/.test(text), "CEP nunca em texto puro (nem parte dele)");
+  assert.ok(!/"fn"|"ln"|"ct"|"st"|"country"/.test(text), "sem nome, cidade, estado (política)");
+  for (const value of [...event.user_data.em, ...event.user_data.ph, ...event.user_data.zp]) assert.match(value, /^[0-9a-f]{64}$/, "só hash SHA-256");
   assert.equal(buildMetaCapiPurchaseBody({ payload, capture, email: null, phone: null, eventTimeSec: 1, sourceUrl: "x" }).test_event_code, undefined);
 });
 
 test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token não vai para log", async () => {
   const env = { META_CAPI_TOKEN: "TOKEN-DE-TESTE", NEXT_PUBLIC_META_PIXEL_ID: "1707736537642394", META_TEST_EVENT_CODE: "TEST123" };
-  const row = { b2b_offer_id: null, adjustments: JSON.stringify({ storeKey: "bio", metaCapi: capture }), email: "cliente@teste.local", phone: "11912345678" };
+  const row = { b2b_offer_id: null, adjustments: JSON.stringify({ storeKey: "bio", metaCapi: capture }), email: "cliente@teste.local", phone: "11912345678", cep: "22290-160" };
   const run = (r) => async () => [r];
   const calls = [];
   const okFetch = async (url, init) => {
@@ -73,6 +75,8 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.data[0].event_id, ORDER);
   assert.equal(sent.test_event_code, "TEST123");
+  assert.deepEqual(sent.data[0].user_data.zp, [sha("22290")], "CEP do pedido em hash");
+  assert.ok(!/cliente@teste|11912345678|22290/.test(calls[0].init.body), "o que sai para a Meta não tem e-mail, telefone nem CEP em texto");
   assert.ok(calls[0].init.signal, "timeout curto");
 
   // falha da Meta: devolve "failed", não lança; o log não leva token nem dado pessoal
@@ -85,7 +89,7 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   } finally {
     console.error = original;
   }
-  for (const line of logs) assert.ok(!/TOKEN-DE-TESTE|cliente@teste|11912345678|203\.0\.113/.test(line), line);
+  for (const line of logs) assert.ok(!/TOKEN-DE-TESTE|cliente@teste|11912345678|22290|203\.0\.113/.test(line), line);
 });
 
 test("fiação: checkout manda o aceite; pedido guarda a captura; finalizador do pagamento envia sem lançar; token só por variável", () => {
@@ -96,4 +100,27 @@ test("fiação: checkout manda o aceite; pedido guarda a captura; finalizador do
   assert.ok(finalize.indexOf("sendMetaCapiPurchase(") > finalize.indexOf("confirmPartnerPaid("), "depois de o pedido estar pago");
   const lib = read("src/lib/meta-capi.ts");
   assert.ok(lib.includes("env.META_CAPI_TOKEN") && !/EAA[A-Za-z0-9]{10,}/.test(lib), "nenhum token no código");
+});
+
+test("CEP: só com aceite (mesma captura do Purchase), normalizado (só números, 8 dígitos), cortado em META_ZIP_DIGITS e em hash", async () => {
+  const { hashZip, META_ZIP_DIGITS } = await import("../src/lib/meta-capi.ts");
+  assert.equal(META_ZIP_DIGITS, 5, "pedido da mestre (16/11); o Luis pode trocar para 8");
+  assert.equal(hashZip("01310-930"), sha("01310"));
+  assert.equal(hashZip(" 01310930 "), sha("01310"));
+  assert.equal(hashZip("01310930", 8), sha("01310930"));
+  assert.equal(hashZip("0131"), null, "CEP incompleto não vai");
+  assert.equal(hashZip(null), null);
+  const lib = read("src/lib/meta-capi.ts");
+  assert.ok(lib.includes("LEFT JOIN addresses a ON a.id = o.shipping_address_id"), "CEP do endereço de ENTREGA do pedido");
+  assert.ok(lib.indexOf('if (!capture) return "no_consent";') > 0 && lib.indexOf('if (!capture) return "no_consent";') < lib.indexOf("cep: row.cep"), "sem aceite registrado, nada (CEP incluído)");
+});
+
+test("política: /privacidade e /cookies dizem que e-mail, telefone e CEP vão à Meta só em hash e só com aceite; rua/cidade não", () => {
+  for (const file of ["src/app/privacidade/page.tsx", "src/app/cookies/page.tsx"]) {
+    const page = read(file).replace(/\s+/g, " ").replace(/<strong>\s*/g, "").replace(/<\/strong>/g, "");
+    for (const part of ["só para a Meta, o CEP de entrega", "criptografia de mão única e irreversível", "e não o seu e-mail, telefone ou CEP em texto", "rua, número, bairro ou cidade", "sem e-mail, telefone, CEP ou cookies de anúncios", "também pelo nosso servidor"]) {
+      assert.ok(page.includes(part), `${file}: ${part}`);
+    }
+    assert.ok(!page.includes("CPF ou CNPJ, endereço nem dados de pagamento"), `${file}: texto antigo`);
+  }
 });
