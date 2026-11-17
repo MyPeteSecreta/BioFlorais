@@ -2095,3 +2095,30 @@ Conferi os rótulos das fotos principais de todas as linhas de florais:
   - anúncio dinâmico de catálogo;
   - porte para Secreta e My Pet.
 - **Porte:** Secreta e My Pet não têm API de Conversões nenhuma, e a Secreta não tem feed.
+
+## 16/11 noite (mestre): fotos do catálogo da Meta, CEP na API de Conversões e comissão da Priscila (sem push)
+
+### `84c2115` · fotos 800×800 só para o catálogo da Meta (aprovado pelo Luis)
+- As 66 imagens do `meta.csv` menores que 500×500 ganharam versão quadrada 800×800 em `public/feeds/meta/<slug>.jpg`:
+  - fundo branco, bordas brancas cortadas, produto centralizado, sem distorção;
+  - ampliação limitada a 2×, para não borrar.
+- O `meta.csv` usa essa versão quando ela existe. O feed do Google e as fotos do site não mudam (teste).
+- Gerador: `node --import ./scripts/register-ts-paths.mjs scripts/gerar-fotos-feed-meta.mjs`. Também apaga a versão quando a foto do site passar a ter 500 px ou mais.
+- **Não havia fonte maior** em `C:\2026` nem no repo `BioFlorais` (só as mesmas fotos ou artes de card, que o feed não usa).
+- **Para recriar** (o frasco real tem cerca de 300 a 420 px de altura, então no quadro ele fica menor ou ampliado de 1,7× a 2×):
+  - 9 florais Baby: Bebê Nervoso, Choro Excessivo, Fala Nenê, Gravidez Conturbada, Mamãe Volta ao Trabalho, Pós-Vacina, Sociabilidade, Sono, Tirando a Chupeta;
+  - 4 Dose Única: Ansiedade, Stress, Sono, Perda de Peso;
+  - 15 shampoos e condicionadores (cosméticos humanos).
+- Teste novo: `scripts/feed-meta-imagens.test.mjs` (toda imagem do `meta.csv` com 500×500 ou mais; versões 800×800; Google sem mudança).
+
+### `a92e17d` (branch `b2b/bio-capi-cep`, FORA do push) · CEP em hash no Purchase + texto novo da política
+- O Purchase da API de Conversões passa a mandar também `zp` = SHA-256 dos 5 primeiros dígitos do CEP de entrega (constante `META_ZIP_DIGITS`), além de e-mail e telefone em hash. Só com o aceite de marketing já registrado no pedido.
+- /privacidade 9.3 e /cookies 9.1 com o texto novo; data "16 de novembro de 2026".
+- Testes: nada em texto puro (e-mail, telefone, CEP), tudo como hash de 64 caracteres, CEP incompleto não vai, texto da política conferido.
+- tsc sem erros; `npm test` 601/601; build OK.
+- **Aguarda o Luis aprovar o texto** (está na PASSAGEM_BIO). Recomendação: 8 dígitos em vez de 5 (a Meta compara o CEP inteiro fora dos EUA).
+
+### Comissão da Priscila (só leitura)
+- Resposta na PASSAGEM_BIO: nenhuma regra esconde comissão de Pix.
+- Pix pago **fora do site** não dá baixa no pedido (fica "Aguardando pagamento"), e não existe baixa manual de Pix no admin.
+- O pedido também some da lista se não veio de oferta, não está ligado à vendedora, está arquivado, é de vendedora demo, ou pelo filtro de mês (que usa o mês do pedido).
