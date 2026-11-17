@@ -2122,3 +2122,29 @@ Conferi os rótulos das fotos principais de todas as linhas de florais:
 - Resposta na PASSAGEM_BIO: nenhuma regra esconde comissão de Pix.
 - Pix pago **fora do site** não dá baixa no pedido (fica "Aguardando pagamento"), e não existe baixa manual de Pix no admin.
 - O pedido também some da lista se não veio de oferta, não está ligado à vendedora, está arquivado, é de vendedora demo, ou pelo filtro de mês (que usa o mês do pedido).
+
+## 16/11 noite, 2ª ordem (mestre): CEP de 8 dígitos aprovado e baixa manual de Pix (sem push)
+
+### `a2be711` + `6105070` · CEP em hash na API de Conversões (o Luis aprovou o texto da política e os 8 dígitos)
+- `a2be711`: cherry-pick do `a92e17d`, com o texto novo da /privacidade 9.3 e da /cookies 9.1 e a data 16/11.
+- `6105070`: `META_ZIP_DIGITS = 8`, CEP só com números e em SHA-256, só com aceite de marketing.
+- Testes: CEP inteiro, com e sem hífen, nunca em texto puro.
+- tsc sem erros; `npm test` 601/601; build OK.
+
+### `332423d` (branch `b2b/bio-baixa-pix`, FORA do push até o OK) · baixa manual de Pix recebido fora do site
+- **Onde aparece:** botão no admin do pedido, só em pedido **Pix pendente** e não arquivado.
+- **O que se informa:**
+  - nome de quem dá a baixa (o admin tem login único);
+  - valor recebido, que precisa ser igual ao total;
+  - data do recebimento, que não pode ser no futuro;
+  - referência do comprovante, sem CPF/CNPJ.
+- **Registro:**
+  - `payments`: `manual`, `pix`, `paid`, `created_at` = data do recebimento;
+  - `order_events`: `pix_manual_paid`, com quem, valor, data e comprovante;
+  - segunda baixa recusada; se o finalizador falhou, a nova tentativa só termina a finalização.
+- **Depois da baixa:** usa o MESMO finalizador do pagamento aprovado (pago, separação, cupom/parceiro, e-mail "uma vez por etapa"). Os lembretes de não pago param.
+- **Comissão:** conta a partir da data do recebimento. Sem SQL.
+- **Testes:** `scripts/baixa-pix-manual.test.mjs` (3, com PGlite); suíte 600/601, e a única falha foi o `b2b-mostruario` intermitente, que passa sozinho 16/16; build OK.
+
+### Priscila
+- O pedido é da **Secreta** (ad3f05c9), não da Bio. A janela Secreta B2B investiga.
