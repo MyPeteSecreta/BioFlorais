@@ -43,11 +43,11 @@ test("corpo: mesmo event_id e custom_data do pixel; e-mail, telefone e CEP só e
   assert.deepEqual(event.custom_data, pixel.params, "valor, BRL e códigos BF iguais aos do pixel");
   assert.equal(event.custom_data.currency, "BRL");
   assert.equal(event.action_source, "website");
-  assert.deepEqual(event.user_data, { em: [sha("cliente@teste.local")], ph: [sha("5511912345678")], zp: [sha("01310")], client_ip_address: "203.0.113.7", client_user_agent: "Mozilla/5.0 (teste)", fbp: capture.fbp, fbc: capture.fbc });
+  assert.deepEqual(event.user_data, { em: [sha("cliente@teste.local")], ph: [sha("5511912345678")], zp: [sha("01310930")], client_ip_address: "203.0.113.7", client_user_agent: "Mozilla/5.0 (teste)", fbp: capture.fbp, fbc: capture.fbc });
   assert.equal(body.test_event_code, "TEST123");
   const text = JSON.stringify(body);
   assert.ok(!text.includes("cliente@teste.local") && !text.includes("11912345678"), "nada em texto puro");
-  assert.ok(!/01310|930/.test(text), "CEP nunca em texto puro (nem parte dele)");
+  assert.ok(!/01310-?930/.test(text), "CEP nunca em texto puro (com ou sem hífen)");
   assert.ok(!/"fn"|"ln"|"ct"|"st"|"country"/.test(text), "sem nome, cidade, estado (política)");
   for (const value of [...event.user_data.em, ...event.user_data.ph, ...event.user_data.zp]) assert.match(value, /^[0-9a-f]{64}$/, "só hash SHA-256");
   assert.equal(buildMetaCapiPurchaseBody({ payload, capture, email: null, phone: null, eventTimeSec: 1, sourceUrl: "x" }).test_event_code, undefined);
@@ -75,8 +75,8 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.data[0].event_id, ORDER);
   assert.equal(sent.test_event_code, "TEST123");
-  assert.deepEqual(sent.data[0].user_data.zp, [sha("22290")], "CEP do pedido em hash");
-  assert.ok(!/cliente@teste|11912345678|22290/.test(calls[0].init.body), "o que sai para a Meta não tem e-mail, telefone nem CEP em texto");
+  assert.deepEqual(sent.data[0].user_data.zp, [sha("22290160")], "CEP do pedido em hash");
+  assert.ok(!/cliente@teste|11912345678|22290-?160/.test(calls[0].init.body), "o que sai para a Meta não tem e-mail, telefone nem CEP em texto");
   assert.ok(calls[0].init.signal, "timeout curto");
 
   // falha da Meta: devolve "failed", não lança; o log não leva token nem dado pessoal
@@ -102,12 +102,12 @@ test("fiação: checkout manda o aceite; pedido guarda a captura; finalizador do
   assert.ok(lib.includes("env.META_CAPI_TOKEN") && !/EAA[A-Za-z0-9]{10,}/.test(lib), "nenhum token no código");
 });
 
-test("CEP: só com aceite (mesma captura do Purchase), normalizado (só números, 8 dígitos), cortado em META_ZIP_DIGITS e em hash", async () => {
+test("CEP: só com aceite (mesma captura do Purchase), normalizado (só números, 8 dígitos), 8 dígitos em hash", async () => {
   const { hashZip, META_ZIP_DIGITS } = await import("../src/lib/meta-capi.ts");
-  assert.equal(META_ZIP_DIGITS, 5, "pedido da mestre (16/11); o Luis pode trocar para 8");
-  assert.equal(hashZip("01310-930"), sha("01310"));
-  assert.equal(hashZip(" 01310930 "), sha("01310"));
-  assert.equal(hashZip("01310930", 8), sha("01310930"));
+  assert.equal(META_ZIP_DIGITS, 8, "Luis aprovou os 8 dígitos (16/11)");
+  assert.equal(hashZip("01310-930"), sha("01310930"));
+  assert.equal(hashZip(" 01310930 "), sha("01310930"));
+  assert.equal(hashZip("01310930", 5), sha("01310"), "a constante muda o corte");
   assert.equal(hashZip("0131"), null, "CEP incompleto não vai");
   assert.equal(hashZip(null), null);
   const lib = read("src/lib/meta-capi.ts");

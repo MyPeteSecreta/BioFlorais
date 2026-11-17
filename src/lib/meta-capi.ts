@@ -61,12 +61,12 @@ export function hashEmail(email: string | null | undefined): string | null {
 }
 
 /**
- * Quantos dígitos do CEP vão (em hash). A mestre pediu 5 (16/11); a Meta compara o código postal inteiro fora dos EUA, então 8
- * casa mais. O Luis decide; trocar só esta constante.
+ * Quantos dígitos do CEP vão (em hash): os 8 (o Luis aprovou em 16/11; a Meta compara o código postal inteiro fora dos EUA).
+ * Só números; CEP com menos de 8 dígitos não vai.
  */
-export const META_ZIP_DIGITS = 5;
+export const META_ZIP_DIGITS = 8;
 
-/** CEP só com dígitos (8), cortado em META_ZIP_DIGITS, em hash; incompleto = não vai. */
+/** CEP só com dígitos (8), em hash; incompleto = não vai. */
 export function hashZip(cep: string | null | undefined, digits: number = META_ZIP_DIGITS): string | null {
   const value = String(cep ?? "").replace(/\D/g, "");
   return value.length === 8 ? sha256(value.slice(0, digits)) : null;
