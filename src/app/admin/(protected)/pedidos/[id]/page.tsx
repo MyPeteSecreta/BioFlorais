@@ -1,4 +1,5 @@
 import ReleaseBoletoButton from "@/components/admin/ReleaseBoletoButton";
+import ManualPixButton from "@/components/admin/ManualPixButton";
 import PayLinkButton from "@/components/admin/PayLinkButton";
 import { b2bPayLinkEligible, b2bPayLinkMessage, b2bPayLinkUrl } from "@/lib/b2b/pay-link";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -601,6 +602,9 @@ export default async function PedidoDetalhePage({
           <ArchiveOrderButton orderId={order.id} />
 
           {boletoWaiting && <ReleaseBoletoButton orderId={order.id} />}
+
+          {/* Pix recebido fora do site (16/11): baixa manual com registro de quem, quando, valor e comprovante. */}
+          {order.status === "pending" && order.paymentMethod === "pix" && <ManualPixButton orderId={order.id} totalCents={order.totalCents} />}
 
           {payLink && <PayLinkButton url={payLink.url} message={payLink.message} phone={customer?.phone ?? null} />}
 
