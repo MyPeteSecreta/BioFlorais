@@ -56,11 +56,24 @@ export function feedImageFor(product: BioProduct): string | null {
   return image && imageExists(image) ? image : null;
 }
 
-export function loadFeedItems(): FeedItem[] {
+/**
+ * Catálogo da Meta (Luis, 16/11): a Meta pede imagem de pelo menos 500×500. Quando existe a versão quadrada 800×800 gerada
+ * só para o feed (public/feeds/meta/<slug>.jpg, scripts/gerar-fotos-feed-meta.mjs), o meta.csv usa ela. O feed do Google não muda.
+ */
+export function metaFeedImageFor(product: BioProduct): string | null {
+  const publicPath = `/feeds/meta/${product.slug}.jpg`;
+
+  if (fs.existsSync(path.join(process.cwd(), "public", publicPath))) return publicPath;
+
+  return feedImageFor(product);
+}
+
+export function loadFeedItems(options: { forMeta?: boolean } = {}): FeedItem[] {
   const siteUrl = getSiteUrl();
+  const imageFor = options.forMeta ? metaFeedImageFor : feedImageFor;
 
   return bioProducts.flatMap((product) => {
-    const item = buildFeedItem(product, siteUrl, feedImageFor);
+    const item = buildFeedItem(product, siteUrl, imageFor);
 
     return item ? [item] : [];
   });
