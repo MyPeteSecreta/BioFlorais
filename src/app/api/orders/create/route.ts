@@ -24,6 +24,7 @@ import { captureMetaCapi } from "@/lib/meta-capi";
 import { validateComplement, validateOrderNote } from "@/lib/order-note";
 import { attachOrderNote } from "@/lib/order-note-server";
 import { db } from "@/lib/db/client";
+import { PARTNER_EVENT_PARKED_UNTIL } from "@/lib/partners/confirm-paid";
 
 import { validatePartnerCoupon } from "@/lib/partners/academia";
 import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
@@ -1287,7 +1288,9 @@ const orderRows =
     // Checkout de cartao ainda nao e pedido comercial confirmado.
     // O evento order_created da parceira sera diferido ate o
     // pagamento efetivamente transformar o checkout em pedido.
-    if (partnerCoupon && !isCardCheckout) {
+    // Item 20 (18/11): no cartão o evento também é gravado, mas ESTACIONADO (próxima tentativa em 2999, o despachante ignora);
+    // confirmPartnerPaid o libera antes do "paid". Antes ele nunca era mandado e a criadora ficava sem a venda no cartão.
+    if (partnerCoupon) {
       const partnerEventId =
         `bio-florais:${order.id}:order_created`;
 
@@ -1385,6 +1388,9 @@ const orderRows =
 
           status:
             "pending",
+
+          nextAttemptAt:
+            isCardCheckout ? PARTNER_EVENT_PARKED_UNTIL : null,
         });
     }
     /*

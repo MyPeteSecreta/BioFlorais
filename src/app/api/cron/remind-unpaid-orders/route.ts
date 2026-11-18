@@ -7,6 +7,7 @@
  * Sem a coluna payment_reminder_sent_at (SQL 55b) também não faz nada (503): nunca envia sem poder registrar o envio.
  */
 
+import { dispatchPartnerOutbox } from "@/lib/partners/outbox";
 import { runRecoveryOffers } from "@/lib/recovery-offer";
 import { runCartRecovery } from "@/lib/cart-recovery";
 import { readActiveOfferLink } from "@/lib/b2b/offer-link";
@@ -38,6 +39,13 @@ function isAuthorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+
+  // Fila de eventos das criadoras (Academia, item 20 de 18/11): reenvia o que falhou. Antes só saía quando outro pedido com
+  // cupom de criadora era pago. Independe do e-mail e nunca derruba o cron.
+  const partners = await dispatchPartnerOutbox(20).catch((error) => {
+    console.error("[cron/remind-unpaid-orders] fila de parceiras", error instanceof Error ? error.message : error);
+    return null;
+  });
 
   if (!mailConfigured()) return NextResponse.json({ error: "E-mail não configurado (RESEND_API_KEY e MAIL_FROM)." }, { status: 503 });
 
@@ -75,9 +83,9 @@ export async function GET(request: NextRequest) {
       return null;
     });
 
-    console.log("[cron/remind-unpaid-orders]", summary, recovery, carts, b2b);
+    console.log("[cron/remind-unpaid-orders]", summary, recovery, carts, b2b, partners);
 
-    return NextResponse.json({ ok: true, ...summary, recovery, carts, b2b });
+    return NextResponse.json({ ok: true, ...summary, recovery, carts, b2b, partners });
   } catch (error) {
     console.error("[cron/remind-unpaid-orders] falha", error instanceof Error ? error.message : error);
 

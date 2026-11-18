@@ -1,3 +1,4 @@
+import { enqueuePartnerCancelled } from "@/lib/partners/confirm-paid";
 import { scheduleOrderEmail } from "@/lib/order-emails-server";
 import { canFulfillOrder } from "@/lib/b2b/boleto-release";
 import { eq } from "drizzle-orm";
@@ -81,6 +82,9 @@ export async function PATCH(
       .update(orders)
       .set({ fulfillmentStatus: status })
       .where(eq(orders.id, id));
+
+    // Cupom de criadora (item 20, 18/11): cancelado avisa a Academia para estornar a comissão (uma vez; nunca lança).
+    if (status === "cancelled") await enqueuePartnerCancelled(id);
 
     // E-mail da etapa (em separação, enviado, entregue, cancelado).
     scheduleOrderEmail(id);
