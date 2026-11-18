@@ -111,6 +111,11 @@ test("4) e-mail: sem configuração não envia; com configuração chama o Resen
   assert.equal(calls[0][0], "https://api.resend.com/emails");
   assert.equal(calls[0][1].headers.Authorization, "Bearer chave");
   assert.deepEqual(JSON.parse(calls[0][1].body).to, ["a@b.com"]);
+  // Item 43 (18/11): a resposta do cliente vai para o SAC; MAIL_REPLY_TO válido troca; inválido volta ao SAC.
+  assert.equal(JSON.parse(calls[0][1].body).reply_to, "sac@angelblanc.com");
+  assert.equal(mail.mailReplyTo({ MAIL_REPLY_TO: " atendimento@bioflorais.com.br " }), "atendimento@bioflorais.com.br");
+  assert.equal(mail.mailReplyTo({ MAIL_REPLY_TO: "não é e-mail" }), "sac@angelblanc.com");
+  assert.equal(mail.mailReplyTo({}), "sac@angelblanc.com");
   assert.equal(await mail.sendEmail({ to: "a@b.com", subject: "s", text: "t" }, async () => ({ ok: false, status: 500 }), { RESEND_API_KEY: "k", MAIL_FROM: "f" }), false);
   assert.equal(await mail.sendEmail({ to: "a@b.com", subject: "s", text: "t" }, async () => { throw new Error("rede"); }, { RESEND_API_KEY: "k", MAIL_FROM: "f" }), false);
 });
