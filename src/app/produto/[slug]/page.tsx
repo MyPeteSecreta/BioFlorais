@@ -105,6 +105,10 @@ function findProductFolder(product: BioProduct) {
             /^cosmeticos-(shampoo|condicionador|creme-corpo|creme-maos|sabonete-liquido)-/,
             ""
           )
+          // 18/11: Pet e Home Care também (o nome "S.O.S." não bate com a pasta "rescue-sos"), sem o sufixo de tamanho.
+          .replace(/^cosmeticos-pet-(shampoo|condicionador|perfume-spray|floral-de-ambiente)-/, "")
+          .replace(/^home-care-sabonete-liquido-/, "")
+          .replace(/-(5l|500ml)$/, "")
       ),
     ];
 
