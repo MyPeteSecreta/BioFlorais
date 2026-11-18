@@ -115,6 +115,18 @@ export default async function ProtectedAdminLayout({
               </span>
             )}
 
+            {/* Item 14d (18/11): cadastro de vendedores das 3 marcas fica na Central (gera os links da Bio, My Pet e Secreta).
+                Abre o login da equipe da Central (perfil "Cadastro") ou entra direto com a sessão de admin da Central. */}
+            <a
+              href="https://www.mypeteme.com.br/equipe/cadastro"
+              target="_blank"
+              rel="noreferrer"
+              data-testid="admin-cadastro-vendedores"
+              className="rounded-full border border-[#342737] bg-white px-5 py-2.5 text-sm font-extrabold text-[#342737]"
+            >
+              Cadastro de vendedores
+            </a>
+
             <Link
               href="/"
               target="_blank"
