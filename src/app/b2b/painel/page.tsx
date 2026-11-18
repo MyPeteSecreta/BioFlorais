@@ -22,6 +22,7 @@ import { BIO_DISPLAYS } from "@/lib/b2b/displays";
 import { loadDisabledDisplays } from "@/lib/b2b/displays-server";
 import { listPromoLinks, loadPromoLinkOptions, promoLinkPath, promoLinkStatus } from "@/lib/b2b/promo-links";
 import { getSiteUrl } from "@/lib/seo/site-url";
+import InstallHint from "@/components/b2b/InstallHint";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,9 @@ export default async function B2BPanelPage() {
       <h1 className="font-serif text-3xl font-semibold text-[#55245f] sm:text-4xl" data-testid="saudacao">
         Olá, {firstName}. O que você quer fazer agora?
       </h1>
+
+      {/* Item 14e: no celular, ainda fora do app, convida a instalar (some ao dispensar). */}
+      <InstallHint />
 
       {/* 1. Card principal: a oferta personalizada é o que mais vende. */}
       <OfferForClientCard clients={clients.map((client) => ({ id: client.id, displayName: client.displayName }))} />

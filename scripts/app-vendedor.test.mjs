@@ -72,3 +72,10 @@ test("painel e página de instalação: manifesto no layout, registro do SW, pas
   assert.ok(install.includes("Android (Chrome)") && install.includes("iPhone (Safari)") && install.includes("Adicionar à Tela de Início") && install.includes("beforeinstallprompt"));
   assert.ok(read("src/app/b2b/painel/instalar/page.tsx").includes("Instale no seu celular"));
 });
+
+test("item 14e (18/11): aviso na home do painel, só no celular, fora do app e até dispensar", () => {
+  assert.ok(read("src/app/b2b/painel/page.tsx").includes("<InstallHint />"));
+  const hint = read("src/components/b2b/InstallHint.tsx");
+  assert.ok(hint.includes("/Android|iPhone|iPad|iPod/i") && hint.includes("(display-mode: standalone)") && hint.includes("localStorage"));
+  assert.ok(hint.includes('href="/b2b/painel/instalar"') && hint.includes("Agora não"));
+});
