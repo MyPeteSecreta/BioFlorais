@@ -309,3 +309,43 @@ test("Black por produto (Luis, 15/11): 25% em tudo, Virtudes Divinas 35%, Florme
   assert.ok(read("src/lib/feeds/products.ts").includes("campaignUnitPriceCents(product.priceCents as number, phase, product.slug)"));
   assert.ok(read("src/app/produto/[slug]/page.tsx").includes("<CampaignKitPriceInline"));
 });
+
+test("feeds (21/11): o preço troca na virada de 27/11 00:00 e volta ao normal em 01/12 00:00; nenhum % no feed", () => {
+  const sono = bioProducts.find((p) => p.slug === "adulto-floral-em-gotas-sono");
+  const virtudes = bioProducts.find((p) => /^virtudes-divinas-/.test(p.slug));
+  const flormed = bioProducts.find((p) => /(^|-)flormed(-|$)/.test(p.slug));
+  const img = () => "/p.jpg";
+  const url = "https://www.bioflorais.com.br";
+  const item = (p, iso) => buildFeedItem(p, url, img, at(iso));
+
+  // Esquenta (10%) até 26/11 23:59:59; a vigência já termina nesse instante.
+  const e = item(sono, "2026-11-26T23:59:59-03:00");
+  assert.equal(e.salePrice, "32.31 BRL");
+  assert.equal(e.salePriceEffectiveDate, "2026-11-04T00:00-0300/2026-11-26T23:59-0300");
+
+  // 27/11 00:00: Black (25%; Virtudes 35%; Flormed 30%) e vigência da Black.
+  const b = item(sono, "2026-11-27T00:00:00-03:00");
+  assert.equal(b.price, "35.90 BRL", "o preço de lista não muda");
+  assert.equal(b.salePrice, "26.93 BRL");
+  assert.equal(b.salePriceEffectiveDate, "2026-11-27T00:00-0300/2026-11-30T23:59-0300");
+  if (virtudes) assert.equal(item(virtudes, "2026-11-28T12:00:00-03:00").salePrice, feedPrice35(virtudes));
+  if (flormed) assert.equal(item(flormed, "2026-11-28T12:00:00-03:00").salePrice, `${(Math.round(flormed.priceCents * 0.7) / 100).toFixed(2)} BRL`);
+
+  // 30/11 23:59:59 ainda Black; 01/12 00:00 sem preço promocional nos dois feeds.
+  assert.equal(item(sono, "2026-11-30T23:59:59-03:00").salePrice, "26.93 BRL");
+  const depois = item(sono, "2026-12-01T00:00:00-03:00");
+  assert.equal(depois.salePrice, null);
+  assert.equal(depois.salePriceEffectiveDate, null);
+  assert.ok(!renderGoogleFeedXml([depois], url).includes("sale_price"));
+  assert.ok(renderMetaFeedCsv([depois]).trim().endsWith(",,"), "Meta: colunas de promoção vazias");
+
+  // Sem percentual de campanha nos campos de preço/vigência/rótulo dos feeds.
+  for (const iso of ["2026-11-10T10:00:00-03:00", "2026-11-28T10:00:00-03:00"]) {
+    const it = item(sono, iso);
+    for (const v of [it.price, it.salePrice, it.salePriceEffectiveDate, it.adLabel]) assert.ok(!/%/.test(String(v)), String(v));
+  }
+});
+
+function feedPrice35(p) {
+  return `${(Math.round(p.priceCents * 0.65) / 100).toFixed(2)} BRL`;
+}
