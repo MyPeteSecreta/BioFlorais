@@ -66,7 +66,7 @@ function findProductFolder(product: BioProduct) {
   ];
 
   const categoryFolder =
-    product.lineSlug === "cosmeticos"
+    (product.lineSlug === "cosmeticos" || product.lineSlug === "cosmeticos-pet")
       ? normalizePhysicalName(product.category)
       : null;
 
