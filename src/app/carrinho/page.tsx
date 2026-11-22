@@ -3,6 +3,8 @@
 import Link from "next/link";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
+import WhatsAppHelp from "@/components/layout/WhatsAppHelp";
+import { CART_WHATSAPP_MESSAGE } from "@/lib/whatsapp";
 import { installmentsHint } from "@/lib/checkout/installments";
 import { freeShippingBaseCents as freeShippingBaseOf } from "@/lib/checkout/shipping-b2c";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
@@ -554,6 +556,8 @@ export default function CartPage() {
               >
                 Continuar compra
               </Link>
+
+              <WhatsAppHelp message={CART_WHATSAPP_MESSAGE} testId="whatsapp-sacola" className="mt-3 w-full" />
             </aside>
           </div>
         )}

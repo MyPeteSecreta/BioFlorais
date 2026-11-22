@@ -11,6 +11,8 @@ import { useState } from "react";
 import { useCampaign } from "@/components/campaign/useCampaign";
 import { useCart } from "@/components/cart/CartProvider";
 import ProductShippingEstimate from "@/components/product/ProductShippingEstimate";
+import WhatsAppHelp from "@/components/layout/WhatsAppHelp";
+import { productWhatsappMessage } from "@/lib/whatsapp";
 import { installmentsHint } from "@/lib/checkout/installments";
 import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
 import { freeShippingKitDisplay, pixPrice, type TrustBadge } from "@/lib/product-conversion";
@@ -138,6 +140,8 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
           </a>
         </p>
       )}
+
+      <WhatsAppHelp message={productWhatsappMessage(product.name)} testId="whatsapp-produto" className="mt-4 w-full sm:w-auto" />
 
       <ProductShippingEstimate productSlug={product.productSlug} />
 
