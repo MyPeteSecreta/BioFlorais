@@ -3,6 +3,7 @@
 import Link from "next/link";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
+import { installmentsHint } from "@/lib/checkout/installments";
 import { freeShippingBaseCents as freeShippingBaseOf } from "@/lib/checkout/shipping-b2c";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
@@ -512,6 +513,12 @@ export default function CartPage() {
                       : "—"}
                 </strong>
               </div>
+
+              {quote ? (
+                <p className="mt-3 text-sm font-medium text-[#26352c]/70" data-testid="parcelamento-cartao">
+                  {installmentsHint(quote.totalCents + (shippingEstimate?.customerCents ?? 0))}
+                </p>
+              ) : null}
 
               <p className="mt-3 text-xs leading-5 text-[#26352c]/50">
                 {shippingEstimate

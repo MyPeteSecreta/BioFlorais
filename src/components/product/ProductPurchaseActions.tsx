@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useCampaign } from "@/components/campaign/useCampaign";
 import { useCart } from "@/components/cart/CartProvider";
 import ProductShippingEstimate from "@/components/product/ProductShippingEstimate";
+import { installmentsHint } from "@/lib/checkout/installments";
 import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
 import { freeShippingKitDisplay, pixPrice, type TrustBadge } from "@/lib/product-conversion";
 
@@ -70,6 +71,12 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
         <span className="font-semibold text-[#8b6524]">Frete grátis a partir de R$ 70</span>
         <span className="text-[#6c5b69]">· na modalidade econômica</span>
       </div>
+
+      {salePriceCents ? (
+        <p className="-mt-1 mb-3 text-sm text-[#6c5b69]" data-testid="parcelamento-cartao">
+          {installmentsHint(salePriceCents * quantity)}
+        </p>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2" data-testid="selos-confianca">
         {badges.map((badge) => (
