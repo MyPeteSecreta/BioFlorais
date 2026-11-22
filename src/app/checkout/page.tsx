@@ -3166,7 +3166,7 @@ export default function CheckoutPage() {
               {submitLabel}
             </button>
 
-            {/* Lembrete da sacola (22/11): sem caixa; frase discreta perto do botão final (src/lib/cart-recovery.ts). */}
+            {/* Lembrete da sacola (22/11): sem caixa e sem frase (decisão do Luis); só acompanha a sacola (src/lib/cart-recovery.ts). */}
             <CartReminderOptIn items={reminderItems} />
 
             {submitHint ? (

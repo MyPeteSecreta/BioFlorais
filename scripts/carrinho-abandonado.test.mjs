@@ -150,16 +150,14 @@ test("relatório e fiação: checkout com caixa DESMARCADA e só com o recurso l
   await save("maria@example.com", 3);
   assert.deepEqual(await lib.loadCartRecoveryReport(run, NOW), { active: 1, reminders30: 0, offers30: 0, converted30: 0, couponsUsed: 0 });
 
-  // 22/11 (decisão do Luis): SEM caixa de marcar; frase curta perto do botão final; só com o recurso ligado.
+  // 22/11 (decisão do Luis): SEM caixa de marcar e SEM frase no checkout; só com o recurso ligado.
   const optIn = read("src/components/cart/CartReminderOptIn.tsx");
-  assert.ok(optIn.includes("if (!enabled) return null;"), "só com o recurso ligado");
+  assert.ok(optIn.includes("if (!enabled) return;") && optIn.includes("data.enabled === true"), "só com o recurso ligado");
   assert.ok(!/type="checkbox"/.test(optIn) && !optIn.includes("Quero receber um lembrete"), "sem caixa de marcar");
-  assert.ok(optIn.includes("Ao finalizar você concorda com os") && optIn.includes("/termos-de-compra") && optIn.includes("/privacidade"));
-  assert.ok(optIn.includes("podemos enviar até 2 lembretes da sua sacola — você sai quando quiser"));
+  assert.ok(!optIn.includes("Ao finalizar") && !optIn.includes("<p") && optIn.includes("return null;"), "nenhuma frase nova no checkout (decisão do Luis)");
   assert.ok(!/name="/.test(optIn), "a frase não vai no pedido");
   const checkout = read("src/app/checkout/page.tsx");
   assert.ok(checkout.includes("<CartReminderOptIn items={reminderItems} />"));
-  assert.ok(checkout.indexOf("<CartReminderOptIn items={reminderItems} />") > checkout.indexOf("{submitLabel}"), "perto do botão final, não entre os campos");
   const privacy = read("src/app/privacidade/page.tsx");
   assert.ok(privacy.includes("9.4. Lembrete da sua sacola por e-mail") && privacy.includes("até 2 e-mails de lembrete") && privacy.includes("Não quero mais receber"));
   const mailSrc = read("src/lib/cart-recovery.ts");

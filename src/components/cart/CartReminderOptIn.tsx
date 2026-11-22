@@ -1,15 +1,12 @@
 "use client";
 
 /**
- * Lembrete da sacola no checkout (src/lib/cart-recovery.ts). 22/11, decisão do Luis: SEM caixa de marcar. Quem informa o e-mail e
- * segue para finalizar concorda com os Termos e a Política de Privacidade e pode receber até 2 lembretes da sacola. Por isso o
- * componente mostra só uma frase curta e discreta perto do botão final e, com um e-mail válido no formulário, guarda a sacola.
- *  - Só quando o recurso está ligado no admin e o SQL 56b aplicado (senão não aparece nem grava nada).
+ * Lembrete da sacola no checkout (src/lib/cart-recovery.ts). 22/11, decisão do Luis: SEM caixa de marcar e SEM frase nova no checkout.
+ * Com um e-mail válido no formulário, guarda a sacola (só se o recurso estiver ligado no admin e o SQL 56b aplicado).
  *  - Guarda o mínimo (e-mail, primeiro nome, itens), no máximo 2 e-mails, nunca para quem já comprou, e TODO e-mail tem o link
  *    "Não quero mais receber" (a pessoa sai quando quiser). A Política de Privacidade (seção 9.4) descreve isso.
  */
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -81,19 +78,6 @@ export default function CartReminderOptIn({ items }: { items: Item[] }) {
     };
   }, [enabled, sync]);
 
-  if (!enabled) return null;
-
-  return (
-    <p className="mt-2 text-center text-[11px] leading-4 text-[#26352c]/55" data-testid="lembrete-sacola">
-      Ao finalizar você concorda com os{" "}
-      <Link href="/termos-de-compra" className="underline">
-        Termos
-      </Link>{" "}
-      e a{" "}
-      <Link href="/privacidade" className="underline">
-        Política de Privacidade
-      </Link>
-      ; podemos enviar até 2 lembretes da sua sacola — você sai quando quiser.
-    </p>
-  );
+  // Decisão do Luis (22/11): NENHUMA frase nova no checkout. O componente só acompanha a sacola; a menção está na Política (9.4) e em todo e-mail.
+  return null;
 }
