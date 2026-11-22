@@ -63,3 +63,47 @@ test("telas: preço e Pix acima da dobra, barra fixa, kit, frete por CEP, zoom, 
   assert.ok(read("src/components/product/ProductGallery.tsx").includes("foto-zoom") && read("src/components/product/ProductGallery.tsx").includes("Toque para ampliar"));
   assert.ok(read("src/components/layout/HideOnB2B.tsx").includes("hideOnProductMobile") && read("src/app/layout.tsx").includes("<HideOnB2B hideOnProductMobile>"));
 });
+
+test("Leve 2 e ganhe frete grátis com preço da campanha (22/11): a quantidade e a regra são as do checkout (soma pelo preço do SITE >= R$ 70)", async () => {
+  const { freeShippingKitDisplay } = await import("../src/lib/product-conversion.ts");
+  const { computeB2CShipping } = await import("../src/lib/checkout/shipping-b2c.ts");
+  const { campaignUnitPriceCents, CAMPAIGN_PHASES } = await import("../src/lib/campaign/esquenta-black.ts");
+  const { readFileSync } = await import("node:fs");
+
+  const esquenta = CAMPAIGN_PHASES.find((phase) => phase.key === "esquenta");
+  const black = CAMPAIGN_PHASES.find((phase) => phase.key === "black");
+
+  for (const [phase, unit] of [[esquenta, 3231], [black, 2693]]) {
+    assert.equal(campaignUnitPriceCents(3590, phase, "adulto-floral-em-gotas-sono"), unit);
+
+    const kit = freeShippingKitDisplay(3590, unit);
+
+    assert.equal(kit.qty, 2, "a quantidade vem do preço do site (igual ao checkout)");
+    assert.equal(kit.totalCents, 2 * unit, "o total é o que o cliente paga");
+    assert.equal(kit.siteTotalCents, 7180);
+    assert.equal(kit.onSale, true);
+    assert.ok(kit.totalCents < 7000 && kit.siteTotalCents >= 7000, "o caso do Luis: 64,62 < 70, mas a base do frete é 71,80");
+
+    // O checkout (servidor) olha o subtotal do SITE: com 2 unidades o frete da modalidade econômica é grátis.
+    const frete = computeB2CShipping({ optionCostCents: 2200, cheapestCostCents: 2200, subtotalCents: kit.siteTotalCents, uf: "SP" });
+
+    assert.equal(frete.free, true);
+    assert.equal(frete.customerCents, 0);
+
+    // 1 unidade (site 35,90) NÃO dá frete grátis.
+    assert.equal(computeB2CShipping({ optionCostCents: 2200, cheapestCostCents: 2200, subtotalCents: 3590, uf: "SP" }).free, false);
+  }
+
+  // Sem campanha: o mesmo valor do site, sem "onSale".
+  assert.deepEqual(freeShippingKitDisplay(3590, 3590), { qty: 2, eachCents: 3590, totalCents: 7180, siteTotalCents: 7180, onSale: false });
+  assert.deepEqual(freeShippingKitDisplay(3590, null), { qty: 2, eachCents: 3590, totalCents: 7180, siteTotalCents: 7180, onSale: false });
+  assert.equal(freeShippingKitDisplay(7000, 6000), null, "uma unidade já chega: sem combo");
+  assert.equal(freeShippingKitDisplay(null, null), null);
+
+  // A tela usa a função nova, explica a base e nunca mostra percentual.
+  const tela = readFileSync(new URL("../src/components/product/ProductPurchaseActions.tsx", import.meta.url), "utf8");
+
+  assert.ok(tela.includes("freeShippingKitDisplay(priceCents, salePriceCents)"));
+  assert.ok(tela.includes("O frete grátis vale pela soma dos preços do site"));
+  assert.ok(!/campaign\??\.percent|phase\??\.percent|\d\s*%\s*(off|de desconto)/i.test(tela.replace(/10% de desconto/g, "")));
+});

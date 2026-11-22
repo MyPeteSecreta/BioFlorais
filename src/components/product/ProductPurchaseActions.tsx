@@ -12,7 +12,7 @@ import { useCampaign } from "@/components/campaign/useCampaign";
 import { useCart } from "@/components/cart/CartProvider";
 import ProductShippingEstimate from "@/components/product/ProductShippingEstimate";
 import { campaignUnitPriceCents } from "@/lib/campaign/esquenta-black";
-import { freeShippingKit, pixPrice, type TrustBadge } from "@/lib/product-conversion";
+import { freeShippingKitDisplay, pixPrice, type TrustBadge } from "@/lib/product-conversion";
 
 interface Props {
   product: {
@@ -35,8 +35,7 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
   // Esquenta/Black: preço com desconto na tela; a quantidade do kit segue o preço do site (o frete grátis usa o preço do site).
   const phase = useCampaign();
   const salePriceCents = priceCents ? campaignUnitPriceCents(priceCents, phase, product.productSlug) : null;
-  const siteKit = freeShippingKit(priceCents);
-  const kit = siteKit && salePriceCents ? { ...siteKit, totalCents: siteKit.qty * salePriceCents, eachCents: salePriceCents } : siteKit;
+  const kit = freeShippingKitDisplay(priceCents, salePriceCents);
   const pix = pixPrice(salePriceCents);
 
   function addMany(count: number) {
@@ -118,6 +117,9 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
             <span className="block text-sm font-extrabold text-[#422347]">Leve {kit.qty} e ganhe frete grátis</span>
             <span className="block text-xs text-[#746471]">
               {kit.qty} unidades por {brl(kit.totalCents)} · frete grátis (modalidade econômica)
+            </span>
+            <span className="block text-[11px] text-[#8d7789]" data-testid="kit-frete-gratis-base">
+              O frete grátis vale pela soma dos preços do site: {kit.onSale ? <s>{brl(kit.siteTotalCents)}</s> : brl(kit.siteTotalCents)}, a partir de R$ 70.
             </span>
           </span>
           <span className="shrink-0 rounded-full bg-[#a0742b] px-4 py-2 text-xs font-extrabold text-white">{added === "kit" ? "Adicionado ✓" : `Levar ${kit.qty}`}</span>

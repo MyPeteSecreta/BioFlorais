@@ -35,6 +35,33 @@ export function freeShippingKit(priceCents: number | null | undefined, threshold
   return { qty, totalCents: qty * priceCents, eachCents: priceCents };
 }
 
+export type FreeShippingKitDisplay = FreeShippingKit & {
+  /** Soma da quantidade pelo preço do SITE (é ela que o checkout compara com R$ 70). */
+  siteTotalCents: number;
+  /** true quando o preço na tela já é o da campanha (menor que o do site). */
+  onSale: boolean;
+};
+
+/**
+ * Combo "Leve N e ganhe frete grátis" como a página mostra. REGRA DO CHECKOUT (conferida em 22/11 no servidor e na sacola): o frete grátis
+ * olha a soma pelo preço do SITE, também no Esquenta/Black (src/lib/campaign/esquenta-black.ts: "Frete: regra normal (base = preço do
+ * site)"). Então a quantidade vem do preço do site e o total mostrado é o que o cliente PAGA (preço da campanha); o valor do site vai
+ * junto, para o "R$ 64,62 e frete grátis" não parecer errado (64,62 < 70, mas 2 x 35,90 = 71,80 >= 70). Nunca mostra percentual.
+ */
+export function freeShippingKitDisplay(
+  listCents: number | null | undefined,
+  saleCents: number | null | undefined,
+  thresholdCents: number = B2C_FREE_SHIPPING_THRESHOLD_CENTS
+): FreeShippingKitDisplay | null {
+  const kit = freeShippingKit(listCents, thresholdCents);
+
+  if (!kit || !listCents) return null;
+
+  const each = saleCents && saleCents > 0 && saleCents < listCents ? saleCents : listCents;
+
+  return { qty: kit.qty, eachCents: each, totalCents: kit.qty * each, siteTotalCents: kit.qty * listCents, onSale: each < listCents };
+}
+
 export type TrustBadge = { key: string; label: string };
 
 const ALCOHOL_FREE_LINES = new Set(["adulto", "pet", "infantil", "baby", "kids", "teen"]);
