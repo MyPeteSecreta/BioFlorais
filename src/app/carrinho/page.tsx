@@ -3,6 +3,7 @@
 import Link from "next/link";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/checkout/benefits";
+import { freeShippingBaseCents as freeShippingBaseOf } from "@/lib/checkout/shipping-b2c";
 import Gpt10CartNote from "@/components/campaign/Gpt10CartNote";
 import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
 import CartShippingEstimate, { type ShippingEstimate } from "@/components/cart/CartShippingEstimate";
@@ -196,8 +197,8 @@ export default function CartPage() {
   const [shippingEstimate, setShippingEstimate] = useState<ShippingEstimate | null>(null);
 
   const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
-  const freeShippingBaseCents =
-    quote?.grossSubtotalCents ?? 0;
+  // Base do frete grátis: o preço PRATICADO (com o Esquenta/Black), como o checkout e o servidor (Luis, 22/11).
+  const freeShippingBaseCents = quote ? freeShippingBaseOf(quote.grossSubtotalCents, quote.promotionDiscountCents ?? 0) : 0;
   const freeShippingRemainingCents =
     Math.max(
       0,

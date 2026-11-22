@@ -132,7 +132,7 @@ test("cotação da sacola (servidor): no Esquenta, item com riscado, promoção 
   }
 });
 
-test("pedido (servidor) e checkout: a mesma função (decideCampaignCoupons); comercial sobre a base com a campanha; criadora registrada com comissão; frete pela base do preço do site", () => {
+test("pedido (servidor) e checkout: a mesma função (decideCampaignCoupons); comercial sobre a base com a campanha; criadora registrada com comissão; frete pelo preço praticado (22/11)", () => {
   const order = read("src/app/api/orders/create/route.ts");
   assert.ok(order.includes("activeCampaign(Date.now())") && order.includes("decideCampaignCoupons({"));
   assert.ok(!order.includes("decideCampaign({") && !order.includes("commercialCoupon = null;") && !order.includes("partnerCoupon = null;"), "nenhum cupom é descartado pela campanha");
@@ -142,8 +142,8 @@ test("pedido (servidor) e checkout: a mesma função (decideCampaignCoupons); co
   assert.ok(order.includes("String(partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent)"), "pedido: percentual de desconto da criadora 0");
   assert.ok(/const partnerCommissionCents =\s*partnerCoupon &&/.test(order), "comissão continua quando há cupom da criadora");
   assert.ok(order.includes("campaign: campaignApplied && campaign ?"), "registro no pedido");
-  // o frete grátis continua pelo subtotal bruto (preço do site)
-  assert.ok(/computeB2CShipping\(\{\s*subtotalCents,/.test(order));
+  // Luis, 22/11: o frete grátis (R$ 70) olha o preço PRATICADO (com a campanha), antes de cupons e Pix
+  assert.ok(order.includes("subtotalCents: campaign && campaignOfferResult ? campaignOfferResult.grossSubtotalCents : subtotalCents,"));
   // Pix sobre o valor com desconto
   assert.ok(order.includes("subtotalCents - offerDiscountCents - promotionDiscountCents - couponDiscountCents - partnerCouponDiscountCents"));
 

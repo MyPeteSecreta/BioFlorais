@@ -32,7 +32,7 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState<"single" | "kit" | null>(null);
 
-  // Esquenta/Black: preço com desconto na tela; a quantidade do kit segue o preço do site (o frete grátis usa o preço do site).
+  // Esquenta/Black: preço com desconto na tela; o frete grátis (R$ 70) e a quantidade do combo seguem o preço PRATICADO (Luis, 22/11).
   const phase = useCampaign();
   const salePriceCents = priceCents ? campaignUnitPriceCents(priceCents, phase, product.productSlug) : null;
   const kit = freeShippingKitDisplay(priceCents, salePriceCents);
@@ -117,9 +117,6 @@ export default function ProductPurchaseActions({ product, priceCents = null, bad
             <span className="block text-sm font-extrabold text-[#422347]">Leve {kit.qty} e ganhe frete grátis</span>
             <span className="block text-xs text-[#746471]">
               {kit.qty} unidades por {brl(kit.totalCents)} · frete grátis (modalidade econômica)
-            </span>
-            <span className="block text-[11px] text-[#8d7789]" data-testid="kit-frete-gratis-base">
-              O frete grátis vale pela soma dos preços do site: {kit.onSale ? <s>{brl(kit.siteTotalCents)}</s> : brl(kit.siteTotalCents)}, a partir de R$ 70.
             </span>
           </span>
           <span className="shrink-0 rounded-full bg-[#a0742b] px-4 py-2 text-xs font-extrabold text-white">{added === "kit" ? "Adicionado ✓" : `Levar ${kit.qty}`}</span>

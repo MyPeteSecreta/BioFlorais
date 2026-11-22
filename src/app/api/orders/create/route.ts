@@ -903,10 +903,11 @@ export async function POST(
      * o mesmo valor publicado no Google Merchant.
      *
      * O limite usa o valor da mercadoria antes
-     * dos cupons, preservando a regra atual.
+     * dos cupons e do Pix, mas AGORA ao preço PRATICADO
+     * (com o desconto do Esquenta/Black; Luis, 22/11).
      */
     const b2cShipping = computeB2CShipping({
-      subtotalCents,
+      subtotalCents: campaign && campaignOfferResult ? campaignOfferResult.grossSubtotalCents : subtotalCents,
       optionCostCents: shippingCostCents,
       cheapestCostCents: cheapestShippingCents,
       uf: ufFromCep(cep) ?? state,

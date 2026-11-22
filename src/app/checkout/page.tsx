@@ -12,7 +12,7 @@ import Link from "next/link";
 import CheckoutBenefitsBar from "@/components/checkout/CheckoutBenefitsBar";
 import CartShippingSuggestions from "@/components/cart/CartShippingSuggestions";
 import CheckoutTopStrip from "@/components/checkout/CheckoutTopStrip";
-import { computeB2CShipping, ufFromCep } from "@/lib/checkout/shipping-b2c";
+import { computeB2CShipping, freeShippingBaseCents as freeShippingBaseOf, ufFromCep } from "@/lib/checkout/shipping-b2c";
 import { trackCheckoutStep, trackEvent, type CheckoutStep } from "@/lib/analytics-events";
 import CartLoadingSkeleton from "@/components/cart/CartLoadingSkeleton";
 import CartReminderOptIn from "@/components/cart/CartReminderOptIn";
@@ -1590,26 +1590,29 @@ export default function CheckoutPage() {
     setPartnerCouponError("");
   }
 
-  // Base do frete grátis e das faixas: o preço do site (o servidor usa o mesmo, com ou sem Esquenta/Black).
+  // Preço do site depois das ofertas: base do cupom da criadora (decideCampaignCoupons).
   const merchandiseTotalCents =
     quote ? couponBaseOf(quote) : 0;
+
+  // Base do frete grátis e das faixas (Luis, 22/11): o preço PRATICADO, já com o Esquenta/Black; o servidor usa a mesma conta.
+  const shippingBaseCents = quote ? freeShippingBaseOf(quote.grossSubtotalCents, quote.promotionDiscountCents ?? 0) : 0;
 
   const freeShippingThresholdCents = B2C_FREE_SHIPPING_THRESHOLD_CENTS;
 
   const hasFreeShipping =
-    merchandiseTotalCents >= freeShippingThresholdCents;
+    shippingBaseCents >= freeShippingThresholdCents;
   const freeShippingRemainingCents =
     Math.max(
       0,
       freeShippingThresholdCents -
-        merchandiseTotalCents
+        shippingBaseCents
     );
   const freeShippingProgress =
     Math.min(
       100,
       Math.max(
         0,
-        (merchandiseTotalCents /
+        (shippingBaseCents /
           freeShippingThresholdCents) *
           100
       )
@@ -1618,7 +1621,7 @@ export default function CheckoutPage() {
   // Faixa de benefícios (genérica, calculada da configuração real; o B2C da Bio não tem desconto por forma de pagamento).
   const checkoutBenefits = buildCheckoutBenefits({
     kind: "b2c",
-    subtotalCents: merchandiseTotalCents,
+    subtotalCents: shippingBaseCents,
     freeShippingThresholdCents,
     shippingSubsidyPercent: B2C_SHIPPING_SUBSIDY_PERCENT,
     paymentDiscountPercent: { pix: B2C_PIX_DISCOUNT_PERCENT / 100 },
@@ -1654,7 +1657,7 @@ export default function CheckoutPage() {
   const shippingRule =
     selectedShipping
       ? computeB2CShipping({
-          subtotalCents: merchandiseTotalCents,
+          subtotalCents: shippingBaseCents,
           optionCostCents: shippingCostCents,
           cheapestCostCents: cheapestShippingCents,
           uf: ufFromCep(calculatedCep),
@@ -3009,7 +3012,7 @@ export default function CheckoutPage() {
             </div>
 {!pendingOrderId && quote ? (
               <div className="mb-5" data-testid="sugestoes-resumo-checkout">
-                <CartShippingSuggestions baseCents={merchandiseTotalCents} variant="compact" />
+                <CartShippingSuggestions baseCents={shippingBaseCents} variant="compact" />
               </div>
             ) : null}
 

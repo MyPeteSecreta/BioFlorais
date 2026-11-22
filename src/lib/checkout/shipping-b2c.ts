@@ -121,3 +121,13 @@ export function computeB2CShipping(input: B2CShippingInput): B2CShipping {
 
   return { customerCents: customer, benefitCents: Math.max(0, cost - customer), free: false, capped: false };
 }
+
+/**
+ * BASE DO FRETE GRÁTIS (R$ 70), regra corrigida pelo Luis em 22/11: vale o PREÇO PRATICADO, já com o desconto do Esquenta/Black
+ * (dois florais a R$ 32,31 = R$ 64,62 NÃO têm frete grátis). É o subtotal dos produtos ao preço da campanha, ANTES de cupons e do
+ * desconto do Pix (como sempre foi) e antes das ofertas de combo (idem: o servidor sempre usou o subtotal bruto). Fora da campanha
+ * é o preço do site. Sacola, checkout e servidor usam ESTA conta.
+ */
+export function freeShippingBaseCents(grossSubtotalCents: number, promotionDiscountCents: number): number {
+  return Math.max(0, Math.round(grossSubtotalCents) - Math.max(0, Math.round(promotionDiscountCents)));
+}
