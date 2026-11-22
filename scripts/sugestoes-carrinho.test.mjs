@@ -76,7 +76,7 @@ test("telas: cartão no carrinho entre itens e total, versão compacta no checko
   assert.ok(cart.includes("<CartShippingSuggestions baseCents={freeShippingBaseCents} />"));
   assert.ok(cart.indexOf("<CartShippingSuggestions") > cart.indexOf("removeProduct(") && cart.indexOf("<CartShippingSuggestions") < cart.indexOf("Resumo"), "entre os itens e o total");
 
-  assert.ok(read("src/app/checkout/page.tsx").includes('<CartShippingSuggestions baseCents={merchandiseTotalCents} variant="compact" />'));
+  assert.ok(read("src/app/checkout/page.tsx").includes('<CartShippingSuggestions baseCents={shippingBaseCents} variant="compact" />'));
 
   const component = read("src/components/cart/CartShippingSuggestions.tsx");
   assert.ok(component.includes("que tal levar junto?") && component.includes("+ Adicionar") && component.includes("Você ganhou frete grátis") && component.includes('"sugestao"'));
