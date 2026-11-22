@@ -20,6 +20,7 @@ import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { metaInitiateCheckoutEvent } from "@/lib/measurement";
 import { trackMetaWithServer } from "@/lib/measurement-client";
 import { couponDiscountOn, decideCampaignCoupons } from "@/lib/campaign/esquenta-black";
+import PixPayBox from "@/components/payments/PixPayBox";
 import { documentError } from "@/lib/checkout/document";
 import { B2C_FREE_SHIPPING_THRESHOLD_CENTS, B2C_PIX_DISCOUNT_PERCENT, B2C_SHIPPING_SUBSIDY_PERCENT, buildCheckoutBenefits, buildCheckoutTopStrip, pixDiscountCents } from "@/lib/checkout/benefits";
 import { clearGpt10, readGpt10, removeGpt10, shouldAutoApplyGpt10 } from "@/lib/campaign/gpt10";
@@ -298,11 +299,6 @@ export default function CheckoutPage() {
     pixError,
     setPixError,
   ] = useState("");
-
-  const [
-    pixCopied,
-    setPixCopied,
-  ] = useState(false);
 
   const [
     pixRetryNonce,
@@ -3144,55 +3140,7 @@ export default function CheckoutPage() {
 
                         {pixPayment ? (
                           <div className="space-y-4">
-                            {pixPayment.qrImageUrl ? (
-                              <div className="flex justify-center">
-                                <div className="rounded-2xl bg-white p-4 shadow-sm">
-                                  <img
-                                    src={pixPayment.qrImageUrl}
-                                    alt="QR Code Pix"
-                                    className="h-52 w-52 object-contain"
-                                  />
-                                </div>
-                              </div>
-                            ) : null}
-
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#26352c]/45">
-                                Pix Copia e Cola
-                              </p>
-
-                              <div className="mt-2 rounded-xl bg-white p-3">
-                                <p className="break-all text-xs leading-5 text-[#26352c]/65">
-                                  {pixPayment.qrCode}
-                                </p>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await navigator.clipboard.writeText(
-                                    pixPayment.qrCode
-                                  );
-
-                                  setPixCopied(true);
-
-                                  window.setTimeout(
-                                    () =>
-                                      setPixCopied(false),
-                                    2000
-                                  );
-                                } catch {
-                                  setPixCopied(false);
-                                }
-                              }}
-                              className="w-full rounded-full bg-[#46644f] px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
-                            >
-                              {pixCopied
-                                ? "Código Pix copiado"
-                                : "Copiar código Pix"}
-                            </button>
+                            <PixPayBox code={pixPayment.qrCode} fallbackImageUrl={pixPayment.qrImageUrl} />
 
                             {pixPayment.expiresAt ? (
                               <p className="text-center text-xs text-[#26352c]/45">

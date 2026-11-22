@@ -8,6 +8,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import PixPayBox from "@/components/payments/PixPayBox";
+
 type Props = {
   orderId: string;
   trackPath: string;
@@ -21,7 +23,6 @@ export default function ResumePayment({ orderId, trackPath, initialPixCode, card
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const done = useRef(false);
 
   // Quando o pagamento cair, segue para o acompanhamento (consulta a cada 4 s por até 35 min).
@@ -73,18 +74,6 @@ export default function ResumePayment({ orderId, trackPath, initialPixCode, card
     }
   }
 
-  async function copy() {
-    if (!pixCode) return;
-
-    try {
-      await navigator.clipboard.writeText(pixCode);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2500);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   return (
     <section className="rounded-[24px] border border-[#eadfd9] bg-white p-5" data-testid="retomar-pagamento">
       {cardIssue && (
@@ -97,15 +86,8 @@ export default function ResumePayment({ orderId, trackPath, initialPixCode, card
 
       {pixCode ? (
         <div className="mt-3">
-          {qrBase64 && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`data:image/png;base64,${qrBase64}`} alt="QR Code do Pix" className="mx-auto h-48 w-48 rounded-xl border border-[#eadfd9] bg-white p-2" />
-          )}
-          <p className="mt-3 text-sm text-[#6c5b69]">Pix copia e cola (vale por 30 minutos):</p>
-          <textarea readOnly value={pixCode} aria-label="Pix copia e cola" className="mt-2 h-24 w-full rounded-xl border border-[#d9c7dc] bg-[#fffaf6] p-3 text-xs" data-testid="pix-copia-cola" />
-          <button type="button" onClick={copy} className="mt-3 w-full rounded-full bg-[#55245f] px-6 py-3.5 text-sm font-extrabold text-white" data-testid="copiar-pix">
-            {copied ? "Código copiado ✓" : "Copiar código Pix"}
-          </button>
+          <p className="text-sm text-[#6c5b69]">O código vale por 30 minutos.</p>
+          <div className="mt-3"><PixPayBox code={pixCode} fallbackImageUrl={qrBase64 ? `data:image/png;base64,${qrBase64}` : null} /></div>
           <p className="mt-3 text-center text-xs text-[#6c5b69]">Assim que o pagamento for confirmado, esta página leva ao acompanhamento do pedido.</p>
           <button type="button" onClick={generate} disabled={busy} className="mt-3 w-full text-center text-xs font-bold text-[#63326d] underline disabled:opacity-60">
             O código venceu? Gerar outro Pix
