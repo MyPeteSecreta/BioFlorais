@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 import { bioProducts } from "../src/lib/catalog/bio-products.ts";
 import { GTIN_BY_SLUG } from "../src/lib/feeds/gtin-data.ts";
-import { buildFeedItem, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
+import { FEED_GTIN, buildFeedItem, renderGoogleFeedXml, renderMetaFeedCsv } from "../src/lib/feeds/products.ts";
 
 const checkDigitOk = (ean) => /^\d{13}$/.test(ean) && (10 - ([...ean.slice(0, 12)].reduce((sum, digit, index) => sum + Number(digit) * (index % 2 ? 3 : 1), 0) % 10)) % 10 === Number(ean[12]);
 const items = bioProducts.map((product) => buildFeedItem(product, "https://www.bioflorais.com.br", () => "/img.jpg")).filter(Boolean);
@@ -43,7 +43,7 @@ test("feed do Google: g:gtin + identifier_exists=yes em quem tem GTIN; identifie
   assert.ok(withGtin.length > 80, `muitos itens do feed têm GTIN (${withGtin.length} de ${items.length})`);
   assert.ok(without.length > 0);
   // o GTIN é por slug (o id do feed pode ser a versão curta do slug)
-  assert.ok(withGtin.every((item) => GTIN_BY_SLUG[item.link.split("/produto/")[1]] === item.gtin));
+  assert.ok(withGtin.every((item) => FEED_GTIN[item.link.split("/produto/")[1]] === item.gtin)); // 22/11: planilha antiga + EAN novos (src/lib/catalog/ean.ts)
 
   const xml = renderGoogleFeedXml(items, "https://www.bioflorais.com.br");
   assert.equal((xml.match(/<g:gtin>/g) ?? []).length, withGtin.length);

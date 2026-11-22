@@ -9,6 +9,7 @@
 import type { BioProduct } from "@/lib/catalog/bio-products";
 import { campaignUnitPriceCents, feedCampaignPhase, saleEffectiveDate } from "@/lib/campaign/esquenta-black";
 import { feedItemId } from "@/lib/feeds/feed-id";
+import { PRODUCT_EAN, isValidGtin13 } from "@/lib/catalog/ean";
 import { GTIN_BY_SLUG } from "@/lib/feeds/gtin-data";
 import { META_CONTENT_IDS } from "@/lib/feeds/meta-content-ids";
 
@@ -24,7 +25,11 @@ export const FEED_EXCLUDED_NAME_PATTERNS: readonly RegExp[] = [/rescue/i, /depre
 export const FEED_EXCLUDED_CATEGORIES: readonly string[] = ["Snack Floral"];
 
 /** GTIN (EAN-13) por slug: o que a Bio tem na planilha de EAN (ver gtin-data.ts). Quem não tem segue com identifier_exists = no. */
-export const FEED_GTIN: Readonly<Record<string, string>> = GTIN_BY_SLUG;
+export const FEED_GTIN: Readonly<Record<string, string>> = {
+  ...GTIN_BY_SLUG,
+  // 22/11: EAN novos da lista da mestre (src/lib/catalog/ean.ts) valem sobre a planilha antiga; só com dígito verificador válido.
+  ...Object.fromEntries(Object.entries(PRODUCT_EAN).filter(([, entry]) => isValidGtin13(entry.ean)).map(([slug, entry]) => [slug, entry.ean])),
+};
 
 /**
  * Etiqueta de anúncios (custom_label_0 no Google e na Meta): os itens de categoria sensível continuam no site e no feed, mas saem das
