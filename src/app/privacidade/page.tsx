@@ -254,6 +254,20 @@ export default function Page() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold text-[#422347]">
+              9.4. Lembrete da sua sacola por e-mail
+            </h2>
+            <p>
+              Se você informar o seu e-mail no checkout e seguir para finalizar a compra, podemos guardar a sua sacola (e-mail, primeiro nome
+              e os produtos escolhidos) e, se você não concluir o pedido, enviar <strong>até 2 e-mails de lembrete</strong>: um poucas horas
+              depois e, em alguns casos, um segundo, alguns dias depois. Não enviamos lembrete a quem já comprou. Em <strong>todo e-mail</strong>
+              há o link <strong>&quot;Não quero mais receber&quot;</strong>: ao clicar e confirmar, a sua sacola é apagada e você não recebe mais
+              nada. Guardamos a sacola por no máximo 30 dias. A base é o seu pedido de compra em andamento e a concordância com estes termos;
+              para exercer seus direitos, escreva para <strong>sac@angelblanc.com</strong>.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold text-[#422347]">
               10. Alterações desta política
             </h2>
             <p>

@@ -2100,8 +2100,6 @@ export default function CheckoutPage() {
                   />
                 </label>
 
-                {/* Carrinho abandonado: aceite opcional, desmarcado (src/lib/cart-recovery.ts). */}
-                <CartReminderOptIn items={reminderItems} />
 
                 <label className="text-sm font-medium">
                   Telefone
@@ -3167,6 +3165,9 @@ export default function CheckoutPage() {
             >
               {submitLabel}
             </button>
+
+            {/* Lembrete da sacola (22/11): sem caixa; frase discreta perto do botão final (src/lib/cart-recovery.ts). */}
+            <CartReminderOptIn items={reminderItems} />
 
             {submitHint ? (
               <p className="mt-2 text-center text-xs font-semibold text-[#8a5a12]" data-testid="motivo-botao-apagado">

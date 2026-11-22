@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * Caixa de aceite do carrinho abandonado no checkout (src/lib/cart-recovery.ts). DESMARCADA por padrão (LGPD: consentimento).
- * Só aparece com o recurso ligado no admin e o SQL 56b aplicado. Marcada: grava a sacola com o e-mail do formulário (e o
- * primeiro nome), e atualiza quando a sacola ou o e-mail mudam. Desmarcar apaga na hora. Sem nome: não vai no pedido.
+ * Lembrete da sacola no checkout (src/lib/cart-recovery.ts). 22/11, decisão do Luis: SEM caixa de marcar. Quem informa o e-mail e
+ * segue para finalizar concorda com os Termos e a Política de Privacidade e pode receber até 2 lembretes da sacola. Por isso o
+ * componente mostra só uma frase curta e discreta perto do botão final e, com um e-mail válido no formulário, guarda a sacola.
+ *  - Só quando o recurso está ligado no admin e o SQL 56b aplicado (senão não aparece nem grava nada).
+ *  - Guarda o mínimo (e-mail, primeiro nome, itens), no máximo 2 e-mails, nunca para quem já comprou, e TODO e-mail tem o link
+ *    "Não quero mais receber" (a pessoa sai quando quiser). A Política de Privacidade (seção 9.4) descreve isso.
  */
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FORM_ID = "bio-checkout-form";
 
 type Item = { productSlug: string; qty: number };
 
 export default function CartReminderOptIn({ items }: { items: Item[] }) {
   const [enabled, setEnabled] = useState(false);
-  const [checked, setChecked] = useState(false);
-  const [needEmail, setNeedEmail] = useState(false);
-  const boxRef = useRef<HTMLLabelElement | null>(null);
   const lastSent = useRef("");
 
   useEffect(() => {
@@ -35,45 +37,40 @@ export default function CartReminderOptIn({ items }: { items: Item[] }) {
   }, []);
 
   const readForm = useCallback(() => {
-    const form = boxRef.current?.closest("form");
+    const form = document.getElementById(FORM_ID) as HTMLFormElement | null;
     const data = form ? new FormData(form) : null;
 
     return { email: String(data?.get("email") ?? "").trim(), name: String(data?.get("name") ?? "").trim() };
   }, []);
 
-  const sync = useCallback(
-    (consent: boolean) => {
-      const { email, name } = readForm();
+  const sync = useCallback(() => {
+    const { email, name } = readForm();
 
-      if (!EMAIL_RE.test(email)) {
-        setNeedEmail(consent);
-        return;
-      }
+    if (!EMAIL_RE.test(email) || items.length === 0) return;
 
-      setNeedEmail(false);
-      const key = JSON.stringify([consent, email, name.split(/\s+/)[0], items]);
-      if (key === lastSent.current) return;
-      lastSent.current = key;
+    const key = JSON.stringify([email, name.split(/\s+/)[0], items]);
+    if (key === lastSent.current) return;
+    lastSent.current = key;
 
-      void fetch("/api/cart/recovery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, items, consent }),
-        keepalive: true,
-      }).catch(() => undefined);
-    },
-    [items, readForm]
-  );
+    // consent=true: a concordância com os Termos e a Política vem de seguir para finalizar (frase abaixo); o servidor segue
+    // exigindo o recurso ligado, o teto de 2 e-mails e a regra de nunca escrever para quem já comprou.
+    void fetch("/api/cart/recovery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name, items, consent: true }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [items, readForm]);
 
-  // Marcada: acompanha a sacola e o e-mail (ao sair do campo).
+  // Acompanha a sacola e o e-mail (ao sair do campo).
   useEffect(() => {
-    if (!checked) return;
+    if (!enabled) return;
 
-    const timer = window.setTimeout(() => sync(true), 800);
-    const form = boxRef.current?.closest("form");
+    const timer = window.setTimeout(sync, 800);
+    const form = document.getElementById(FORM_ID);
     const onChange = (event: Event) => {
       const name = (event.target as HTMLInputElement | null)?.name;
-      if (name === "email" || name === "name") sync(true);
+      if (name === "email" || name === "name") sync();
     };
 
     form?.addEventListener("change", onChange);
@@ -82,27 +79,21 @@ export default function CartReminderOptIn({ items }: { items: Item[] }) {
       window.clearTimeout(timer);
       form?.removeEventListener("change", onChange);
     };
-  }, [checked, sync]);
+  }, [enabled, sync]);
 
   if (!enabled) return null;
 
   return (
-    <label ref={boxRef} className="flex items-start gap-2 text-xs leading-5 text-[#26352c]/70 md:col-span-2" data-testid="lembrete-sacola">
-      <input
-        type="checkbox"
-        className="mt-0.5"
-        checked={checked}
-        onChange={(event) => {
-          const next = event.target.checked;
-          setChecked(next);
-          if (!next) sync(false);
-        }}
-      />
-      <span>
-        Quero receber um lembrete da minha sacola por e-mail se eu não concluir a compra (no máximo 2 e-mails; dá para sair a qualquer
-        momento).
-        {needEmail ? <strong className="block text-[#8a5a12]">Preencha o e-mail acima para receber o lembrete.</strong> : null}
-      </span>
-    </label>
+    <p className="mt-2 text-center text-[11px] leading-4 text-[#26352c]/55" data-testid="lembrete-sacola">
+      Ao finalizar você concorda com os{" "}
+      <Link href="/termos-de-compra" className="underline">
+        Termos
+      </Link>{" "}
+      e a{" "}
+      <Link href="/privacidade" className="underline">
+        Política de Privacidade
+      </Link>
+      ; podemos enviar até 2 lembretes da sua sacola — você sai quando quiser.
+    </p>
   );
 }
