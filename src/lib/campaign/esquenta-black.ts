@@ -3,7 +3,7 @@
  *  - Esquenta: 10% sobre o PREÇO DO SITE de 04/11 00:00 a 26/11 23:59 (São Paulo).
  *  - Black: 25% sobre o preço do site de 27/11 00:00 a 30/11 23:59.
  * Automático (sem cupom). Cupom comercial/de campanha (GPT10, FLORESCE20) SOMA, sobre o preço já com desconto; cupom da
- * criadora: vale o MAIOR desconto (empate: campanha) e, se a campanha vencer, a criadora recebe a comissão (decideCampaignCoupons). O Pix (4%) continua, sobre o valor já com desconto. Frete: regra normal (base = preço do site). B2B não usa nada daqui.
+ * criadora (Academia): SOMA com a campanha (23/11), sobre o preço já promocional, no servidor (decideCampaignCoupons). O Pix (4%) continua, sobre o valor já com desconto. Frete: regra normal (base = preço do site). B2B não usa nada daqui.
  *
  * Funções puras (a hora entra por parâmetro): tela, sacola, cotação, pedido e testes usam as mesmas.
  */
@@ -135,7 +135,7 @@ export type CampaignCouponDecision = {
   /** Base do cupom da criadora (depois do comercial). Comissão = (esta base − desconto da criadora) × percentual. */
   partnerBaseCents: number;
   partnerCouponCents: number;
-  /** Cupom da criadora informado, mas a campanha deu mais desconto: desconto 0, a criadora continua com a comissão. */
+  /** Legado: antes a campanha podia vencer o cupom da criadora; desde 23/11 o cupom soma e este campo é sempre false. */
   partnerDiscountOverridden: boolean;
   /** Produtos depois de todos os descontos (antes do Pix; sem frete). */
   merchandiseCents: number;
@@ -144,10 +144,8 @@ export type CampaignCouponDecision = {
 /**
  * Decisão do pedido (servidor; o checkout faz a MESMA conta com a cotação). Regra do Luis (05/11):
  *  - cupom comercial / de campanha (GPT10, FLORESCE20...): SOMA com o Esquenta/Black, sobre o preço já com desconto;
- *  - cupom da criadora (parceira/UGC): vale o MAIOR desconto entre a campanha e o cupom da criadora. Se a campanha
- *    vencer (ou empatar), o desconto da criadora fica 0, mas ela continua registrada e recebe a comissão.
- * Cenários: C = preço da campanha + comercial (criadora sem desconto); P = preço do site + comercial + criadora.
- * P só quando o cliente paga MENOS que em C. Sem campanha: P (a regra antiga, comercial e depois criadora).
+ *  - cupom da criadora (parceira/UGC, Academia): SOMA com o Esquenta/Black (Luis, 23/11): comercial e depois criadora, sempre
+ *    sobre o preço já promocional. partnerDiscountOverridden fica sempre false (campo mantido por compatibilidade).
  * site*: subtotal e ofertas pelo preço do site; campaign*: pelo preço da campanha (null = sem campanha).
  */
 export function decideCampaignCoupons(input: {
@@ -158,8 +156,6 @@ export function decideCampaignCoupons(input: {
   commercial: CouponRule | null;
   partnerDiscountPercent: number | null;
 }): CampaignCouponDecision {
-  const hasPartner = input.partnerDiscountPercent !== null && input.partnerDiscountPercent !== undefined;
-
   const siteBaseCents = Math.max(0, input.siteSubtotalCents - input.siteOfferDiscountCents);
   const siteCommercialCents = couponDiscountOn(input.commercial, siteBaseCents);
   const sitePartnerBaseCents = siteBaseCents - siteCommercialCents;
@@ -184,20 +180,18 @@ export function decideCampaignCoupons(input: {
   const campaignCommercialCents = couponDiscountOn(input.commercial, campaignBaseCents);
   const campaignPartnerBaseCents = campaignBaseCents - campaignCommercialCents;
 
-  const withCampaign: CampaignCouponDecision = {
+  // Cupom da criadora (Academia) SOMA com a campanha (Luis, 23/11): percentual sobre o preço já promocional (depois do comercial).
+  const campaignPartnerCents = partnerDiscountOn(input.partnerDiscountPercent, campaignPartnerBaseCents);
+
+  return {
     campaignApplied: true,
     promotionDiscountCents: input.siteSubtotalCents - input.campaignSubtotalCents,
     offerDiscountCents: campaignOfferDiscountCents,
     commercialBaseCents: campaignBaseCents,
     commercialCouponCents: campaignCommercialCents,
     partnerBaseCents: campaignPartnerBaseCents,
-    partnerCouponCents: 0,
-    partnerDiscountOverridden: hasPartner,
-    merchandiseCents: campaignPartnerBaseCents,
+    partnerCouponCents: campaignPartnerCents,
+    partnerDiscountOverridden: false,
+    merchandiseCents: campaignPartnerBaseCents - campaignPartnerCents,
   };
-
-  // Sem cupom da criadora, a campanha sempre vale (o comercial soma). Com ele: o menor valor; empate, a campanha.
-  if (hasPartner && site.merchandiseCents < withCampaign.merchandiseCents) return site;
-
-  return withCampaign;
 }

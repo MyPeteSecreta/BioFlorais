@@ -81,24 +81,22 @@ test("cupom x campanha (regra do Luis 05/11): comercial soma sobre o preço com 
   assert.equal(decideCampaignCoupons({ ...esq, commercial: floresce20, partnerDiscountPercent: null }).merchandiseCents, 5170);
   assert.equal(decideCampaignCoupons({ ...blk, commercial: floresce20, partnerDiscountPercent: null }).merchandiseCents, 4309);
 
-  // criadora 15% (R$ 10,77) ganha do Esquenta (R$ 7,18): preço do site − 15% = R$ 61,03
+  // Cupom da criadora (Academia) SOMA com a campanha (Luis, 23/11), sobre o preço já promocional; nunca "overridden".
+  // criadora 15% no Esquenta: 15% de R$ 64,62 = R$ 9,69 -> R$ 54,93
   d = decideCampaignCoupons({ ...esq, commercial: null, partnerDiscountPercent: 15 });
-  assert.deepEqual([d.campaignApplied, d.promotionDiscountCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.merchandiseCents], [false, 0, 1077, false, 6103]);
+  assert.deepEqual([d.campaignApplied, d.promotionDiscountCents, d.partnerBaseCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.merchandiseCents], [true, 718, 6462, 969, false, 5493]);
 
-  // criadora 10% empata com o Esquenta: vale a campanha; criadora registrada sem desconto; comissão sobre R$ 64,62
+  // criadora 10% no Esquenta: 10% de R$ 64,62 = R$ 6,46 -> R$ 58,16 (antes empatava e não dava nada)
   d = decideCampaignCoupons({ ...esq, commercial: null, partnerDiscountPercent: 10 });
-  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 0, true, 6462, 6462]);
+  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 646, false, 6462, 5816]);
 
-  // criadora 15% perde da Black (R$ 53,86 < R$ 61,03): Black; comissão sobre R$ 53,86
-  d = decideCampaignCoupons({ ...blk, commercial: null, partnerDiscountPercent: 15 });
-  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents], [true, 0, true, 5386]);
+  // criadora 10% na Black: 10% de R$ 53,86 = R$ 5,39 -> R$ 48,47
+  d = decideCampaignCoupons({ ...blk, commercial: null, partnerDiscountPercent: 10 });
+  assert.deepEqual([d.campaignApplied, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 539, false, 5386, 4847]);
 
-  // GPT10 + criadora 15%: Esquenta + GPT10 = R$ 58,16; site + GPT10 (R$ 7,18) + criadora (15% de R$ 64,62 = R$ 9,69) = R$ 54,93 -> vale o segundo
-  d = decideCampaignCoupons({ ...esq, commercial: gpt10, partnerDiscountPercent: 15 });
-  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerBaseCents, d.partnerCouponCents, d.merchandiseCents], [false, 718, 6462, 969, 5493]);
-  // GPT10 + criadora 10%: Esquenta + GPT10 (R$ 58,16) ganha de site + GPT10 + criadora (R$ 58,16): empate -> campanha
+  // GPT10 + criadora 10% no Esquenta: comercial R$ 6,46 -> R$ 58,16; criadora 10% de R$ 58,16 = R$ 5,82 -> R$ 52,34
   d = decideCampaignCoupons({ ...esq, commercial: gpt10, partnerDiscountPercent: 10 });
-  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.partnerBaseCents, d.merchandiseCents], [true, 646, 0, true, 5816, 5816]);
+  assert.deepEqual([d.campaignApplied, d.commercialCouponCents, d.partnerBaseCents, d.partnerCouponCents, d.partnerDiscountOverridden, d.merchandiseCents], [true, 646, 5816, 582, false, 5234]);
 
   // sem campanha: a regra antiga (comercial e depois criadora, sobre o preço do site)
   d = decideCampaignCoupons({ ...none, commercial: gpt10, partnerDiscountPercent: 15 });
@@ -138,7 +136,7 @@ test("pedido (servidor) e checkout: a mesma função (decideCampaignCoupons); co
   assert.ok(!order.includes("decideCampaign({") && !order.includes("commercialCoupon = null;") && !order.includes("partnerCoupon = null;"), "nenhum cupom é descartado pela campanha");
   assert.ok(/resolveCoupon\(\s*body\.couponCode,\s*campaignCouponBaseCents,/.test(order), "comercial validado sobre o valor com a campanha");
   assert.ok(order.includes("couponDiscountOn(commercialCoupon, siteCouponBaseCents)"), "criadora validada no cenário do preço do site");
-  assert.ok(order.includes("partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent"), "evento da parceira: desconto 0 quando a campanha vence");
+  assert.ok(order.includes("partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent"), "evento da parceira (campo legado, sempre false desde 23/11)");
   assert.ok(order.includes("String(partnerDiscountOverridden ? 0 : partnerCoupon.discountPercent)"), "pedido: percentual de desconto da criadora 0");
   assert.ok(/const partnerCommissionCents =\s*partnerCoupon &&/.test(order), "comissão continua quando há cupom da criadora");
   assert.ok(order.includes("campaign: campaignApplied && campaign ?"), "registro no pedido");
@@ -246,12 +244,12 @@ test("Omie: a Central calcula o desconto por subtotal + frete − total; o pedid
   assert.equal(gptEsq.totalCents, 5816 - pixDiscountCents(5816), "Esquenta + GPT10 + Pix");
   assert.equal(omieDiscount(gptEsq), 718 + 646 + pixDiscountCents(5816));
   assert.equal(omieDiscount(gptEsq), gptEsq.discountCents);
-  // criadora 15% vence o Esquenta: desconto dela 1077, comissão 10% de R$ 61,03
+  // criadora 15% SOMA com o Esquenta (23/11): 718 + 15% de R$ 64,62 (969) = 1687; comissão 10% de R$ 54,93
   const creator = orderMoney({ qty: 2, phase: esquenta, partnerPercent: 15 });
-  assert.deepEqual([omieDiscount(creator), creator.commissionCents], [1077, 610]);
-  // criadora 10% empata: vale o Esquenta (718), desconto dela 0, comissão 10% de R$ 64,62 = R$ 6,46
+  assert.deepEqual([omieDiscount(creator), creator.commissionCents], [1687, 549]);
+  // criadora 10% também soma: 718 + 646 = 1364; comissão 10% de R$ 58,16
   const tie = orderMoney({ qty: 2, phase: esquenta, partnerPercent: 10 });
-  assert.deepEqual([omieDiscount(tie), tie.d.partnerCouponCents, tie.commissionCents], [718, 0, 646]);
+  assert.deepEqual([omieDiscount(tie), tie.d.partnerCouponCents, tie.commissionCents], [1364, 646, 582]);
   // frete cobrado não entra no desconto
   const withShipping = orderMoney({ qty: 1, phase: esquenta, shippingCents: 990 });
   assert.equal(omieDiscount(withShipping), 359);
