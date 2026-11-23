@@ -114,6 +114,44 @@ test("Vendas por origem: sem as colunas novas ou sem nenhuma coluna de origem, a
   assert.deepEqual([r2.b2c.rows[0].canal, r2.b2c.totals.valorPagoCents], ["direto", 1000]);
 });
 
+test("CAPI da Bio com SQL REAL: reserva atômica (várias chamadas = 1 envio), Meta recusou devolve a reserva, nova chamada reenvia", async () => {
+  const { sendMetaCapiPurchase } = await import("../src/lib/meta-capi.ts");
+  const pg = new PGlite();
+  const ORDER = id(500);
+  const capture = { consent: true, fbp: "fb.1.1.1", fbc: null, ip: "203.0.113.1", ua: "UA" };
+  await pg.exec(`
+    CREATE TABLE customers (id uuid PRIMARY KEY, email text, phone text);
+    CREATE TABLE addresses (id uuid PRIMARY KEY, cep text);
+    CREATE TABLE orders (id uuid PRIMARY KEY, b2b_offer_id uuid, b2b_client_id uuid, commercial_adjustments_json text, customer_id uuid, shipping_address_id uuid);
+    INSERT INTO customers VALUES ('${id(501)}', 'a@b.test', '11988887777');
+    INSERT INTO addresses VALUES ('${id(502)}', '22290160');`);
+  await pg.query("INSERT INTO orders VALUES ($1, NULL, NULL, $2, $3, $4)", [ORDER, JSON.stringify({ storeKey: "bio", metaCapi: capture }), id(501), id(502)]);
+  const run = async (text, params = []) => (await pg.query(text, params)).rows;
+  const env = { META_CAPI_TOKEN: "t", NEXT_PUBLIC_META_PIXEL_ID: "1707736537642394" };
+  const loadPayload = async () => ({ orderId: ORDER, valueCents: 1000, items: [], segment: "b2c" });
+  let sends = 0;
+  const ok = async () => { sends += 1; return { ok: true, status: 200 }; };
+
+  const results = await Promise.all([1, 2, 3, 4].map(() => sendMetaCapiPurchase(run, ORDER, { env, fetchImpl: ok, loadPayload })));
+  assert.deepEqual([...results].sort(), ["already_sent", "already_sent", "already_sent", "sent"]);
+  assert.equal(sends, 1);
+  const stored = JSON.parse((await run("SELECT commercial_adjustments_json AS j FROM orders WHERE id = $1", [ORDER]))[0].j);
+  assert.ok(stored.metaCapiSentAt && stored.metaCapi.consent === true && stored.storeKey === "bio", "marca gravada; o resto do JSON intacto");
+
+  // Meta recusou: a reserva volta e a próxima chamada reenvia
+  await run("UPDATE orders SET commercial_adjustments_json = $2 WHERE id = $1", [ORDER, JSON.stringify({ storeKey: "bio", metaCapi: capture })]);
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await sendMetaCapiPurchase(run, ORDER, { env, fetchImpl: async () => ({ ok: false, status: 400 }), loadPayload }), "failed");
+  } finally {
+    console.error = quiet;
+  }
+  assert.equal(JSON.parse((await run("SELECT commercial_adjustments_json AS j FROM orders WHERE id = $1", [ORDER]))[0].j).metaCapiSentAt, undefined, "reserva devolvida");
+  assert.equal(await sendMetaCapiPurchase(run, ORDER, { env, fetchImpl: ok, loadPayload }), "sent");
+  assert.equal(sends, 2);
+});
+
 test("fiação: tela no admin com link, protegida pelo layout; checkout/CAPI/medição intactos", () => {
   assert.ok(read("src/app/admin/(protected)/layout.tsx").includes('href="/admin/vendas-por-origem"'));
   const page = read("src/app/admin/(protected)/vendas-por-origem/page.tsx");
