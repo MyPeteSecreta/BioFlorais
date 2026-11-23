@@ -22,7 +22,7 @@ const setCookie = (response) => response.headers.get("set-cookie");
 test("B: sem UTM, gclid/gbraid/wbraid/gad_source = google / cpc; fbclid = facebook / social; msclkid = bing / cpc; ttclid = tiktok / cpc", () => {
   const parse = (search) => at.parseAttribution(search, "", "www.bioflorais.com.br");
   for (const p of ["gclid", "gbraid", "wbraid", "gad_source"]) assert.deepEqual([parse(`?${p}=abc`).utm_source, parse(`?${p}=abc`).utm_medium], ["google", "cpc"], p);
-  assert.deepEqual(parse("?fbclid=IwAR0x"), { utm_source: "facebook", utm_medium: "social", utm_campaign: null, referrer_domain: null });
+  assert.deepEqual(parse("?fbclid=IwAR0x"), { utm_source: "facebook", utm_medium: "social", utm_campaign: null, referrer_domain: null }); // 6 caracteres: curto demais para ser guardado
   assert.deepEqual([parse("?msclkid=1").utm_source, parse("?msclkid=1").utm_medium], ["bing", "cpc"]);
   assert.deepEqual([parse("?ttclid=1").utm_source, parse("?ttclid=1").utm_medium], ["tiktok", "cpc"]);
   assert.equal(parse("?gclid=").utm_source, null, "vazio não conta");
@@ -33,9 +33,14 @@ test("B: sem UTM, gclid/gbraid/wbraid/gad_source = google / cpc; fbclid = facebo
   });
   assert.equal(parse("?utm_campaign=so_campanha&gclid=x").utm_source, null, "qualquer UTM: não completa com o clique");
 
-  // o valor do identificador nunca é guardado
-  const cookie = at.buildAttributionCookie(parse("?gclid=SEGREDO123&fbclid=OUTRO"), true);
-  assert.ok(!/SEGREDO123|OUTRO/.test(decodeURIComponent(cookie)));
+  // 23/11 (autorizado pelo Luis): o valor do gclid/fbclid (e utm_content/utm_term) AGORA é guardado, validado (8 a 300 caracteres seguros)
+  const full = parse("?gclid=GCLID_ABC12345&fbclid=FBCLID_XYZ9876&utm_content=ad_123&utm_term=floral");
+  assert.deepEqual([full.gclid, full.fbclid, full.utm_content, full.utm_term], ["GCLID_ABC12345", "FBCLID_XYZ9876", "ad_123", "floral"]);
+  const cookie = at.buildAttributionCookie(full, true);
+  assert.deepEqual(at.readAttributionCookie(decodeURIComponent(cookie.split(";")[0].split("=").slice(1).join("=")) && cookie.split(";")[0].split("=").slice(1).join("="), false), full, "ida e volta pelo cookie");
+  assert.ok(cookie.length < 3500, "cabe no cookie");
+  assert.equal(parse("?gclid=<script>alert(1)</script>").gclid, undefined, "valor inseguro não entra");
+  assert.equal(parse("?gclid=curto").gclid, undefined, "curto demais não entra");
 });
 
 test("C: o servidor grava o bio_origem na chegada com informação, igual ao navegador (primeiro toque, 30 dias, Lax, Secure)", () => {

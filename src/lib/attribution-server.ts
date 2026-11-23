@@ -18,13 +18,31 @@ export { ATTRIBUTION_COOKIE };
 export async function attachAttribution(run: SqlRunner, orderId: string, attribution: Attribution | null | undefined): Promise<boolean> {
   if (!attribution || !hasAttribution(attribution) || !isUuid(orderId)) return false;
 
+  const base = [orderId, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, attribution.referrer_domain];
+
+  // 23/11: utm_content, utm_term, gclid e fbclid (SQL ORIGEM_EXTRA). Sem essas colunas, cai no gravar-só-os-4 de sempre.
+  try {
+    const rows = await run(
+      `UPDATE orders
+          SET utm_source = $2, utm_medium = $3, utm_campaign = $4, referrer_domain = $5,
+              utm_content = $6, utm_term = $7, gclid = $8, fbclid = $9
+        WHERE id = $1::uuid AND utm_source IS NULL AND utm_medium IS NULL AND utm_campaign IS NULL AND referrer_domain IS NULL
+      RETURNING id`,
+      [...base, attribution.utm_content ?? null, attribution.utm_term ?? null, attribution.gclid ?? null, attribution.fbclid ?? null]
+    );
+
+    return rows.length > 0;
+  } catch {
+    // colunas novas ainda não criadas: grava só a origem básica
+  }
+
   try {
     const rows = await run(
       `UPDATE orders
           SET utm_source = $2, utm_medium = $3, utm_campaign = $4, referrer_domain = $5
         WHERE id = $1::uuid AND utm_source IS NULL AND utm_medium IS NULL AND utm_campaign IS NULL AND referrer_domain IS NULL
       RETURNING id`,
-      [orderId, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, attribution.referrer_domain]
+      base
     );
 
     return rows.length > 0;
@@ -38,7 +56,14 @@ export async function loadOrderAttribution(run: SqlRunner, orderId: string): Pro
   if (!isUuid(orderId)) return null;
 
   try {
-    const rows = await run(`SELECT utm_source, utm_medium, utm_campaign, referrer_domain FROM orders WHERE id = $1::uuid`, [orderId]);
+    let rows: Array<Record<string, unknown>>;
+
+    try {
+      rows = await run(`SELECT utm_source, utm_medium, utm_campaign, referrer_domain, utm_content, utm_term, gclid, fbclid FROM orders WHERE id = $1::uuid`, [orderId]);
+    } catch {
+      rows = await run(`SELECT utm_source, utm_medium, utm_campaign, referrer_domain FROM orders WHERE id = $1::uuid`, [orderId]);
+    }
+
     const row = rows[0];
     if (!row) return null;
 
@@ -47,6 +72,10 @@ export async function loadOrderAttribution(run: SqlRunner, orderId: string): Pro
       utm_medium: row.utm_medium ? String(row.utm_medium) : null,
       utm_campaign: row.utm_campaign ? String(row.utm_campaign) : null,
       referrer_domain: row.referrer_domain ? String(row.referrer_domain) : null,
+      ...(row.utm_content ? { utm_content: String(row.utm_content) } : {}),
+      ...(row.utm_term ? { utm_term: String(row.utm_term) } : {}),
+      ...(row.gclid ? { gclid: String(row.gclid) } : {}),
+      ...(row.fbclid ? { fbclid: String(row.fbclid) } : {}),
     };
 
     return hasAttribution(attribution) ? attribution : null;
@@ -55,7 +84,7 @@ export async function loadOrderAttribution(run: SqlRunner, orderId: string): Pro
   }
 }
 
-const CSV_HEADER = ["pedido", "data", "status", "pagamento", "total_reais", "utm_source", "utm_medium", "utm_campaign", "referrer_domain", "origem"];
+const CSV_HEADER = ["pedido", "data", "status", "pagamento", "total_reais", "utm_source", "utm_medium", "utm_campaign", "referrer_domain", "utm_content", "utm_term", "origem"];
 
 /** Célula de CSV: aspas duplicadas e proteção contra fórmula de planilha (=, +, -, @). */
 export function csvCell(value: unknown): string {
@@ -86,11 +115,18 @@ export async function buildOrdersOriginCsv(run: SqlRunner, options: { from?: str
 
   try {
     rows = await run(
-      `SELECT ${base}, o.utm_source, o.utm_medium, o.utm_campaign, o.referrer_domain FROM orders o ${where} ORDER BY o.created_at DESC LIMIT 20000`,
+      `SELECT ${base}, o.utm_source, o.utm_medium, o.utm_campaign, o.referrer_domain, o.utm_content, o.utm_term FROM orders o ${where} ORDER BY o.created_at DESC LIMIT 20000`,
       params
     );
   } catch {
-    rows = await run(`SELECT ${base} FROM orders o ${where} ORDER BY o.created_at DESC LIMIT 20000`, params);
+    try {
+      rows = await run(
+        `SELECT ${base}, o.utm_source, o.utm_medium, o.utm_campaign, o.referrer_domain FROM orders o ${where} ORDER BY o.created_at DESC LIMIT 20000`,
+        params
+      );
+    } catch {
+      rows = await run(`SELECT ${base} FROM orders o ${where} ORDER BY o.created_at DESC LIMIT 20000`, params);
+    }
   }
 
   const lines = [CSV_HEADER.map(csvCell).join(",")];
@@ -118,6 +154,8 @@ export async function buildOrdersOriginCsv(run: SqlRunner, options: { from?: str
         attribution.utm_medium,
         attribution.utm_campaign,
         attribution.referrer_domain,
+        row.utm_content ? String(row.utm_content) : null,
+        row.utm_term ? String(row.utm_term) : null,
         origem,
       ]
         .map(csvCell)

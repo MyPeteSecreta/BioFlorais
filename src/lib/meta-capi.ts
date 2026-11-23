@@ -145,7 +145,7 @@ export async function sendMetaCapiPurchase(
     /** Pedido pago (padrão: loadPurchasePayload); injetável no teste. */
     loadPayload?: (orderId: string) => Promise<PurchasePayload | null>;
   } = {}
-): Promise<"sent" | "no_token" | "no_pixel" | "not_b2c" | "no_consent" | "not_paid" | "failed"> {
+): Promise<"sent" | "no_token" | "no_pixel" | "not_b2c" | "no_consent" | "not_paid" | "already_sent" | "failed"> {
   const env = options.env ?? process.env;
   const token = env.META_CAPI_TOKEN?.trim();
   const pixel = metaPixelId(env.NEXT_PUBLIC_META_PIXEL_ID);
@@ -154,6 +154,8 @@ export async function sendMetaCapiPurchase(
     logMetaCapiNotConfigured();
     return token ? "no_pixel" : "no_token";
   }
+
+  let reserved = false;
 
   try {
     const [row] = await run(
@@ -170,6 +172,27 @@ export async function sendMetaCapiPurchase(
 
     const payload = await (options.loadPayload ?? ((id: string) => loadPurchasePayload(run, id)))(orderId);
     if (!payload) return "not_paid";
+
+    // UMA vez por pedido (23/11): webhook, consulta de status, cron e baixa manual chamam o finalizador várias vezes. A reserva é
+    // atômica (só quem grava a marca envia) e fica em commercial_adjustments_json.metaCapiSentAt: sem coluna nova nem SQL.
+    // Falha da Meta devolve a reserva (abaixo) para uma próxima chamada tentar de novo.
+    const claimed = await run(
+      `UPDATE orders
+          SET commercial_adjustments_json = jsonb_set(commercial_adjustments_json::jsonb, '{metaCapiSentAt}', to_jsonb(now()::text))::text
+        WHERE id = $1::uuid AND commercial_adjustments_json IS NOT NULL AND (commercial_adjustments_json::jsonb -> 'metaCapiSentAt') IS NULL
+      RETURNING id`,
+      [orderId]
+    );
+
+    if (claimed.length === 0) return "already_sent";
+
+    reserved = true;
+
+    const releaseClaim = () =>
+      run(
+        `UPDATE orders SET commercial_adjustments_json = ((commercial_adjustments_json::jsonb) - 'metaCapiSentAt')::text WHERE id = $1::uuid`,
+        [orderId]
+      ).catch(() => []);
 
     const body = buildMetaCapiPurchaseBody({
       payload,
@@ -188,11 +211,16 @@ export async function sendMetaCapiPurchase(
     );
 
     // log sem dado pessoal: só o pedido e o código HTTP
-    if (!response.ok) console.error("[meta-capi] Purchase não aceito", { orderId, status: response.status });
+    if (!response.ok) {
+      console.error("[meta-capi] Purchase não aceito", { orderId, status: response.status });
+      await releaseClaim();
+    }
 
     return response.ok ? "sent" : "failed";
   } catch {
     console.error("[meta-capi] Purchase não enviado", { orderId });
+    // só devolve a reserva que ESTA chamada fez (nunca a de outra chamada)
+    if (reserved) await run(`UPDATE orders SET commercial_adjustments_json = ((commercial_adjustments_json::jsonb) - 'metaCapiSentAt')::text WHERE id = $1::uuid`, [orderId]).catch(() => []);
     return "failed";
   }
 }

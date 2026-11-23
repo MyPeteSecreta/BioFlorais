@@ -137,6 +137,7 @@ test("fiação: Google tag define o padrão negado ANTES de carregar; pixel da M
   const server = read("src/lib/purchase-event-server.ts");
   assert.ok(server.includes("IN ('paid', 'approved')") && server.includes("DISTINCT FROM 'boleto'"));
   assert.ok(!/email|cpf|cnpj|phone|customer/i.test(server.replace(/\/\*[\s\S]*?\*\//g, "")), "consulta sem dado pessoal");
+  assert.ok(server.includes("o.b2b_offer_id IS NULL") && server.includes("o.b2b_client_id IS NULL"), "compra do lojista (B2B) nunca vira Purchase do navegador (23/11)");
   assert.ok(read("src/components/measurement/PurchaseMeasurement.tsx").includes("purchaseSentKey("), "um evento por pedido e por serviço");
 });
 

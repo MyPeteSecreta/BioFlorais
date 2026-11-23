@@ -19,7 +19,35 @@ export type Attribution = {
   utm_medium: string | null;
   utm_campaign: string | null;
   referrer_domain: string | null;
+  /** 23/11 (autorizado pelo Luis): qual anúncio/criativo/termo e os identificadores de clique do Google e da Meta. Opcionais. */
+  utm_content?: string | null;
+  utm_term?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
 };
+
+/** Campos novos só quando têm valor (o objeto antigo de 4 campos continua igual). */
+function extraFields(raw: { n?: unknown; t?: unknown; g?: unknown; f?: unknown }): Pick<Attribution, "utm_content" | "utm_term" | "gclid" | "fbclid"> {
+  const out: Pick<Attribution, "utm_content" | "utm_term" | "gclid" | "fbclid"> = {};
+  const content = cleanField(raw.n);
+  const term = cleanField(raw.t);
+  const gclid = cleanClickId(raw.g);
+  const fbclid = cleanClickId(raw.f);
+
+  if (content) out.utm_content = content;
+  if (term) out.utm_term = term;
+  if (gclid) out.gclid = gclid;
+  if (fbclid) out.fbclid = fbclid;
+
+  return out;
+}
+
+/** Identificador de clique (gclid/fbclid): só letras, números, _ - . ; entre 8 e 300 caracteres; outra coisa vira null. */
+export function cleanClickId(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+
+  return /^[A-Za-z0-9_.-]{8,300}$/.test(text) ? text : null;
+}
 
 export const EMPTY_ATTRIBUTION: Attribution = { utm_source: null, utm_medium: null, utm_campaign: null, referrer_domain: null };
 
@@ -34,7 +62,10 @@ export function cleanField(value: unknown): string | null {
 }
 
 export function hasAttribution(attribution: Attribution | null | undefined): boolean {
-  return Boolean(attribution && (attribution.utm_source || attribution.utm_medium || attribution.utm_campaign || attribution.referrer_domain));
+  return Boolean(
+    attribution &&
+      (attribution.utm_source || attribution.utm_medium || attribution.utm_campaign || attribution.referrer_domain || attribution.utm_content || attribution.utm_term || attribution.gclid || attribution.fbclid)
+  );
 }
 
 const bareHost = (host: string) => host.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
@@ -98,6 +129,7 @@ export function parseAttribution(search: string | null | undefined, referrer: st
     utm_medium: cleanField(params.get("utm_medium")),
     utm_campaign: cleanField(params.get("utm_campaign")),
     referrer_domain: referrerDomain(referrer, ownHostname),
+    ...extraFields({ n: params.get("utm_content"), t: params.get("utm_term"), g: params.get("gclid"), f: params.get("fbclid") }),
   };
 
   if (!attribution.utm_source && !attribution.utm_medium && !attribution.utm_campaign) {
@@ -113,9 +145,15 @@ export function parseAttribution(search: string | null | undefined, referrer: st
 }
 
 export function buildAttributionCookie(attribution: Attribution, secure: boolean): string {
-  const value = encodeURIComponent(
-    JSON.stringify({ s: attribution.utm_source, m: attribution.utm_medium, c: attribution.utm_campaign, r: attribution.referrer_domain })
-  );
+  const data: Record<string, string | null> = { s: attribution.utm_source, m: attribution.utm_medium, c: attribution.utm_campaign, r: attribution.referrer_domain };
+
+  // campos novos só quando existem (cookie curto; o cookie antigo continua válido)
+  if (attribution.utm_content) data.n = attribution.utm_content;
+  if (attribution.utm_term) data.t = attribution.utm_term;
+  if (attribution.gclid) data.g = attribution.gclid;
+  if (attribution.fbclid) data.f = attribution.fbclid;
+
+  const value = encodeURIComponent(JSON.stringify(data));
 
   return `${ATTRIBUTION_COOKIE}=${value}; Max-Age=${ATTRIBUTION_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
 }
@@ -130,7 +168,7 @@ export function readAttributionCookie(cookieHeaderOrValue: string | null | undef
     value = match.slice(ATTRIBUTION_COOKIE.length + 1);
   }
 
-  if (!value || value.length > 800) return null;
+  if (!value || value.length > 2000) return null;
 
   try {
     const data = JSON.parse(decodeURIComponent(value)) as Record<string, unknown>;
@@ -141,6 +179,7 @@ export function readAttributionCookie(cookieHeaderOrValue: string | null | undef
       utm_medium: cleanField(data.m),
       utm_campaign: cleanField(data.c),
       referrer_domain: cleanField(data.r),
+      ...extraFields({ n: data.n, t: data.t, g: data.g, f: data.f }),
     };
 
     return hasAttribution(attribution) ? attribution : null;

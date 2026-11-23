@@ -82,6 +82,13 @@ export default async function ProtectedAdminLayout({
             </Link>
 
             <Link
+              href="/admin/vendas-por-origem"
+              className="rounded-full border border-[#eadfd9] bg-white px-5 py-2.5 text-sm font-extrabold text-[#342737]"
+            >
+              Vendas por origem
+            </Link>
+
+            <Link
               href="/admin/b2b"
               className="rounded-full border border-[#eadfd9] bg-white px-5 py-2.5 text-sm font-extrabold text-[#342737]"
             >

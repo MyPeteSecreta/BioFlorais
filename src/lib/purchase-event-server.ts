@@ -1,6 +1,7 @@
 /**
  * Dados do evento de compra (Google purchase / Meta Purchase) de um pedido PAGO. Sem dado pessoal: só id do pedido, valor e
- * itens (slug, quantidade, preço). Mesmas regras da Image Tag: pedido pago/aprovado, não boleto, não arquivado, valor > 0.
+ * itens (slug, quantidade, preço). Mesmas regras da Image Tag: pedido pago/aprovado, não boleto, não arquivado, valor > 0 e,
+ * desde 23/11, NUNCA pedido do lojista (b2b_offer_id/b2b_client_id): a compra do lojista não é conversão do consumidor.
  * O id do pedido é o event_id/transaction_id (o Google e a Meta deduplicam por ele).
  */
 
@@ -20,6 +21,8 @@ export async function loadPurchasePayload(run: SqlRunner, orderId: string): Prom
         WHERE o.id = $1::uuid
           AND o.status IN ('paid', 'approved')
           AND o.payment_method IS DISTINCT FROM 'boleto'
+          AND o.b2b_offer_id IS NULL
+          AND o.b2b_client_id IS NULL
           AND o.total_cents > 0${notArchived}`,
       [orderId]
     );

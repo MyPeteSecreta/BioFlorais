@@ -178,9 +178,10 @@ export default function Page() {
             </h2>
             <p>
               Para entender de onde vêm as visitas e as compras, guardamos por até 30 dias, no cookie <code>bio_origem</code>, apenas o
-              nome da campanha do link que trouxe você (<code>utm_source</code>, <code>utm_medium</code> e <code>utm_campaign</code>) e o
-              domínio do site de onde você veio (por exemplo, google.com ou instagram.com). Esse cookie é nosso, não é compartilhado com
-              terceiros e não contém nome, e-mail, telefone, documentos nem qualquer identificador seu. Na compra, essas informações são
+              nome da campanha do link que trouxe você (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>,
+              <code>utm_content</code> e <code>utm_term</code>), o código de clique que o Google ou a Meta colocam no link do anúncio
+              (<code>gclid</code> ou <code>fbclid</code>) e o domínio do site de onde você veio (por exemplo, google.com ou instagram.com). Esse
+              cookie é nosso, não é compartilhado com terceiros por nós e não contém nome, e-mail, telefone nem documentos. Na compra, essas informações são
               gravadas no pedido para sabermos qual canal gerou a venda. Por não identificarem você, não dependem do consentimento de
               marketing; você pode apagar o cookie a qualquer momento nas configurações do navegador.
             </p>

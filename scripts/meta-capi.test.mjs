@@ -79,6 +79,21 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   assert.ok(!/cliente@teste|11912345678|22290-?160/.test(calls[0].init.body), "o que sai para a Meta não tem e-mail, telefone nem CEP em texto");
   assert.ok(calls[0].init.signal, "timeout curto");
 
+  // UMA vez por pedido (23/11): se a reserva já existe (webhook, status, cron e baixa manual repetem), não envia de novo
+  const before = calls.length;
+  const claimStub = (claimRows) => async (sql) => (/metaCapiSentAt/.test(sql) && /RETURNING/.test(sql) ? claimRows : [row]);
+  assert.equal(await sendMetaCapiPurchase(claimStub([]), ORDER, { env, fetchImpl: okFetch, loadPayload }), "already_sent");
+  assert.equal(calls.length, before, "reserva existente: nada enviado");
+  assert.equal(await sendMetaCapiPurchase(claimStub([{ id: ORDER }]), ORDER, { env, fetchImpl: okFetch, loadPayload }), "sent");
+  const lib0 = read("src/lib/meta-capi.ts");
+  assert.ok(lib0.includes("'{metaCapiSentAt}'") && /IS NULL\s+RETURNING id/.test(lib0), "reserva atômica no próprio pedido, sem coluna nova");
+  // Meta recusou: a reserva volta para uma próxima chamada tentar
+  const released = [];
+  const releaseStub = async (sql) => { if (/- 'metaCapiSentAt'/.test(sql)) released.push(1); return /RETURNING/.test(sql) ? [{ id: ORDER }] : [row]; };
+  const quiet = console.error; console.error = () => {};
+  try { assert.equal(await sendMetaCapiPurchase(releaseStub, ORDER, { env, fetchImpl: async () => ({ ok: false, status: 400 }), loadPayload }), "failed"); } finally { console.error = quiet; }
+  assert.equal(released.length, 1, "falha da Meta devolve a reserva");
+
   // falha da Meta: devolve "failed", não lança; o log não leva token nem dado pessoal
   const logs = [];
   const original = console.error;

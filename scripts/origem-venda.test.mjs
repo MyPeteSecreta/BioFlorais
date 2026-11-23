@@ -110,7 +110,7 @@ test("servidor: grava a origem no pedido (só se vazio), tolera a ausência das 
   // CSV: cabeçalho, origem formatada, "direto", BOM e proteção contra fórmula
   const csv = await server.buildOrdersOriginCsv(run, { notArchivedSql: " AND o.archived_at IS NULL" });
   const lines = csv.replace("﻿", "").trim().split("\r\n");
-  assert.equal(lines[0], '"pedido","data","status","pagamento","total_reais","utm_source","utm_medium","utm_campaign","referrer_domain","origem"');
+  assert.equal(lines[0], '"pedido","data","status","pagamento","total_reais","utm_source","utm_medium","utm_campaign","referrer_domain","utm_content","utm_term","origem"');
   assert.ok(lines.some((line) => line.includes(ORDER) && line.includes('"258.70"') && line.includes('"instagram / organic / 2110_rotina"')));
   assert.ok(lines.some((line) => line.includes("10000000-0000-4000-8000-000000000002") && line.endsWith('"direto"')));
   assert.equal(server.csvCell("=HYPERLINK(1)"), `"'=HYPERLINK(1)"`);
