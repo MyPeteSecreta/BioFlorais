@@ -137,7 +137,8 @@ test("fiação: Google tag define o padrão negado ANTES de carregar; pixel da M
   const server = read("src/lib/purchase-event-server.ts");
   assert.ok(server.includes("IN ('paid', 'approved')") && server.includes("DISTINCT FROM 'boleto'"));
   assert.ok(!/email|cpf|cnpj|phone|customer/i.test(server.replace(/\/\*[\s\S]*?\*\//g, "")), "consulta sem dado pessoal");
-  assert.ok(server.includes("o.b2b_offer_id IS NULL") && server.includes("o.b2b_client_id IS NULL"), "compra do lojista (B2B) nunca vira Purchase do navegador (23/11)");
+  assert.ok(server.includes("is_b2b") && server.includes('segment: order.is_b2b ? "b2b" : "b2c"') && !server.includes("o.b2b_offer_id IS NULL"), "compra do lojista (B2B) pelo site CONTA, com segment b2b (Luis, 23/11)");
+  assert.ok(server.includes("'vendedor', 'mostruario'"), "pedido lançado pelo vendedor não vem do site");
   assert.ok(read("src/components/measurement/PurchaseMeasurement.tsx").includes("purchaseSentKey("), "um evento por pedido e por serviço");
 });
 
@@ -354,13 +355,14 @@ test("Meta: ViewContent/AddToCart de produto sensível não existem; InitiateChe
   assert.deepEqual(purchase.params, {
     value: 103.4,
     currency: "BRL",
+    segment: "b2c",
     content_type: "product",
     content_ids: [META_CONTENT_IDS[NORMAL]],
     contents: [{ id: META_CONTENT_IDS[NORMAL], quantity: 2, item_price: 35.9 }],
     num_items: 3,
   });
   assert.equal(purchase.eventId, "pedido-1", "deduplicação mantida");
-  assert.deepEqual(metaPurchaseEvent({ orderId: "p2", valueCents: 3590, items: [{ id: SENSITIVE, quantity: 1, priceCents: 3590 }] }).params, { value: 35.9, currency: "BRL", num_items: 1 });
+  assert.deepEqual(metaPurchaseEvent({ orderId: "p2", valueCents: 3590, items: [{ id: SENSITIVE, quantity: 1, priceCents: 3590 }] }).params, { value: 35.9, currency: "BRL", segment: "b2c", num_items: 1 });
 
   // nenhum evento leva slug, nome, categoria ou dado pessoal
   const all = JSON.stringify([ic, onlySensitive, purchase, metaViewContentEvent({ slug: NORMAL, priceCents: 3590 }), metaAddToCartEvent(NORMAL)]);

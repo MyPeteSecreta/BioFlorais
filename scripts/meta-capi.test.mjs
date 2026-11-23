@@ -65,8 +65,7 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   const loadPayload = async () => payload;
 
   assert.equal(await sendMetaCapiPurchase(run(row), ORDER, { env: { ...env, META_CAPI_TOKEN: "" }, fetchImpl: okFetch, loadPayload }), "no_token");
-  assert.equal(await sendMetaCapiPurchase(run({ ...row, b2b_offer_id: "x" }), ORDER, { env, fetchImpl: okFetch, loadPayload }), "not_b2c");
-  assert.equal(await sendMetaCapiPurchase(run({ ...row, adjustments: JSON.stringify({ metaCapi: null }) }), ORDER, { env, fetchImpl: okFetch, loadPayload }), "no_consent");
+    assert.equal(await sendMetaCapiPurchase(run({ ...row, adjustments: JSON.stringify({ metaCapi: null }) }), ORDER, { env, fetchImpl: okFetch, loadPayload }), "no_consent");
   assert.equal(await sendMetaCapiPurchase(run(row), ORDER, { env, fetchImpl: okFetch, loadPayload: async () => null }), "not_paid");
   assert.equal(calls.length, 0, "nada enviado nesses casos");
 
@@ -75,6 +74,20 @@ test("envio: só com token, B2C, aceite e pedido pago; nunca lança; o token nã
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.data[0].event_id, ORDER);
   assert.equal(sent.test_event_code, "TEST123");
+  // segmento (Luis, 23/11): pedido do consumidor = b2c; igual ao do pixel do navegador (mesmo custom_data e mesmo event_id)
+  assert.equal(sent.data[0].custom_data.segment, "b2c");
+  assert.deepEqual(sent.data[0].custom_data, metaPurchaseEvent({ ...payload, segment: "b2c" }).params);
+  // pedido do lojista feito pelo site também vai, como b2b
+  const b2bCalls = [];
+  assert.equal(
+    await sendMetaCapiPurchase(run({ ...row, b2b_offer_id: "oferta-1" }), ORDER, { env, fetchImpl: async (url, init) => { b2bCalls.push(init); return { ok: true, status: 200 }; }, loadPayload }),
+    "sent"
+  );
+  const b2bBody = JSON.parse(b2bCalls[0].body);
+  assert.equal(b2bBody.data[0].custom_data.segment, "b2b");
+  assert.equal(b2bBody.data[0].event_id, ORDER, "mesmo event_id do pixel");
+  assert.deepEqual(b2bBody.data[0].custom_data, metaPurchaseEvent({ ...payload, segment: "b2b" }).params);
+  assert.equal(metaPurchaseEvent(payload).params.segment, "b2c", "sem segmento informado, é b2c");
   assert.deepEqual(sent.data[0].user_data.zp, [sha("22290160")], "CEP do pedido em hash");
   assert.ok(!/cliente@teste|11912345678|22290-?160/.test(calls[0].init.body), "o que sai para a Meta não tem e-mail, telefone nem CEP em texto");
   assert.ok(calls[0].init.signal, "timeout curto");

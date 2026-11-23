@@ -20,6 +20,7 @@ import TrackOrderCard from "@/components/TrackOrderCard";
 import AdsPurchaseTag from "@/components/consent/AdsPurchaseTag";
 import PurchaseMeasurement from "@/components/measurement/PurchaseMeasurement";
 import { useSearchParams } from "next/navigation";
+import { hasMarketingConsent } from "@/lib/consent";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import B2BMercadoPagoCardPayment from "@/components/payments/B2BMercadoPagoCardPayment";
@@ -590,6 +591,14 @@ export default function B2BCheckoutContent() {
           shipping: { serviceName: chosen.serviceName },
           displays: displayKeys,
           launched,
+          // aceite de marketing do banner: libera a API de Conversões da Meta para este pedido (segment b2b)
+          marketingConsent: (() => {
+            try {
+              return hasMarketingConsent(window.localStorage);
+            } catch {
+              return false;
+            }
+          })(),
           ...(quoteId ? { quoteId } : {}),
         }),
       });

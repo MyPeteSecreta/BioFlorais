@@ -86,10 +86,14 @@ export function safePageLocation(href: string): string {
 
 export type PurchaseItem = { id: string; quantity: number; priceCents: number };
 
+/** Segmento da venda (23/11): compra do site (b2c) ou do lojista (b2b). Vai igual no navegador e na CAPI, para as conversões "Compra B2C" e "Compra B2B". */
+export type PurchaseSegment = "b2b" | "b2c";
+
 export type PurchasePayload = {
   orderId: string;
   valueCents: number;
   items: PurchaseItem[];
+  segment?: PurchaseSegment;
 };
 
 const toValue = (cents: number) => Math.round(Number(cents)) / 100;
@@ -102,6 +106,7 @@ export function googlePurchaseEvent(order: PurchasePayload) {
       transaction_id: order.orderId,
       value: toValue(order.valueCents),
       currency: CURRENCY,
+      segment: order.segment ?? "b2c",
       items: order.items.map((item) => ({ item_id: feedItemId(item.id), quantity: item.quantity, price: toValue(item.priceCents) })),
     },
   };
@@ -158,6 +163,7 @@ export function metaPurchaseEvent(order: PurchasePayload) {
     params: {
       value: toValue(order.valueCents),
       currency: CURRENCY,
+      segment: order.segment ?? "b2c",
       ...metaContentParams(contents, true),
       num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
     },

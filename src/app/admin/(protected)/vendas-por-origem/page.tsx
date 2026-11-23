@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { andNotArchived } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
-import { loadSalesByOrigin, resolvePeriod, type OriginRow } from "@/lib/sales-by-origin";
+import { loadSalesByOrigin, resolvePeriod, type OriginRow, type SegmentReport } from "@/lib/sales-by-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,81 @@ function Cells({ row }: { row: OriginRow }) {
 }
 
 const HEAD = ["Pedidos", "Pagos", "Valor pago", "Não pagos", "Valor não pago"];
+
+function Section({ title, hint, testId, report }: { title: string; hint: string; testId: string; report: SegmentReport }) {
+  return (
+    <section className="mt-10" data-testid={testId}>
+      <h2 className="text-xl font-extrabold text-[#342737]">{title}</h2>
+      <p className="mt-1 text-xs text-[#756674]">{hint}</p>
+
+      <h3 className="mt-4 text-base font-extrabold text-[#342737]">Por canal</h3>
+      <div className="mt-2 overflow-x-auto rounded-xl border border-[#eadfd9] bg-white">
+        <table className="w-full min-w-[640px] text-sm" data-testid={`${testId}-canais`}>
+          <thead className="bg-[#f6eef7] text-left text-xs uppercase text-[#6b476f]">
+            <tr>
+              <th className="px-3 py-2">Canal</th>
+              {HEAD.map((label) => (
+                <th key={label} className="px-3 py-2 text-right">
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.channels.map((row) => (
+              <tr key={row.canal} className="border-t border-[#f1e8e3]">
+                <td className="px-3 py-2 font-bold">{row.canal}</td>
+                <Cells row={row} />
+              </tr>
+            ))}
+            <tr className="border-t-2 border-[#d8c9d9] bg-[#faf6fb] font-extrabold">
+              <td className="px-3 py-2">Total</td>
+              <Cells row={report.totals} />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="mt-6 text-base font-extrabold text-[#342737]">Por campanha e anúncio</h3>
+      <div className="mt-2 overflow-x-auto rounded-xl border border-[#eadfd9] bg-white">
+        <table className="w-full min-w-[900px] text-sm" data-testid={`${testId}-detalhe`}>
+          <thead className="bg-[#f6eef7] text-left text-xs uppercase text-[#6b476f]">
+            <tr>
+              <th className="px-3 py-2">Canal</th>
+              <th className="px-3 py-2">Meio</th>
+              <th className="px-3 py-2">Campanha</th>
+              <th className="px-3 py-2">Anúncio</th>
+              {HEAD.map((label) => (
+                <th key={label} className="px-3 py-2 text-right">
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {report.rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-3 py-4 text-center text-[#756674]">
+                  Nenhum pedido neste período.
+                </td>
+              </tr>
+            ) : (
+              report.rows.map((row) => (
+                <tr key={`${row.canal}|${row.meio}|${row.campanha}|${row.anuncio}`} className="border-t border-[#f1e8e3]">
+                  <td className="px-3 py-2 font-bold">{row.canal}</td>
+                  <td className="px-3 py-2">{row.meio}</td>
+                  <td className="px-3 py-2">{row.campanha}</td>
+                  <td className="px-3 py-2">{row.anuncio}</td>
+                  <Cells row={row} />
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 export default async function SalesByOriginPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
   const params = await searchParams;
@@ -43,7 +118,7 @@ export default async function SalesByOriginPage({ searchParams }: { searchParams
 
       <h1 className="mt-3 text-2xl font-extrabold text-[#342737]">Vendas por origem</h1>
       <p className="mt-1 text-sm text-[#756674]">
-        Pedidos do site (sem lojista) por canal, campanha e anúncio. Só números: nenhum dado de cliente. &quot;Não pagos&quot; inclui aguardando pagamento e cancelados.
+        Pedidos feitos pelo site, por canal, campanha e anúncio, separados em <strong>consumidor (B2C)</strong> e <strong>lojista (B2B)</strong>. Só números: nenhum dado de cliente. &quot;Não pagos&quot; inclui aguardando pagamento e cancelados. Pedido lançado pelo vendedor e mostruário não entram.
       </p>
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-3">
@@ -67,72 +142,9 @@ export default async function SalesByOriginPage({ searchParams }: { searchParams
         <p className="mt-6 rounded-xl bg-[#fff4e5] p-4 text-sm font-bold text-[#7a4a00]">Não foi possível ler os pedidos agora. Tente de novo em instantes.</p>
       ) : (
         <>
-          <h2 className="mt-8 text-lg font-extrabold text-[#342737]">Por canal</h2>
-          <div className="mt-2 overflow-x-auto rounded-xl border border-[#eadfd9] bg-white">
-            <table className="w-full min-w-[640px] text-sm" data-testid="origem-canais">
-              <thead className="bg-[#f6eef7] text-left text-xs uppercase text-[#6b476f]">
-                <tr>
-                  <th className="px-3 py-2">Canal</th>
-                  {HEAD.map((label) => (
-                    <th key={label} className="px-3 py-2 text-right">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {report.channels.map((row) => (
-                  <tr key={row.canal} className="border-t border-[#f1e8e3]">
-                    <td className="px-3 py-2 font-bold">{row.canal}</td>
-                    <Cells row={row} />
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-[#d8c9d9] bg-[#faf6fb] font-extrabold">
-                  <td className="px-3 py-2">Total</td>
-                  <Cells row={report.totals} />
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h2 className="mt-8 text-lg font-extrabold text-[#342737]">Por campanha e anúncio</h2>
-          <div className="mt-2 overflow-x-auto rounded-xl border border-[#eadfd9] bg-white">
-            <table className="w-full min-w-[900px] text-sm" data-testid="origem-detalhe">
-              <thead className="bg-[#f6eef7] text-left text-xs uppercase text-[#6b476f]">
-                <tr>
-                  <th className="px-3 py-2">Canal</th>
-                  <th className="px-3 py-2">Meio</th>
-                  <th className="px-3 py-2">Campanha</th>
-                  <th className="px-3 py-2">Anúncio</th>
-                  {HEAD.map((label) => (
-                    <th key={label} className="px-3 py-2 text-right">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-3 py-4 text-center text-[#756674]">
-                      Nenhum pedido neste período.
-                    </td>
-                  </tr>
-                ) : (
-                  report.rows.map((row) => (
-                    <tr key={`${row.canal}|${row.meio}|${row.campanha}|${row.anuncio}`} className="border-t border-[#f1e8e3]">
-                      <td className="px-3 py-2 font-bold">{row.canal}</td>
-                      <td className="px-3 py-2">{row.meio}</td>
-                      <td className="px-3 py-2">{row.campanha}</td>
-                      <td className="px-3 py-2">{row.anuncio}</td>
-                      <Cells row={row} />
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-xs text-[#756674]">
+          <Section title="Consumidor (B2C)" hint="Compra que o cliente final faz no site. É a conversão &quot;Compra B2C&quot; na Meta." testId="origem-b2c" report={report.b2c} />
+          <Section title="Lojista (B2B)" hint="Compra que o lojista faz pelo link da oferta, no site. É a conversão &quot;Compra B2B&quot; na Meta." testId="origem-b2b" report={report.b2b} />
+          <p className="mt-4 text-xs text-[#756674]">
             Pedidos sem informação de origem aparecem como &quot;direto&quot;. A coluna Anúncio só é preenchida quando o link do anúncio leva utm_content.
           </p>
         </>

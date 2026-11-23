@@ -159,19 +159,23 @@ export async function sendMetaCapiPurchase(
 
   try {
     const [row] = await run(
-      `SELECT o.b2b_offer_id, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, c.email, c.phone, a.cep
+      `SELECT o.b2b_offer_id, o.b2b_client_id, to_jsonb(o) ->> 'commercial_adjustments_json' AS adjustments, c.email, c.phone, a.cep
          FROM orders o LEFT JOIN customers c ON c.id = o.customer_id LEFT JOIN addresses a ON a.id = o.shipping_address_id
         WHERE o.id = $1::uuid LIMIT 1`,
       [orderId]
     );
 
-    if (!row || row.b2b_offer_id) return "not_b2c";
+    // B2B feito pelo site também vai (23/11), com segment "b2b"; sem pedido, nada.
+    if (!row) return "not_b2c";
 
     const capture = readCapture(row.adjustments);
     if (!capture) return "no_consent";
 
-    const payload = await (options.loadPayload ?? ((id: string) => loadPurchasePayload(run, id)))(orderId);
-    if (!payload) return "not_paid";
+    const loaded = await (options.loadPayload ?? ((id: string) => loadPurchasePayload(run, id)))(orderId);
+    if (!loaded) return "not_paid";
+
+    // O MESMO segmento do pixel do navegador (custom_data igual nos dois, com o mesmo event_id).
+    const payload: PurchasePayload = { ...loaded, segment: loaded.segment ?? (row.b2b_offer_id || row.b2b_client_id ? "b2b" : "b2c") };
 
     // UMA vez por pedido (23/11): webhook, consulta de status, cron e baixa manual chamam o finalizador várias vezes. A reserva é
     // atômica (só quem grava a marca envia) e fica em commercial_adjustments_json.metaCapiSentAt: sem coluna nova nem SQL.

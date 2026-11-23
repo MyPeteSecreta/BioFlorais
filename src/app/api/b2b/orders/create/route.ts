@@ -38,6 +38,7 @@ import {
 import { attachOrderNote } from "@/lib/order-note-server";
 import { buildQuoteItemSnapshots } from "@/lib/b2b/order-snapshots";
 import { B2B_SESSION_COOKIE } from "@/lib/b2b/responsible-session";
+import { captureMetaCapi } from "@/lib/meta-capi";
 import { LAUNCH_ORIGIN, LAUNCH_OTHER_REP_MESSAGE, verifyLaunchAccess } from "@/lib/b2b/vendor-launch";
 import { b2bProductLabel } from "@/lib/b2b/product-label";
 import {
@@ -76,6 +77,8 @@ type CreateB2BOrderBody = {
   shipping?: { serviceName?: string };
   /** "Lançar pedido": o vendedor dono da oferta fecha o pedido pelo cliente (validado pela sessão dele). */
   launched?: boolean;
+  /** Aceite de marketing do banner (23/11): libera a API de Conversões da Meta para este pedido (segment b2b). */
+  marketingConsent?: unknown;
   /** Displays do kit (brinde R$ 0,00): o servidor exige o kit completo. */
   displays?: unknown;
   /** Observações do cliente (até 500 caracteres): gravadas no pedido e enviadas ao Omie. */
@@ -316,6 +319,7 @@ export async function POST(request: NextRequest) {
     const commercialAdjustmentsJson = JSON.stringify({
       version: 1,
       storeKey: "bio-b2b",
+      metaCapi: launched ? null : captureMetaCapi(request.headers, body.marketingConsent),
       paymentMethod,
       installments: !paymentMethod || paymentMethod === "pix" ? 1 : installments,
       bonusLines: quote.bonusLines,
