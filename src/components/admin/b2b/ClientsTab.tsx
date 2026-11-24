@@ -16,7 +16,7 @@ type Edit = { id: string; changedBy: string; changedAt: string; changes: string[
 const input = "w-full rounded-xl border border-[#d9c7dc] bg-white px-3 py-2.5 text-sm";
 const NAME_KEY = "bio_admin_editor_name";
 
-const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—");
+const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "—");
 
 function formatDocument(digits: string | null) {
   const d = (digits ?? "").replace(/\D/g, "");

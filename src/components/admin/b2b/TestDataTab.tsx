@@ -16,7 +16,7 @@ type Candidates = {
 type Batch = { batchId: string; at: string; responsibles: number; clients: number; orders: number; restored: boolean };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-const day = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const day = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 
 export default function TestDataTab() {
   const [data, setData] = useState<{ ready: boolean; candidates: Candidates; batches: Batch[] } | null>(null);

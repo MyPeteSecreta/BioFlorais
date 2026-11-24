@@ -9,6 +9,7 @@ import { isAdminRequest } from "@/lib/admin/session";
 import { buildOrdersOriginCsv } from "@/lib/attribution-server";
 import { andNotArchived } from "@/lib/b2b/archive";
 import { getAppSqlRunner } from "@/lib/b2b/ownership";
+import { todayBR } from "@/lib/time-br";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="pedidos-origem-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Content-Disposition": `attachment; filename="pedidos-origem-${todayBR()}.csv"`,
         "Cache-Control": "no-store",
       },
     });

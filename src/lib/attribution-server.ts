@@ -7,6 +7,7 @@
 import { isUuid } from "@/lib/b2b/admin-input";
 import type { SqlRunner } from "@/lib/b2b/ownership";
 import { ATTRIBUTION_COOKIE, hasAttribution, readAttributionCookie, type Attribution } from "@/lib/attribution";
+import { formatCsvDateTimeBR, localTimestampSql } from "@/lib/time-br";
 
 /** Origem guardada no cookie da requisição (null = visita direta/sem cookie). */
 export function attributionFromRequest(cookieValue: string | null | undefined): Attribution | null {
@@ -101,16 +102,17 @@ export async function buildOrdersOriginCsv(run: SqlRunner, options: { from?: str
 
   if (options.from && /^\d{4}-\d{2}-\d{2}$/.test(options.from)) {
     params.push(options.from);
-    filters.push(`o.created_at >= $${params.length}::date`);
+    filters.push(`${localTimestampSql("o.created_at")} >= $${params.length}::date`);
   }
 
   if (options.to && /^\d{4}-\d{2}-\d{2}$/.test(options.to)) {
     params.push(options.to);
-    filters.push(`o.created_at < ($${params.length}::date + 1)`);
+    filters.push(`${localTimestampSql("o.created_at")} < ($${params.length}::date + 1)`);
   }
 
   const where = `WHERE true${options.notArchivedSql ?? ""}${filters.map((filter) => ` AND ${filter}`).join("")}`;
-  const base = `o.id::text AS id, o.created_at, o.status, o.payment_method, o.total_cents`;
+  // created_at sai como texto UTC com "Z": a conversão para Brasília não depende do fuso do servidor nem do driver
+  const base = `o.id::text AS id, to_char(o.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at, o.status, o.payment_method, o.total_cents`;
   let rows: Array<Record<string, unknown>>;
 
   try {
@@ -138,7 +140,7 @@ export async function buildOrdersOriginCsv(run: SqlRunner, options: { from?: str
       utm_campaign: row.utm_campaign ? String(row.utm_campaign) : null,
       referrer_domain: row.referrer_domain ? String(row.referrer_domain) : null,
     };
-    const created = row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? "");
+    const created = formatCsvDateTimeBR(row.created_at as Date | string | null);
     const origem = hasAttribution(attribution)
       ? `${attribution.utm_source ?? attribution.referrer_domain ?? ""} / ${attribution.utm_medium ?? ""} / ${attribution.utm_campaign ?? ""}`
       : "direto";

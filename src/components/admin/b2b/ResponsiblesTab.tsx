@@ -59,7 +59,7 @@ const BADGE_CLASS: Record<SellerBadge["tone"], string> = {
 };
 
 function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return value ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "—";
 }
 
 const field = "w-full rounded-xl border border-[#eadfd9] bg-white px-3 py-2 text-sm";

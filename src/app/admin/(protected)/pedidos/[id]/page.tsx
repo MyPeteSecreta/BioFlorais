@@ -45,7 +45,7 @@ function formatMoney(cents: number | null | undefined) {
 function formatDate(value: Date | null) {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo",
     dateStyle: "short",
     timeStyle: "short",
   }).format(value);

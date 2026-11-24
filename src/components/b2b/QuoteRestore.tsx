@@ -61,7 +61,7 @@ export default function QuoteRestore({ token }: { token: string }) {
         cart.setOfferToken(token);
         cart.load(data.lines ?? [], data.displays ?? []);
 
-        const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR") : null;
+        const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
         const message = data.quote?.expired
           ? `Este orçamento venceu em ${until ?? "—"}. A sacola foi restaurada com os preços de hoje: ajuste e feche o pedido ou salve um novo orçamento.`
           : `Orçamento restaurado${until ? ` (válido até ${until})` : ""}. Ajuste as quantidades, adicione produtos e continue para o checkout, onde você paga por Pix ou cartão. Os preços foram recalculados.`;

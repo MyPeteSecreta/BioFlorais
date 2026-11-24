@@ -158,7 +158,7 @@ export default function InviteForm({ token, purpose, name: invitedName, email: i
         {submitting ? "Enviando…" : purpose === "onboarding" ? "Entrar e começar" : "Salvar nova senha"}
       </button>
 
-      <p className="text-center text-xs text-[#8a7886]">Link válido até {new Date(expiresAt).toLocaleString("pt-BR")}.</p>
+      <p className="text-center text-xs text-[#8a7886]">Link válido até {new Date(expiresAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}.</p>
     </form>
   );
 }

@@ -7,6 +7,7 @@
  */
 
 import type { SqlRunner } from "@/lib/b2b/ownership";
+import { localTimestampSql, todayBR } from "@/lib/time-br";
 
 export type OriginRow = {
   canal: string;
@@ -38,9 +39,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PAID = `o.status IN ('paid', 'approved')`;
 const COUNTED = `o.status NOT IN ('quote', 'quote_converted', 'quote_replaced')`;
 
-function isoDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
+/** Dia de Brasília (AAAA-MM-DD): hoje e os últimos 30 dias contam pelo dia de Brasília, não pelo de UTC. */
+const isoDay = (date: Date): string => todayBR(date);
 
 /** Período padrão: últimos 30 dias (datas AAAA-MM-DD; inválida volta ao padrão). */
 export function resolvePeriod(from: string | null | undefined, to: string | null | undefined, now: Date = new Date()): { from: string; to: string } {
@@ -85,7 +85,9 @@ export async function loadSalesByOrigin(run: SqlRunner, options: { from?: string
 
   // orders.origin (SQL 37b) pode não existir: sem ela, nada a excluir por origem
   const hasOrigin = await run(`SELECT origin FROM orders LIMIT 0`).then(() => true, () => false);
-  const where = `WHERE o.created_at >= $1::date AND o.created_at < ($2::date + 1) AND ${COUNTED}${hasOrigin ? ` AND o.origin IS NULL` : ""}${options.notArchivedSql ?? ""}`;
+  // o corte de dia é o de Brasília (created_at é timestamp sem fuso, gravado em UTC)
+  const local = localTimestampSql("o.created_at");
+  const where = `WHERE ${local} >= $1::date AND ${local} < ($2::date + 1) AND ${COUNTED}${hasOrigin ? ` AND o.origin IS NULL` : ""}${options.notArchivedSql ?? ""}`;
   const segment = `CASE WHEN o.b2b_offer_id IS NOT NULL OR o.b2b_client_id IS NOT NULL THEN 'b2b' ELSE 'b2c' END`;
 
   const build = (source: string, medium: string, campaign: string, content: string) => `

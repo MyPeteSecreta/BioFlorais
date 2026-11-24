@@ -2,6 +2,7 @@
 
 /** ADMIN B2B — aba "Comissões": por vendedor/mês, marcar como paga (data) ou desfazer. */
 
+import { todayBR } from "@/lib/time-br";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { formatB2BCents } from "@/lib/b2b/format";
@@ -89,7 +90,7 @@ export default function CommissionsTab() {
   }, [load]);
 
   async function markPaid(row: Row) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBR();
     const paidAt = window.prompt(`Data em que a comissão do pedido #${row.orderNumber} foi paga (AAAA-MM-DD):`, today);
     if (!paidAt) return;
     const { ok, data } = await api("/api/admin/b2b/commissions", { method: "POST", body: { orderId: row.orderId, installment: row.installment, paidAt } });

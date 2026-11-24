@@ -131,9 +131,9 @@ export default async function B2BClientPage({
                     {offer.lines} linha(s) · {offer.promotions} promoção(ões)
                   </p>
                   <p className="text-xs text-[#8a7886]">
-                    Criada em {offer.createdAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    Criada em {offer.createdAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
                     {offer.activatedAt
-                      ? ` · ativada em ${offer.activatedAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
+                      ? ` · ativada em ${offer.activatedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}`
                       : ""}
                   </p>
                 </div>

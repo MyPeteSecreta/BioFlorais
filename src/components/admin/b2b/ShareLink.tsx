@@ -28,7 +28,7 @@ export default function ShareLink({
           <p className="text-sm font-extrabold text-[#342737]">{title}</p>
           <p className="mt-0.5 text-xs text-[#8a6d2b]">
             Este link aparece só agora. Copie ou envie antes de fechar.
-            {expiresAt ? ` Válido até ${new Date(expiresAt).toLocaleString("pt-BR")}.` : ""}
+            {expiresAt ? ` Válido até ${new Date(expiresAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}.` : ""}
           </p>
         </div>
         <button type="button" onClick={onClose} className="text-xs font-bold text-[#7b6a77] underline">

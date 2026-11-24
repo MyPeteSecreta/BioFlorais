@@ -259,7 +259,7 @@ export default function B2BCheckoutContent() {
           setAppliedCoupon(data.quote.couponCode);
         }
 
-        const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR") : null;
+        const until = data.quote?.expiresAt ? new Date(data.quote.expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
 
         if (data.quote?.expired) {
           // Vencido: abre para conferir (preços recalculados), mas não é convertido; salve um novo orçamento ou feche o pedido.
@@ -659,7 +659,7 @@ export default function B2BCheckoutContent() {
           Orçamento {savedQuote.id.slice(0, 8).toUpperCase()} · {formatB2BCents(savedQuote.totalCents)}
         </p>
         <p className="mx-auto mt-2 max-w-md text-sm text-[#746471]">
-          {savedQuote.expiresAt ? `Válido até ${new Date(savedQuote.expiresAt).toLocaleDateString("pt-BR")} (${savedQuote.validityDays} dias). ` : ""}
+          {savedQuote.expiresAt ? `Válido até ${new Date(savedQuote.expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} (${savedQuote.validityDays} dias). ` : ""}
           Não reserva produtos e ainda não é um pedido: ele aparece em “Meus pedidos” do link e pode ser reaberto, ajustado e fechado com a forma de pagamento.
         </p>
         <div className="mx-auto mt-6 max-w-sm text-left">

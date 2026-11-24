@@ -63,7 +63,7 @@ const METHOD_LABELS: Record<string, string> = { pix: "Pix", card: "Cartão", bol
 const LINK_LABELS = { active: "Link ativo", revoked: "Link revogado", none: "Sem link" } as const;
 
 function dateTime(value: string | null) {
-  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return value ? new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "—";
 }
 
 const card = "overflow-x-auto rounded-2xl border border-[#eadfd9] bg-white";
